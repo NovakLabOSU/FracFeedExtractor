@@ -14,3 +14,7 @@ google-auth-httplib2
 numpy
 google-api-python-client
 xgboost
+langchain
+langchain-community
+langchain-huggingface
+faiss-cpu
