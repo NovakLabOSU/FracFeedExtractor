@@ -1,0 +1,53 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+title FracFeedExtractor – System Flow
+
+Person(user, "Researcher", "Human researcher initiating pipeline")
+System_Ext(gdrive, "Google Drive", "Stores PDF files that need to be processed")
+
+Deployment_Node(local_pc, "Local Machine", "Developer / Researcher Machine", "Runs pipeline locally") {
+
+    System_Boundary(system, "FracFeedExtractor System") {
+
+        Container(pre, "Input & Preprocessing", "Python Modules", "Handles raw PDFs, performs OCR if needed, and extracts their text") {
+            Component(gapi, "Google Drive Script", "Python + Google API Client", "Authenticates with OAuth or service account, lists files, and downloads PDFs")
+            Component(ocr, "OCR Engine (Tesseract / Python Wrapper)", "Tesseract / Python Wrapper", "Performs OCR if no embedded text")
+            Component(extract, "Text Extraction Module", "Python Modules", "Extracts text from PDFs or OCR output")
+        }
+
+        Container(clf, "Classification Engine", "Python + Scikit-Learn (XGBoost + TF-IDF)", "Classifies extracted text as useful or not useful") {
+            Component(tfidf, "TF-IDF Vectorizer", "Python / Scikit-Learn", "Transforms text to feature vectors")
+            Component(classify, "XGBoost Classifier", "Python / Scikit-Learn", "Predicts usefulness of document")
+        }
+
+        Container(out, "Data Extraction + Formatting", "Python + LLM", "Extracts desired metrics and generates JSON/CSV outputs") {
+            Component(llm, "Data Extraction (LLM)", "Python + LLM", "Extracts key fields")
+            Component(output, "Structured Output (JSON / CSV)", "Python Modules", "Produces final outputs")
+        }
+
+        Container(log, "Logging & Metrics", "Local DB + File Logs", "Captures trace output, statistics, metrics, and system artifacts")
+    }
+}
+
+' ======= Interactions =======
+Rel(user, gapi, "Google Drive API key is set as an environment variable", "HTTPS/OAuth 2.0")
+Rel(gapi, gdrive, "Requests files and downloads PDFs", "HTTPS / Google Drive API")
+Rel(gapi, extract, "Passes downloaded PDF files to extract text")
+Rel(extract, ocr, "If no text layer detected")
+Rel(ocr, extract, "Return OCR text")
+Rel(extract, tfidf, "Send extracted text for processing")
+Rel(tfidf, classify, "Predict usefulness")
+Rel(classify, llm, "If useful → extract key fields")
+Rel(classify, output, "If not useful → record classification with confidence level")
+Rel(llm, output, "Produce structured output")
+Rel(extract, log, "Log processing steps")
+Rel(extract, log, "Log extracted text")
+Rel(tfidf, log, "Log features")
+Rel(llm, log, "Log extraction results")
+Rel(output, log, "Log and save output files")
+Rel(gapi, log, "Log files retrieved + API responses")
+
+@enduml
