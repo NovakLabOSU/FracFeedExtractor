@@ -16,6 +16,7 @@ from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
 # Try to import structured output module
 try:
     from src.output.structured_output import ClassificationResult, OutputManager
+
     STRUCTURED_OUTPUT_AVAILABLE = True
 except ImportError as e:
     print(f"[WARNING] Could not import structured_output: {e}")
@@ -25,8 +26,8 @@ except ImportError as e:
 
 
 def classify_pdf(pdf_path, model_dir="src/model/models", return_result=False):
-    #Classify a single PDF as useful or not useful.
-   
+    # Classify a single PDF as useful or not useful.
+
     start_time = time.time()
     model_path = Path(model_dir) / "pdf_classifier.json"
     vectorizer_path = Path(model_dir) / "tfidf_vectorizer.pkl"
@@ -98,36 +99,36 @@ def classify_pdf(pdf_path, model_dir="src/model/models", return_result=False):
 
 
 def classify_folder(folder_path, model_dir="src/model/models", output_dir="data/results"):
-    #Classify all PDFs in a folder and export results.
-    
+    # Classify all PDFs in a folder and export results.
+
     if not STRUCTURED_OUTPUT_AVAILABLE:
         print("[ERROR] Structured output module not available.")
         print("Make sure src/output/structured_output.py exists.")
         return {}
-    
+
     folder = Path(folder_path)
     if not folder.exists():
         print(f"[ERROR] Folder not found: {folder_path}")
         return {}
-    
+
     pdf_files = list(folder.glob("*.pdf"))
     if not pdf_files:
         print(f"[WARN] No PDF files found in {folder_path}")
         return {}
-    
+
     print(f"Found {len(pdf_files)} PDF files to classify.")
-    
+
     manager = OutputManager(output_dir=output_dir)
-    
+
     for i, pdf_path in enumerate(pdf_files, 1):
         print(f"\n[{i}/{len(pdf_files)}] Processing: {pdf_path.name}")
         result = classify_pdf(str(pdf_path), model_dir=model_dir, return_result=True)
         if result:
             manager.add_classification(result)
-    
+
     # Export results
     paths = manager.export_all()
-    
+
     # Print summary
     print("\n=== Classification Summary ===")
     summary = manager.get_summary()
@@ -136,7 +137,7 @@ def classify_folder(folder_path, model_dir="src/model/models", output_dir="data/
     print(f" Not useful: {summary['not_useful_count']}")
     print(f" Avg confidence: {summary['average_classification_confidence']:.2%}")
     print("==============================\n")
-    
+
     return paths
 
 

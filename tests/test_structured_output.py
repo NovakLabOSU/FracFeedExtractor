@@ -15,7 +15,7 @@ from src.output.structured_output import (
 
 
 class TestClassificationResult:
-    #Tests for ClassificationResult dataclass
+    # Tests for ClassificationResult dataclass
 
     def test_create_basic_result(self):
         result = ClassificationResult(
@@ -51,7 +51,7 @@ class TestClassificationResult:
 
 
 class TestExtractionResult:
-    #Tests for ExtractionResult dataclass
+    # Tests for ExtractionResult dataclass
 
     def test_create_basic_result(self):
         result = ExtractionResult(
@@ -105,7 +105,7 @@ class TestExtractionResult:
 
 
 class TestPipelineResult:
-    #Tests for PipelineResult dataclass
+    # Tests for PipelineResult dataclass
 
     def test_create_useful_result(self):
         classification = ClassificationResult(
@@ -153,7 +153,7 @@ class TestPipelineResult:
 
 
 class TestOutputManager:
-    #Tests for OutputManager class
+    # Tests for OutputManager class
 
     @pytest.fixture
     def output_dir(self, tmp_path):
@@ -288,7 +288,7 @@ class TestOutputManager:
 
 
 class TestConvenienceFunctions:
-    #Tests for standalone export functions.
+    # Tests for standalone export functions.
 
     def test_export_to_json(self, tmp_path):
         results = [{"name": "test", "value": 123}]
