@@ -13,4 +13,6 @@ google-auth-oauthlib
 google-auth-httplib2
 numpy
 google-api-python-client
+ollama
+pydantic
 xgboost
