@@ -14,3 +14,4 @@ google-auth-httplib2
 numpy
 google-api-python-client
 xgboost
+opencv-python

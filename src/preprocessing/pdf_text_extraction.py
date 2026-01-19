@@ -16,6 +16,8 @@ import io
 import argparse
 from pathlib import Path
 import sys
+import cv2
+import numpy as np
 
 Image.MAX_IMAGE_PIXELS = None
 fitz.TOOLS.mupdf_display_errors(False)
@@ -38,8 +40,9 @@ def extract_text_from_pdf(pdf_path: str) -> str:
                 if not page_text.strip():
                     pix = page.get_pixmap(dpi=300)
                     img = Image.open(io.BytesIO(pix.tobytes("png")))
-                    page_text = pytesseract.image_to_string(img)
-
+                    img_array = np.array(img)
+                    img_array = cv2.fastNlMeansDenoisingColored(img_array, None, 10, 10, 7, 15)
+                    page_text = pytesseract.image_to_string(img_array)
                 text.append(page_text)
     except Exception as e:
         print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
@@ -60,7 +63,9 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
                 if not page_text.strip():
                     pix = page.get_pixmap(dpi=300)
                     img = Image.open(io.BytesIO(pix.tobytes("png")))
-                    page_text = pytesseract.image_to_string(img)
+                    img_array = np.array(img)
+                    img_array = cv2.fastNlMeansDenoisingColored(img_array, None, 10, 10, 7, 15)
+                    page_text = pytesseract.image_to_string(img_array)
                 text.append(page_text)
     except Exception as e:
         print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
