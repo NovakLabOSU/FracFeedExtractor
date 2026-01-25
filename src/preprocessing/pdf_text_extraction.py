@@ -23,50 +23,41 @@ import camelot
 Image.MAX_IMAGE_PIXELS = None
 fitz.TOOLS.mupdf_display_errors(False)
 
+
 def extract_tables_with_camelot(pdf_path: str) -> List[Dict]:
     """Extract tables using camelot-py (fallback method).
-    
+
     Args:
         pdf_path: Path to the PDF file
-        
+
     Returns:
         List of dictionaries containing table data and metadata
     """
-    
+
     tables_data = []
-    
+
     try:
         # Try stream method first with edge detection (better for tables without borders)
         tables = camelot.read_pdf(
-            str(pdf_path), 
-            pages='all', 
-            flavor='stream',
-            edge_tol=500,  # Tolerance for detecting table edges
-            row_tol=10,    # Ttolerance for row detection
-            column_tol=5   # Tolerance for column detection
+            str(pdf_path), pages='all', flavor='stream', edge_tol=500, row_tol=10, column_tol=5  # Tolerance for detecting table edges  # Ttolerance for row detection  # Tolerance for column detection
         )
-        
+
         # If still no tables, try lattice method (for bordered tables)
         if len(tables) == 0:
-            tables = camelot.read_pdf(
-                str(pdf_path), 
-                pages='all', 
-                flavor='lattice',
-                line_scale=40
-            )
-        
+            tables = camelot.read_pdf(str(pdf_path), pages='all', flavor='lattice', line_scale=40)
+
         for idx, table in enumerate(tables, start=1):
             # Convert to list of lists
             table_cells = table.df.values.tolist()
-            
+
             # Add header row (pandas columns)
             header = table.df.columns.tolist()
             table_cells.insert(0, header)
-            
+
             # Skip tables with very few cells (likely detection errors)
             if len(table_cells) < 3 or (len(table_cells[0]) if table_cells else 0) < 2:
                 continue
-            
+
             table_info = {
                 "table_id": f"Table_P{table.page}_T{idx}",
                 "page_number": table.page,
@@ -75,86 +66,75 @@ def extract_tables_with_camelot(pdf_path: str) -> List[Dict]:
                     "x0": table._bbox[0] if hasattr(table, '_bbox') else 0,
                     "y0": table._bbox[1] if hasattr(table, '_bbox') else 0,
                     "x1": table._bbox[2] if hasattr(table, '_bbox') else 0,
-                    "y1": table._bbox[3] if hasattr(table, '_bbox') else 0
+                    "y1": table._bbox[3] if hasattr(table, '_bbox') else 0,
                 },
                 "num_rows": len(table_cells),
                 "num_cols": len(table_cells[0]) if table_cells else 0,
                 "cells": table_cells,
                 "accuracy": float(table.accuracy) if hasattr(table, 'accuracy') else 0.0,
-                "extraction_method": "camelot"
+                "extraction_method": "camelot",
             }
-            
+
             tables_data.append(table_info)
-            
+
     except Exception as e:
         print(f"[ERROR] Camelot extraction failed: {e}", file=sys.stderr)
-    
+
     return tables_data
 
 
 def extract_tables_from_pdf(pdf_path: str) -> List[Dict]:
     """Extract tables from PDF using PyMuPDF first, then camelot-py as fallback.
-    
+
     Args:
         pdf_path: Path to the PDF file
-        
+
     Returns:
         List of dictionaries containing table data and metadata
     """
     tables_data = []
-    
+
     # Try PyMuPDF first
     try:
         with fitz.open(pdf_path) as doc:
             for page_num, page in enumerate(doc, start=1):
                 tabs = page.find_tables()
-                
+
                 if not tabs.tables:
                     continue
-                
+
                 for table_idx, tab in enumerate(tabs.tables, start=1):
                     try:
                         table_cells = tab.extract()
-                        
+
                         if not table_cells or len(table_cells) == 0:
                             continue
-                        
+
                         bbox = tab.bbox
-                        
+
                         table_info = {
                             "table_id": f"Table_P{page_num}_T{table_idx}",
                             "page_number": page_num,
                             "table_index": table_idx,
-                            "bbox": {
-                                "x0": bbox.x0,
-                                "y0": bbox.y0,
-                                "x1": bbox.x1,
-                                "y1": bbox.y1
-                            },
+                            "bbox": {"x0": bbox.x0, "y0": bbox.y0, "x1": bbox.x1, "y1": bbox.y1},
                             "num_rows": len(table_cells),
                             "num_cols": len(table_cells[0]) if table_cells else 0,
                             "cells": table_cells,
-                            "extraction_method": "pymupdf"
+                            "extraction_method": "pymupdf",
                         }
-                        
+
                         tables_data.append(table_info)
-                        
+
                     except Exception as e:
-                        tables_data.append({
-                            "table_id": f"Table_P{page_num}_T{table_idx}",
-                            "page_number": page_num,
-                            "table_index": table_idx,
-                            "error": str(e),
-                            "extraction_method": "pymupdf"
-                        })
-                        
+                        tables_data.append({"table_id": f"Table_P{page_num}_T{table_idx}", "page_number": page_num, "table_index": table_idx, "error": str(e), "extraction_method": "pymupdf"})
+
     except Exception as e:
         print(f"[ERROR] PyMuPDF table extraction failed: {e}", file=sys.stderr)
-    
+
     # If PyMuPDF found no tables, try camelot
     if len(tables_data) == 0:
         tables_data = extract_tables_with_camelot(pdf_path)
-    
+
     return tables_data
 
 
@@ -180,7 +160,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     except Exception as e:
         print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
         return ""
-    
+
     return "\n".join(text)
 
 
@@ -214,13 +194,10 @@ def save_to_file(text: str, output_path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Extract text and tables from PDF using PyMuPDF and camelot-py."
-    )
+    parser = argparse.ArgumentParser(description="Extract text and tables from PDF using PyMuPDF and camelot-py.")
     parser.add_argument("pdf", type=str, help="Path to the input PDF file.")
-    parser.add_argument("--output-dir", type=str, default="data/processed-text",
-                        help="Output directory for extracted text (default: data/processed-text)")
-    
+    parser.add_argument("--output-dir", type=str, default="data/processed-text", help="Output directory for extracted text (default: data/processed-text)")
+
     args = parser.parse_args()
 
     pdf_path = Path(args.pdf)
@@ -230,17 +207,17 @@ def main():
 
     # Extract text
     text = extract_text_from_pdf(str(pdf_path))
-    
+
     # Extract tables
     tables_data = extract_tables_from_pdf(str(pdf_path))
-    
+
     # If tables were found, save JSON
     if tables_data:
-        
+
         # Save tables JSON
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         tables_json_path = output_dir / (pdf_path.stem + "_tables.json")
         with open(tables_json_path, "w", encoding="utf-8") as f:
             json.dump(tables_data, f, indent=2)
