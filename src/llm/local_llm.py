@@ -12,6 +12,7 @@ surveys, including species name, study date, location, and stomach content data.
 import argparse
 import json
 import sys
+import re
 from pathlib import Path
 from typing import Optional, List
 
@@ -28,7 +29,6 @@ class PredatorDietMetrics(BaseModel):
     num_empty_stomachs: Optional[int] = Field(None, description="Number of predators with empty stomachs")
     num_nonempty_stomachs: Optional[int] = Field(None, description="Number of predators with non-empty stomachs")
     sample_size: Optional[int] = Field(None, description="Total number of predators surveyed")
-    source_pages: Optional[List[int]] = Field(None, description="Page numbers where the key data was found (species, location, date, stomach counts)")
 
 
 def extract_metrics_from_text(text: str, model: str = "llama3.1:8b") -> PredatorDietMetrics:
@@ -62,7 +62,6 @@ EXTRACT:
 - num_empty_stomachs: Number with empty stomachs
 - num_nonempty_stomachs: Number with food in stomachs
 - sample_size: Total number examined
-- source_pages: List of page numbers where you found the key data (look for [PAGE N] markers)
 
 
 TEXT:
@@ -141,6 +140,11 @@ def main():
 
     # Extract metrics
     print(f"Extracting metrics from {text_path.name}...", file=sys.stderr)
+    
+    # Store original text for page extraction
+    original_text = text
+    print(f"[INFO] Text size: {len(text)} chars", file=sys.stderr)
+
     try:
         metrics = extract_metrics_from_text(text, model=args.model)
     except Exception as e:
@@ -150,6 +154,19 @@ def main():
     # Validate and calculate derived metrics
     metrics_dict = metrics.model_dump()
     metrics_dict = validate_and_calculate(metrics_dict)
+    
+    # Extract page numbers programmatically from where data was found
+    source_pages = set()
+    for field, value in metrics_dict.items():
+        if value and field not in ['fraction_feeding']:
+            value_str = str(value)
+            if value_str in original_text:
+                pos = original_text.find(value_str)
+                page_markers = re.findall(r'\[PAGE (\d+)\]', original_text[:pos])
+                if page_markers:
+                    source_pages.add(int(page_markers[-1]))
+    
+    metrics_dict["source_pages"] = sorted(list(source_pages)) if source_pages else None
 
     # Prepare output
     result = {"source_file": text_path.name, "metrics": metrics_dict}
