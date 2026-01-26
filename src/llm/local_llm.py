@@ -13,7 +13,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 from ollama import chat
 from pydantic import BaseModel, Field
@@ -28,6 +28,7 @@ class PredatorDietMetrics(BaseModel):
     num_empty_stomachs: Optional[int] = Field(None, description="Number of predators with empty stomachs")
     num_nonempty_stomachs: Optional[int] = Field(None, description="Number of predators with non-empty stomachs")
     sample_size: Optional[int] = Field(None, description="Total number of predators surveyed")
+    source_pages: Optional[List[int]] = Field(None, description="Page numbers where the key data was found (species, location, date, stomach counts)")
 
 
 def extract_metrics_from_text(text: str, model: str = "llama3.1:8b") -> PredatorDietMetrics:
@@ -52,6 +53,7 @@ KEY INFORMATION TO FIND:
 - Look in tables, methods, and results sections
 - Empty stomachs: "empty", "vacant", "no prey"
 - Non-empty stomachs: "with prey", "fed", "containing food"
+- Page markers appear as [PAGE N] in the text
 
 EXTRACT:
 - species_name: Scientific name of PRIMARY predator studied (not prey)
@@ -60,6 +62,7 @@ EXTRACT:
 - num_empty_stomachs: Number with empty stomachs
 - num_nonempty_stomachs: Number with food in stomachs
 - sample_size: Total number examined
+- source_pages: List of page numbers where you found the key data (look for [PAGE N] markers)
 
 
 TEXT:

@@ -40,7 +40,8 @@ def extract_text_from_pdf(pdf_path: str) -> str:
                     img = Image.open(io.BytesIO(pix.tobytes("png")))
                     page_text = pytesseract.image_to_string(img)
 
-                text.append(page_text)
+                # Add page marker for tracking
+                text.append(f"[PAGE {page_num}]\n{page_text}")
     except Exception as e:
         print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
         return ""
@@ -61,7 +62,8 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
                     pix = page.get_pixmap(dpi=300)
                     img = Image.open(io.BytesIO(pix.tobytes("png")))
                     page_text = pytesseract.image_to_string(img)
-                text.append(page_text)
+                # Add page marker for tracking
+                text.append(f"[PAGE {page_num}]\n{page_text}")
     except Exception as e:
         print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
         return ""
