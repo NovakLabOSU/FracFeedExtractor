@@ -140,7 +140,7 @@ def main():
 
     # Extract metrics
     print(f"Extracting metrics from {text_path.name}...", file=sys.stderr)
-    
+
     # Store original text for page extraction
     original_text = text
     print(f"[INFO] Text size: {len(text)} chars", file=sys.stderr)
@@ -154,7 +154,7 @@ def main():
     # Validate and calculate derived metrics
     metrics_dict = metrics.model_dump()
     metrics_dict = validate_and_calculate(metrics_dict)
-    
+
     # Extract page numbers programmatically from where data was found
     source_pages = set()
     for field, value in metrics_dict.items():
@@ -165,7 +165,7 @@ def main():
                 page_markers = re.findall(r'\[PAGE (\d+)\]', original_text[:pos])
                 if page_markers:
                     source_pages.add(int(page_markers[-1]))
-    
+
     metrics_dict["source_pages"] = sorted(list(source_pages)) if source_pages else None
 
     # Prepare output
