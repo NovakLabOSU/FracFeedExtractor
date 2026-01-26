@@ -15,4 +15,7 @@ numpy
 google-api-python-client
 ollama
 pydantic
+camelot-py[base]
+opencv-python
+pymupdf_layout
 xgboost
