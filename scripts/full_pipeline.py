@@ -40,6 +40,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # Load environment (for API mode)
 try:
     from scripts.env_loader import load_env
+
     load_env()
 except Exception as e:
     print(f"[WARNING] Could not load environment: {e}")
@@ -53,6 +54,7 @@ try:
         download_file_bytes,
         sanitize_filename,
     )
+
     GOOGLE_DRIVE_AVAILABLE = True
 except ImportError:
     GOOGLE_DRIVE_AVAILABLE = False
@@ -78,11 +80,8 @@ def write_labels(labels: Dict[str, str], output_file: Path):
 def process_api_mode():
     """Download PDFs from Google Drive and process them."""
     if not GOOGLE_DRIVE_AVAILABLE:
-        raise RuntimeError(
-            "Google Drive modules not available. "
-            "Please install: pip install google-auth google-api-python-client"
-        )
-        
+        raise RuntimeError("Google Drive modules not available. " "Please install: pip install google-auth google-api-python-client")
+
     root_id = os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID")
     if not root_id:
         raise RuntimeError("Missing GOOGLE_DRIVE_ROOT_FOLDER_ID environment variable")
@@ -99,7 +98,7 @@ def process_api_mode():
     out_dir.mkdir(parents=True, exist_ok=True)
     labels: Dict[str, str] = {}
     count = 1
-    
+
     for folder_id, label in [(useful_id, "useful"), (not_useful_id, "not-useful")]:
         files = list_pdfs_in_folder(service, folder_id, max_files=None)
         print(f"Found {len(files)} PDFs in folder label '{label}'")
@@ -122,22 +121,22 @@ def process_local_mode(data_path: Path):
     """Process PDFs from local directory."""
     if not data_path.exists():
         raise RuntimeError(f"Data path does not exist: {data_path}")
-    
+
     useful_dir = data_path / "useful"
     not_useful_dir = data_path / "not-useful"
-    
+
     if not useful_dir.exists():
         raise RuntimeError(f"'useful' subfolder not found in {data_path}")
     if not not_useful_dir.exists():
         raise RuntimeError(f"'not-useful' subfolder not found in {data_path}")
-    
+
     # Validate sufficient PDFs
     useful_pdfs = list(useful_dir.glob("*.pdf"))
     not_useful_pdfs = list(not_useful_dir.glob("*.pdf"))
-    
+
     print(f"Found {len(useful_pdfs)} PDFs in 'useful' folder")
     print(f"Found {len(not_useful_pdfs)} PDFs in 'not-useful' folder")
-    
+
     if len(useful_pdfs) < 2 or len(not_useful_pdfs) < 2:
         print("ERROR: Not enough PDF files!")
         print(f"Please add PDF files to:")
@@ -145,15 +144,15 @@ def process_local_mode(data_path: Path):
         print(f"  - {not_useful_dir}")
         print("You need at least 2 PDFs in each folder.")
         sys.exit(1)
-    
+
     out_dir = PROJECT_ROOT / "data" / "processed-text"
     out_dir.mkdir(parents=True, exist_ok=True)
     labels: Dict[str, str] = {}
-    
+
     for folder, label in [(useful_dir, "useful"), (not_useful_dir, "not-useful")]:
         pdf_files = list(folder.glob("*.pdf"))
         print(f"Processing {len(pdf_files)} PDFs in local folder '{label}'")
-        
+
         for pdf_path in pdf_files:
             try:
                 with open(pdf_path, "rb") as f:
@@ -167,7 +166,7 @@ def process_local_mode(data_path: Path):
             except Exception as e:
                 print(f"Error processing {pdf_path.name}: {e}")
                 continue
-    
+
     write_labels(labels, PROJECT_ROOT / "data" / "labels.json")
     print(f"Wrote {len(labels)} labeled text files.")
     return True
@@ -178,27 +177,21 @@ def generate_results():
     print("\n" + "=" * 50)
     print("Generating classification results (CSV & JSON)...")
     print("=" * 50)
-    
+
     useful_folder = PROJECT_ROOT / "data" / "useful"
     output_dir = PROJECT_ROOT / "data" / "results"
     model_dir = PROJECT_ROOT / "src" / "model" / "models"
     classifier_script = PROJECT_ROOT / "src" / "model" / "pdf_classifier.py"
-    
+
     # Create results directory if it doesn't exist
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     if useful_folder.exists() and list(useful_folder.glob("*.pdf")):
         print(f"\nClassifying PDFs in: {useful_folder}")
-        
+
         # Use subprocess for more reliable imports across different systems
-        result = subprocess.run([
-            sys.executable,
-            str(classifier_script),
-            "--folder", str(useful_folder),
-            "--model_dir", str(model_dir),
-            "--output_dir", str(output_dir)
-        ], cwd=str(PROJECT_ROOT))
-        
+        result = subprocess.run([sys.executable, str(classifier_script), "--folder", str(useful_folder), "--model_dir", str(model_dir), "--output_dir", str(output_dir)], cwd=str(PROJECT_ROOT))
+
         if result.returncode == 0:
             print("\n" + "=" * 50)
             print("OUTPUT FILES CREATED:")
@@ -225,31 +218,21 @@ Examples:
   Default (local): python full_pipeline.py
   API mode:        python full_pipeline.py --api
   Custom path:     python full_pipeline.py --local C:\\path\\to\\data
-        """
+        """,
     )
-    
+
     # Mutually exclusive: can't use both --api and --local
     group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        "--api",
-        action="store_true",
-        help="Use API mode to download PDFs from Google Drive"
-    )
-    group.add_argument(
-        "--local",
-        type=Path,
-        metavar="PATH",
-        default=None,
-        help="Use local mode with PDFs from specified directory (default: data/)"
-    )
-    
+    group.add_argument("--api", action="store_true", help="Use API mode to download PDFs from Google Drive")
+    group.add_argument("--local", type=Path, metavar="PATH", default=None, help="Use local mode with PDFs from specified directory (default: data/)")
+
     args = parser.parse_args()
-    
+
     print("=" * 50)
     print("FracFeedExtractor - Full Training Pipeline")
     print("=" * 50)
     print(f"Project folder: {PROJECT_ROOT}")
-    
+
     if args.api:
         print("\nRunning in API mode (Google Drive)")
         try:
@@ -262,21 +245,21 @@ Examples:
         print(f"\nRunning in LOCAL mode")
         print(f"Data path: {data_path}")
         process_local_mode(data_path)
-    
+
     print("\n" + "=" * 50)
     print("Beginning model training...")
     print("=" * 50)
     train_script = PROJECT_ROOT / "src" / "model" / "train_model.py"
     run([sys.executable, str(train_script)])
-    
+
     print("\n" + "=" * 50)
     print("TRAINING COMPLETE!")
     print("=" * 50)
     print(f"Model saved to: {PROJECT_ROOT / 'src' / 'model' / 'models'}")
-    
+
     # Generate CSV/JSON results
     generate_results()
-    
+
     print("\n" + "=" * 50)
     print("All Done!")
     print("=" * 50)
