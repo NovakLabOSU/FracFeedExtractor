@@ -32,7 +32,7 @@ from typing import List, Optional, Dict, Any
 
 @dataclass
 class ClassificationResult:
-    # Stores the result of classifying a single PDF.
+    """Stores the result of classifying a single PDF."""
 
     filename: str
     classification: str
@@ -44,13 +44,13 @@ class ClassificationResult:
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        # Convert to dictionary for JSON serialization
+        """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
 
 @dataclass
 class ExtractionResult:
-    # Stores extracted data from a 'useful' PDF
+    """Stores extracted data from a useful PDF."""
     filename: str
     predator_species: Optional[str] = None
     predator_common_name: Optional[str] = None
@@ -72,25 +72,25 @@ class ExtractionResult:
     error: Optional[str] = None
 
     def __post_init__(self):
-        # Calculate fraction_feeding if stomach counts are available
+        """Calculate fraction_feeding if stomach counts are available."""
         if self.fraction_feeding is None and self.total_stomachs_examined is not None and self.non_empty_stomachs is not None and self.total_stomachs_examined > 0:
             self.fraction_feeding = self.non_empty_stomachs / self.total_stomachs_examined
 
     def to_dict(self) -> Dict[str, Any]:
-        # Convert to dictionary for JSON serialization
+        """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
 
 @dataclass
 class PipelineResult:
-    # Combined result from the full pipeline (classification and extraction).
+    """Combined result from the full pipeline (classification and extraction)."""
 
     filename: str
     classification: ClassificationResult
     extraction: Optional[ExtractionResult] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        # Convert to dictionary for JSON serialization
+        """Convert to dictionary for JSON serialization."""
         result = {
             "filename": self.filename,
             "classification": self.classification.to_dict(),
@@ -101,10 +101,10 @@ class PipelineResult:
 
 
 class OutputManager:
-    # Manages collection and export of pipeline results.
+    """Manages collection and export of pipeline results."""
 
     def __init__(self, output_dir: str = "data/results"):
-        # Initialize the OutputManager.
+        """Initialize the OutputManager."""
 
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -113,22 +113,22 @@ class OutputManager:
         self.pipeline_results: List[PipelineResult] = []
 
     def add_classification(self, result: ClassificationResult) -> None:
-        # Add a classification result to the collection
+        """Add a classification result to the collection."""
         self.classifications.append(result)
 
     def add_extraction(self, result: ExtractionResult) -> None:
-        # Add an extraction result to the collection.
+        """Add an extraction result to the collection."""
         self.extractions.append(result)
 
     def add_pipeline_result(self, result: PipelineResult) -> None:
-        # Add a complete pipeline result to the collection
+        """Add a complete pipeline result to the collection."""
         self.pipeline_results.append(result)
         self.classifications.append(result.classification)
         if result.extraction:
             self.extractions.append(result.extraction)
 
     def export_classifications_json(self, filename: str = "classifications.json") -> Path:
-        # Export classification results to JSON.
+        """Export classification results to JSON."""
         output_path = self.output_dir / filename
         data = {
             "metadata": {
@@ -145,7 +145,7 @@ class OutputManager:
         return output_path
 
     def export_classifications_csv(self, filename: str = "classifications.csv") -> Path:
-        # Export classification results to CSV.
+        """Export classification results to CSV."""
         output_path = self.output_dir / filename
         if not self.classifications:
             print("[WARN] No classifications to export.")
@@ -161,7 +161,7 @@ class OutputManager:
         return output_path
 
     def export_extractions_json(self, filename: str = "extractions.json") -> Path:
-        # Export extraction results to JSON.
+        """Export extraction results to JSON."""
         output_path = self.output_dir / filename
         data = {
             "metadata": {
@@ -177,7 +177,7 @@ class OutputManager:
         return output_path
 
     def export_extractions_csv(self, filename: str = "extractions.csv") -> Path:
-        # Export extraction results to CSV.
+        """Export extraction results to CSV."""
         output_path = self.output_dir / filename
         if not self.extractions:
             print("[WARN] No extractions to export.")
@@ -193,7 +193,7 @@ class OutputManager:
         return output_path
 
     def export_all(self, prefix: str = "") -> Dict[str, Path]:
-        # Export all results to both JSON and CSV formats.
+        """Export all results to both JSON and CSV formats."""
 
         paths = {}
         if self.classifications:
@@ -205,7 +205,7 @@ class OutputManager:
         return paths
 
     def get_summary(self) -> Dict[str, Any]:
-        # Get a summary of all collected results.
+        """Get a summary of all collected results."""
         return {
             "total_classifications": len(self.classifications),
             "useful_count": sum(1 for c in self.classifications if c.classification == "useful"),
@@ -218,7 +218,7 @@ class OutputManager:
 
 # Convenience functions for simple use cases
 def export_to_json(results: List[Dict[str, Any]], output_path: str) -> Path:
-    # Export a list of result dictionaries to JSON.
+    """Export a list of result dictionaries to JSON."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -227,7 +227,7 @@ def export_to_json(results: List[Dict[str, Any]], output_path: str) -> Path:
 
 
 def export_to_csv(results: List[Dict[str, Any]], output_path: str) -> Path:
-    # Export a list of result dictionaries to CSV.
+    """Export a list of result dictionaries to CSV."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if not results:

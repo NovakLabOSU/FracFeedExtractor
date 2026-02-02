@@ -26,7 +26,7 @@ except ImportError as e:
 
 
 def classify_pdf(pdf_path, model_dir="src/model/models", return_result=False):
-    # Classify a single PDF as useful or not useful.
+    """Classify a single PDF as useful or not useful."""
 
     start_time = time.time()
     model_path = Path(model_dir) / "pdf_classifier.json"
@@ -99,7 +99,7 @@ def classify_pdf(pdf_path, model_dir="src/model/models", return_result=False):
 
 
 def classify_folder(folder_path, model_dir="src/model/models", output_dir="data/results"):
-    # Classify all PDFs in a folder and export results.
+    """Classify all PDFs in a folder and export results."""
 
     if not STRUCTURED_OUTPUT_AVAILABLE:
         print("[ERROR] Structured output module not available.")

@@ -1,7 +1,7 @@
 """Full training pipeline: stream ALL PDFs from Drive, extract text, label, train model.
 
 Modes:
- - API mode: Download PDFs from Google Drive and process them
+ - API mode: Stream PDFs from Google Drive and process them (no local PDF persistence)
  - Local mode: Use PDFs already downloaded locally (DEFAULT)
 
 API Mode Environment variables:
@@ -15,10 +15,11 @@ Usage:
  - Custom path: python full_pipeline.py --local C:\\path\\to\\data
 
 Behavior:
- - Processes PDFs from data/useful and data/not-useful folders
- - Generates labels.json based on folder origin
- - Trains model with src/model/train_model.py
- - Automatically generates classification results (CSV & JSON)
+ - API mode: Streams every PDF (no local PDF persistence) and writes extracted text to data/processed-text.
+ - Local mode: Processes PDFs from data/useful and data/not-useful folders.
+ - Generates labels.json based on folder origin.
+ - Trains model with src/model/train_model.py.
+ - Automatically generates classification results (CSV & JSON).
 """
 
 from __future__ import annotations
@@ -40,8 +41,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 try:
     from scripts.env_loader import load_env
     load_env()
-except:
-    pass
+except Exception as e:
+    print(f"[WARNING] Could not load environment: {e}")
 
 # Import Google Drive modules (only needed for API mode)
 try:
@@ -60,6 +61,7 @@ from src.preprocessing.pdf_text_extraction import extract_text_from_pdf_bytes
 
 
 def run(cmd):
+    """Run a subprocess command and exit if it fails."""
     print(f"$ {' '.join(cmd)}")
     r = subprocess.run(cmd)
     if r.returncode != 0:
@@ -67,21 +69,23 @@ def run(cmd):
 
 
 def write_labels(labels: Dict[str, str], output_file: Path):
+    """Write label dictionary to a JSON file."""
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with output_file.open("w", encoding="utf-8") as f:
         json.dump(labels, f, indent=2)
 
 
 def process_api_mode():
-    #Download PDFs from Google Drive and process them
+    """Download PDFs from Google Drive and process them."""
     if not GOOGLE_DRIVE_AVAILABLE:
-        print("ERROR: Google Drive modules not available.")
-        print("Please install: pip install google-auth google-api-python-client")
-        return False
+        raise RuntimeError(
+            "Google Drive modules not available. "
+            "Please install: pip install google-auth google-api-python-client"
+        )
         
-    root_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
+    root_id = os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID")
     if not root_id:
-        raise RuntimeError("Missing GOOGLE_DRIVE_FOLDER_ID environment variable")
+        raise RuntimeError("Missing GOOGLE_DRIVE_ROOT_FOLDER_ID environment variable")
 
     service = get_drive_service()
     useful_id = find_child_folder_id(service, root_id, "useful")
@@ -115,7 +119,7 @@ def process_api_mode():
 
 
 def process_local_mode(data_path: Path):
-    #Process PDFs from local directory
+    """Process PDFs from local directory."""
     if not data_path.exists():
         raise RuntimeError(f"Data path does not exist: {data_path}")
     
@@ -170,7 +174,7 @@ def process_local_mode(data_path: Path):
 
 
 def generate_results():
-    #Generate classification results CSV & JSON using subprocess for reliability
+    """Generate classification results CSV and JSON using subprocess for reliability."""
     print("\n" + "=" * 50)
     print("Generating classification results (CSV & JSON)...")
     print("=" * 50)
@@ -224,12 +228,14 @@ Examples:
         """
     )
     
-    parser.add_argument(
+    # Mutually exclusive: can't use both --api and --local
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "--api",
         action="store_true",
         help="Use API mode to download PDFs from Google Drive"
     )
-    parser.add_argument(
+    group.add_argument(
         "--local",
         type=Path,
         metavar="PATH",
@@ -246,8 +252,10 @@ Examples:
     
     if args.api:
         print("\nRunning in API mode (Google Drive)")
-        success = process_api_mode()
-        if not success:
+        try:
+            process_api_mode()
+        except RuntimeError as e:
+            print(f"[ERROR] API mode failed: {e}")
             sys.exit(1)
     else:
         data_path = args.local if args.local else PROJECT_ROOT / "data"
