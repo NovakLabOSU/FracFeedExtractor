@@ -51,6 +51,7 @@ class ClassificationResult:
 @dataclass
 class ExtractionResult:
     """Stores extracted data from a useful PDF."""
+
     filename: str
     predator_species: Optional[str] = None
     predator_common_name: Optional[str] = None
