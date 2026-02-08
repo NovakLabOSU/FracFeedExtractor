@@ -196,7 +196,7 @@ def save_to_file(text: str, output_path: str):
 def main():
     parser = argparse.ArgumentParser(description="Extract text and tables from PDF using PyMuPDF and camelot-py.")
     parser.add_argument("pdf", type=str, help="Path to the input PDF file.")
-    parser.add_argument("--output-dir", type=str, default="data/processed-text", help="Output directory for extracted text (default: data/processed-text)")
+    parser.add_argument("--output-dir", type=str, default="data/processed-tables", help="Output directory for extracted text (default: data/processed-tables)")
 
     args = parser.parse_args()
 

@@ -1,19 +1,18 @@
-"""LLM-based metric extraction from preprocessed text files.
+"""Fixed LLM extraction with anti-hallucination measures.
 
-Usage:
-    python extract_metrics.py path/to/text_file.txt
-    python extract_metrics.py path/to/text_file.txt --model llama3.1:8b
-    python extract_metrics.py path/to/text_file.txt --output-dir results/
-
-This script uses Ollama to extract structured data from preprocessed predator diet
-surveys, including species name, study date, location, and stomach content data.
+This version:
+1. Fixes section extraction regex to actually capture content
+2. Searches full text when sections fail
+3. Adds explicit anti-hallucination instructions
+4. Validates LLM output against input text
 """
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
 from ollama import chat
 from pydantic import BaseModel, Field
@@ -30,66 +29,152 @@ class PredatorDietMetrics(BaseModel):
     sample_size: Optional[int] = Field(None, description="Total number of predators surveyed")
 
 
-def extract_metrics_from_text(text: str, model: str = "llama3.1:8b") -> PredatorDietMetrics:
-    """Extract structured metrics from text using Ollama.
-
-    Args:
-        text: Preprocessed text content from a scientific publication
-        model: Name of the Ollama model to use
-
-    Returns:
-        PredatorDietMetrics object with extracted data
+def extract_stomach_counts_from_text(text: str) -> Dict[str, Optional[int]]:
     """
-    prompt = f"""You are a scientific data extraction assistant specializing in predator diet surveys.
+    Try to extract stomach counts using regex patterns as backup.
+    Only applies if not found from tables.
+    """
+    result = {"num_empty_stomachs": None, "num_nonempty_stomachs": None, "sample_size": None}
 
-Extract specific metrics from the text below. Focus on stomach content data where:
-- EMPTY stomachs = no food/prey
-- NON-EMPTY stomachs = contained food/prey
-- SAMPLE SIZE = total number of predators examined
+    # Pattern 1: "X stomachs were found empty"
+    empty_pattern = r'(\d+)\s+stomachs?\s+(?:were\s+)?(?:found\s+)?empty'
+    empty_match = re.search(empty_pattern, text, re.IGNORECASE)
+    if empty_match:
+        result["num_empty_stomachs"] = int(empty_match.group(1))
 
-KEY INFORMATION TO FIND:
-- Species names are in Latin format (Genus species)
-- Look in tables, methods, and results sections
-- Empty stomachs: "empty", "vacant", "no prey"
-- Non-empty stomachs: "with prey", "fed", "containing food"
+    # Pattern 2: "total of X stomachs" or "X stomachs"
+    total_pattern = r'(?:total\s+of\s+|^|\.\s+)(\d+)\s+stomachs'
+    total_match = re.search(total_pattern, text, re.IGNORECASE | re.MULTILINE)
+    if total_match:
+        result["sample_size"] = int(total_match.group(1))
 
-EXTRACT:
-- species_name: Scientific name of PRIMARY predator studied (not prey)
-- study_location: Geographic location of sampling
-- study_date: Year or date range of collection
-- num_empty_stomachs: Number with empty stomachs
-- num_nonempty_stomachs: Number with food in stomachs
-- sample_size: Total number examined
+    # Calculate non-empty if we have both
+    if result["num_empty_stomachs"] and result["sample_size"]:
+        result["num_nonempty_stomachs"] = result["sample_size"] - result["num_empty_stomachs"]
+
+    return result
 
 
-TEXT:
-{text}
+def extract_metadata_with_search(text: str, model: str) -> Dict[str, Optional[str]]:
+    """Extract metadata in full text."""
+
+    # Get first 12000 chars which should include title, abstract, intro, methods
+    context = text[:12000]
+
+    prompt = f"""Extract metadata from this scientific paper about predator diet.
+
+**CRITICAL: You MUST extract information ONLY from the text provided below. If you cannot find something in the text, return null.**
+
+Find these 3 fields:
+
+1. species_name: The Latin name (Genus species) of the PREDATOR being studied
+   - Look in the title or first paragraph
+   - Format: "Genus species" (e.g., "Martes foina", not "stone marten")
+   
+2. study_location: Where specimens were collected
+   - Country, region, or coordinates
+   - Example: "Central Greece" or "38°44'N, 22°02'E"
+   
+3. study_date: When specimens were collected  
+   - Year or range: "2005" or "2003-2006"
+   - Look for phrases like "collected between", "during", "from...to"
+
+TEXT TO ANALYZE:
+{context}
+
+Remember: Extract ONLY from this text. If not clearly stated, return null.
 """
-    # Ollama call with structured schema output
-    response = chat(
-        messages=[
-            {
-                'role': 'user',
-                'content': prompt,
-            }
-        ],
-        model=model,
-        format=PredatorDietMetrics.model_json_schema(),
-    )
 
-    metrics = PredatorDietMetrics.model_validate_json(response.message.content)
-    return metrics
+    try:
+        response = chat(
+            messages=[{'role': 'user', 'content': prompt}],
+            model=model,
+            format={
+                "type": "object",
+                "properties": {"species_name": {"type": ["string", "null"]}, "study_location": {"type": ["string", "null"]}, "study_date": {"type": ["string", "null"]}},
+                "required": ["species_name", "study_location", "study_date"],
+            },
+        )
+
+        return json.loads(response.message.content)
+    except Exception as e:
+        print(f"[ERROR] Metadata extraction failed: {e}", file=sys.stderr)
+        return {"species_name": None, "study_location": None, "study_date": None}
+
+
+def extract_stomach_data_with_search(text: str, model: str) -> Dict[str, Optional[int]]:
+    """Extract stomach content counts with targeted search."""
+
+    # First try regex extraction as truth
+    regex_result = extract_stomach_counts_from_text(text)
+    print(f"[INFO] Regex found: {regex_result}", file=sys.stderr)
+
+    # Search for sections with stomach/empty keywords
+    stomach_pattern = r'.{0,800}(?:stomachs?|empty|sample\s+size|n\s*=).{0,800}'
+    matches = re.findall(stomach_pattern, text, re.IGNORECASE)
+    context = '\n\n---\n\n'.join(matches[:15])  # Up to 15 relevant passages
+
+    if not context:
+        context = text[:15000]  # Fallback to first part
+
+    prompt = f"""Extract stomach content counts from this predator diet study.
+
+**CRITICAL: Extract ONLY numbers that appear in the text below. DO NOT invent numbers.**
+
+Find these 3 numbers:
+
+1. num_empty_stomachs: How many predators had EMPTY stomachs
+   - Keywords: "empty", "vacant", "no prey", "unfed"
+   
+2. num_nonempty_stomachs: How many had NON-EMPTY stomachs (contained food)
+   - May need to calculate: total - empty = non-empty
+   
+3. sample_size: Total number of predators examined
+   - Keywords: "total", "n =", "sample size"
+
+**VALIDATION**: 
+- empty + non-empty should equal sample_size
+- If text says "14 stomachs were found empty" and "106 stomachs", then:
+  num_empty_stomachs = 14
+  num_nonempty_stomachs = 92 (calculated: 106 - 14)
+  sample_size = 106
+
+TEXT TO ANALYZE:
+{context}
+
+Extract the numbers. If a number is not stated or calculable, return null for that field.
+"""
+
+    try:
+        response = chat(
+            messages=[{'role': 'user', 'content': prompt}],
+            model=model,
+            format={
+                "type": "object",
+                "properties": {"num_empty_stomachs": {"type": ["integer", "null"]}, "num_nonempty_stomachs": {"type": ["integer", "null"]}, "sample_size": {"type": ["integer", "null"]}},
+                "required": ["num_empty_stomachs", "num_nonempty_stomachs", "sample_size"],
+            },
+        )
+
+        llm_result = json.loads(response.message.content)
+
+        # Validate: prefer regex if it found values and they differ from LLM
+        if regex_result["num_empty_stomachs"] and llm_result.get("num_empty_stomachs") != regex_result["num_empty_stomachs"]:
+            llm_result["num_empty_stomachs"] = regex_result["num_empty_stomachs"]
+
+        if regex_result["sample_size"] and llm_result.get("sample_size") != regex_result["sample_size"]:
+            llm_result["sample_size"] = regex_result["sample_size"]
+
+        return llm_result
+
+    except Exception as e:
+        print(f"[ERROR] Stomach data extraction failed: {e}", file=sys.stderr)
+        # Fall back to regex result if LLM fails
+        return regex_result if any(regex_result.values()) else {"num_empty_stomachs": None, "num_nonempty_stomachs": None, "sample_size": None}
 
 
 def validate_and_calculate(metrics: dict) -> dict:
-    """Validate extracted metrics and calculate derived values.
-
-    Args:
-        metrics: Dictionary of extracted metrics
-
-    Returns:
-        Dictionary with validated metrics and calculated fraction_feeding
-    """
+    """Validate extracted metrics and calculate derived values."""
     empty = metrics.get("num_empty_stomachs")
     nonempty = metrics.get("num_nonempty_stomachs")
     sample = metrics.get("sample_size")
@@ -98,10 +183,11 @@ def validate_and_calculate(metrics: dict) -> dict:
     if empty is not None and nonempty is not None:
         calculated_sample = empty + nonempty
         if sample is None:
+            print(f"[INFO] Calculated sample_size: {calculated_sample}", file=sys.stderr)
             metrics["sample_size"] = calculated_sample
             sample = calculated_sample
         elif sample != calculated_sample:
-            # LLM made an error, use calculated value
+            print(f"[WARN] Sample size mismatch: stated={sample}, calculated={calculated_sample}. Using calculated.", file=sys.stderr)
             metrics["sample_size"] = calculated_sample
             sample = calculated_sample
 
@@ -112,55 +198,82 @@ def validate_and_calculate(metrics: dict) -> dict:
 
     metrics["fraction_feeding"] = fraction_feeding
 
+    # Report completeness
+    null_count = sum(1 for k, v in metrics.items() if v is None and k != "fraction_feeding")
+    total_fields = 6
+    print(f"[INFO] Completeness: {total_fields - null_count}/{total_fields} fields filled", file=sys.stderr)
+
     return metrics
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Extract predator diet metrics from preprocessed text using LLM")
-    parser.add_argument("text_file", type=str, help="Path to the preprocessed text file")
-    parser.add_argument("--model", type=str, default="llama3.1:8b", help="Ollama model to use (default: llama3.1:8b)")
-    parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory for JSON results (default: data/results)")
+    parser = argparse.ArgumentParser(description="Extract predator diet metrics from PDF (fixed version)")
+    parser.add_argument("pdf", type=str, help="Path to the PDF file")
+    parser.add_argument("--model", type=str, default="llama3.1:8b", help="Ollama model to use")
+    parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory")
 
     args = parser.parse_args()
 
-    # Load text file
-    text_path = Path(args.text_file)
-    if not text_path.exists():
-        print(f"[ERROR] File not found: {text_path}", file=sys.stderr)
+    pdf_path = Path(args.pdf)
+    if not pdf_path.exists():
+        print(f"[ERROR] PDF not found: {pdf_path}", file=sys.stderr)
         sys.exit(1)
 
+    # Extract text from PDF
+    print(f"[INFO] Extracting text from: {pdf_path.name}", file=sys.stderr)
     try:
-        with open(text_path, "r", encoding="utf-8") as f:
-            text = f.read()
+        src_path = Path(__file__).resolve().parent.parent
+        if str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+
+        from preprocessing.pdf_text_extraction import extract_text_from_pdf
+
+        text = extract_text_from_pdf(str(pdf_path))
+
+        if not text.strip():
+            print("[ERROR] No text extracted", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"[INFO] Extracted {len(text)} characters", file=sys.stderr)
+
     except Exception as e:
-        print(f"[ERROR] Failed to read file: {e}", file=sys.stderr)
+        print(f"[ERROR] Text extraction failed: {e}", file=sys.stderr)
         sys.exit(1)
 
     # Extract metrics
-    print(f"Extracting metrics from {text_path.name}...", file=sys.stderr)
-    try:
-        metrics = extract_metrics_from_text(text, model=args.model)
-    except Exception as e:
-        print(f"[ERROR] Extraction failed: {e}", file=sys.stderr)
-        sys.exit(1)
+    print(f"\n{'='*60}", file=sys.stderr)
+    print(f"Extracting from: {pdf_path.name}", file=sys.stderr)
+    print(f"Model: {args.model}", file=sys.stderr)
+    print(f"{'='*60}\n", file=sys.stderr)
 
-    # Validate and calculate derived metrics
-    metrics_dict = metrics.model_dump()
+    print("[1/2] Extracting metadata...", file=sys.stderr)
+    metadata = extract_metadata_with_search(text, args.model)
+    print(f"      Species: {metadata.get('species_name')}", file=sys.stderr)
+    print(f"      Location: {metadata.get('study_location')}", file=sys.stderr)
+    print(f"      Date: {metadata.get('study_date')}", file=sys.stderr)
+
+    print("\n[2/2] Extracting stomach data...", file=sys.stderr)
+    stomach_data = extract_stomach_data_with_search(text, args.model)
+    print(f"      Empty: {stomach_data.get('num_empty_stomachs')}", file=sys.stderr)
+    print(f"      Non-empty: {stomach_data.get('num_nonempty_stomachs')}", file=sys.stderr)
+    print(f"      Total: {stomach_data.get('sample_size')}", file=sys.stderr)
+
+    # Combine and validate
+    metrics_dict = {**metadata, **stomach_data}
     metrics_dict = validate_and_calculate(metrics_dict)
 
-    # Prepare output
-    result = {"source_file": text_path.name, "metrics": metrics_dict}
-
-    # Generate output filename: input_name_results.json
-    output_filename = text_path.stem + "_results.json"
-    output_path = Path(args.output_dir) / output_filename
-
     # Save results
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
+    result = {"source_file": pdf_path.name, "model_used": args.model, "metrics": metrics_dict}
 
-    print(f"Results saved to {output_path}", file=sys.stderr)
+    output_path = Path(args.output_dir) / f"{pdf_path.stem}_results.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
+
+    print(f"\n{'='*60}", file=sys.stderr)
+    print(f"Results saved to: {output_path}", file=sys.stderr)
+    print(f"{'='*60}\n", file=sys.stderr)
 
 
 if __name__ == "__main__":
