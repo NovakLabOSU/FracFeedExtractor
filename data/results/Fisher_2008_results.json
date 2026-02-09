@@ -1,0 +1,15 @@
+{
+  "source_file": "Fisher_2008.txt",
+  "metrics": {
+    "species_name": "Nucella lapillus",
+    "study_location": "Swans Island, Maine, USA",
+    "study_date": "2004-2008",
+    "num_empty_stomachs": 0,
+    "num_nonempty_stomachs": 225,
+    "sample_size": 225,
+    "fraction_feeding": 1.0,
+    "source_pages": [
+      1
+    ]
+  }
+}

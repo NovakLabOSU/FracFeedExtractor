@@ -82,7 +82,10 @@ class PredatorDietMetrics(BaseModel):
 
     sample_size: Optional[Annotated[int, Field(gt=0)]] = Field(
         default=None,
-        description="Total number of predators examined. Must be > 0.",
+        description="Total number of organisms, specimens, or individuals examined or included in the study group. " \
+        "Must be a positive integer (> 0). This represents the sample size regardless of organism role (e.g., predator, " \
+        "prey, or experimental subject). Extract the largest explicitly stated numeric count of organisms from explicit " \
+        "counts of individuals, group sizes, or described cohort totals.",
     )
 
     @model_validator(mode="after")
@@ -104,6 +107,107 @@ class PredatorDietMetrics(BaseModel):
         if self.num_nonempty_stomachs is not None and self.sample_size is not None and self.sample_size > 0:
             return round(self.num_nonempty_stomachs / self.sample_size, 4)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Smart section extraction
+# ---------------------------------------------------------------------------
+
+# Section headers commonly found in scientific diet / stomach-content papers.
+# Order matters: earlier entries are higher priority when budget is tight.
+_SECTION_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"(?i)^\s*(?:abstract|summary)"),
+    re.compile(r"(?i)^\s*(?:results?)\b"),
+    re.compile(r"(?i)^\s*(?:methods?|materials?\s*(?:and|&)\s*methods?|study\s*(?:area|site))"),
+    re.compile(r"(?i)^\s*(?:table)\s*\d"),
+    re.compile(r"(?i)^\s*(?:introduction|background)"),
+    re.compile(r"(?i)^\s*(?:discussion)"),
+]
+
+# Sections that are almost never useful for metric extraction.
+_SKIP_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"(?i)^\s*(?:acknowledg|literature\s*cited|references|bibliography|appendix|supplementar)"),
+]
+
+
+def _split_into_pages(text: str) -> list[tuple[int, str]]:
+    """Split text on ``[PAGE N]`` markers.
+
+    Returns a list of ``(page_number, page_text)`` tuples.
+    """
+    parts = re.split(r"\[PAGE\s+(\d+)\]", text)
+    # parts: [before_first_marker, page_num, page_text, page_num, page_text, ...]
+    pages: list[tuple[int, str]] = []
+    if parts[0].strip():
+        pages.append((0, parts[0]))
+    for i in range(1, len(parts), 2):
+        page_num = int(parts[i])
+        page_text = parts[i + 1] if i + 1 < len(parts) else ""
+        pages.append((page_num, page_text))
+    return pages
+
+
+def _classify_page(page_text: str) -> tuple[bool, int]:
+    """Return ``(is_useful, priority)`` for a page.
+
+    Lower priority number == more important.
+    A page that matches a skip pattern is marked not-useful.
+    A page with no recognised header gets a default mid-priority.
+    """
+    for pat in _SKIP_PATTERNS:
+        if pat.search(page_text):
+            return False, 999
+    for idx, pat in enumerate(_SECTION_PATTERNS):
+        if pat.search(page_text):
+            return True, idx
+    # No recognised header – still potentially useful (e.g. tables without
+    # a "Table" header, continuation of Results, etc.)
+    return True, len(_SECTION_PATTERNS)
+
+
+def extract_key_sections(text: str, max_chars: int) -> str:
+    """Return the most informative portion of *text* within *max_chars*.
+
+    Strategy:
+    1. Split the paper into pages using ``[PAGE N]`` markers.
+    2. Drop pages belonging to References / Acknowledgements / Appendix.
+    3. Rank remaining pages by section priority (Abstract > Results >
+       Methods > Tables > Introduction > Discussion > other).
+    4. Greedily pack pages in priority order until the budget is spent.
+    5. Re-order selected pages by their original page number so the LLM
+       sees them in reading order.
+
+    If the full text already fits within *max_chars* it is returned as-is.
+    """
+    if len(text) <= max_chars:
+        return text
+
+    pages = _split_into_pages(text)
+    scored: list[tuple[int, int, str]] = []  # (priority, page_num, page_text)
+    for page_num, page_text in pages:
+        useful, priority = _classify_page(page_text)
+        if useful:
+            scored.append((priority, page_num, page_text))
+
+    # Sort by priority (ascending = most important first)
+    scored.sort(key=lambda t: t[0])
+
+    selected: list[tuple[int, str]] = []
+    budget = max_chars
+    for _priority, page_num, page_text in scored:
+        page_with_marker = f"[PAGE {page_num}]\n{page_text}"
+        if len(page_with_marker) <= budget:
+            selected.append((page_num, page_with_marker))
+            budget -= len(page_with_marker)
+        elif budget > 200:
+            # Partially include the page up to the remaining budget
+            selected.append((page_num, page_with_marker[:budget]))
+            budget = 0
+            break
+
+    # Re-sort by page number so the LLM sees content in reading order
+    selected.sort(key=lambda t: t[0])
+    return "\n".join(chunk for _, chunk in selected)
 
 
 def extract_metrics_from_text(text: str, model: str = "llama3.1:8b", num_ctx: int = 4096) -> PredatorDietMetrics:
@@ -191,8 +295,8 @@ def main():
     print(f"[INFO] Text size: {len(text)} chars", file=sys.stderr)
 
     if len(text) > args.max_chars:
-        print(f"[INFO] Truncating text from {len(text)} to {args.max_chars} chars to fit model context window", file=sys.stderr)
-        text = text[:args.max_chars]
+        text = extract_key_sections(text, args.max_chars)
+        print(f"[INFO] Extracted key sections: {len(text)} chars (budget {args.max_chars})", file=sys.stderr)
 
     try:
         metrics = extract_metrics_from_text(text, model=args.model, num_ctx=args.num_ctx)
