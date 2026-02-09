@@ -54,31 +54,33 @@ def extract_stomach_counts_from_text(text: str) -> Dict[str, Optional[int]]:
 
     return result
 
+
 def format_tables_for_llm(tables: List[Dict]) -> str:
     """Format extracted tables into readable text for LLM."""
     if not tables:
         return ""
-    
+
     formatted = []
     for table in tables:
         if "error" in table:
             continue
-            
+
         cells = table.get("cells", [])
         if not cells:
             continue
-        
+
         # Format as markdown-style table
         table_text = f"\n--- {table['table_id']} (Page {table['page_number']}) ---\n"
-        
+
         for row in cells:
             # Clean and join cells with | separator
             row_text = " | ".join(str(cell).strip() if cell else "" for cell in row)
             table_text += row_text + "\n"
-        
+
         formatted.append(table_text)
-    
+
     return "\n".join(formatted)
+
 
 def extract_metadata_with_search(text: str, tables_text: str, model: str) -> Dict[str, Optional[str]]:
     """Extract metadata in full text."""
@@ -272,7 +274,7 @@ def main():
         # Extract tables
         tables = extract_tables_from_pdf(str(pdf_path))
         print(f"[INFO] Extracted {len(tables)} tables", file=sys.stderr)
-        
+
         # Format tables for LLM
         tables_text = format_tables_for_llm(tables)
 
@@ -303,11 +305,7 @@ def main():
     metrics_dict = validate_and_calculate(metrics_dict)
 
     # Save results
-    result = {
-        "source_file": pdf_path.name,
-        "model_used": args.model,
-        "metrics": metrics_dict
-    }
+    result = {"source_file": pdf_path.name, "model_used": args.model, "metrics": metrics_dict}
 
     output_path = Path(args.output_dir) / f"{pdf_path.stem}_results.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
