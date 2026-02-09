@@ -14,29 +14,105 @@ import json
 import sys
 import re
 from pathlib import Path
-from typing import Optional, List
+from typing import Annotated, Optional
 
 from ollama import chat
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, computed_field, constr, model_validator
 
 
 class PredatorDietMetrics(BaseModel):
-    """Structured schema for extracted predator diet survey metrics."""
+    """Structured schema for extracted predator diet survey metrics.
 
-    species_name: Optional[str] = Field(None, description="Scientific name of the predator species studied")
-    study_location: Optional[str] = Field(None, description="Geographic location where the study was conducted")
-    study_date: Optional[str] = Field(None, description="Year or date range when the study was conducted")
-    num_empty_stomachs: Optional[int] = Field(None, description="Number of predators with empty stomachs")
-    num_nonempty_stomachs: Optional[int] = Field(None, description="Number of predators with non-empty stomachs")
-    sample_size: Optional[int] = Field(None, description="Total number of predators surveyed")
+    All count fields are non-negative integers.  When both
+    ``num_empty_stomachs`` and ``num_nonempty_stomachs`` are present the
+    model guarantees that ``sample_size`` equals their sum.
+    ``fraction_feeding`` is derived automatically from the validated counts.
+    """
+
+    model_config = ConfigDict(
+        strict=True,
+        validate_default=True,
+        str_strip_whitespace=True,
+        frozen=False,
+    )
+
+    species_name: Optional[
+        Annotated[
+            str,
+            constr(min_length=3, max_length=200, pattern=r"^[A-Z][a-z]+(\s[a-z]+)*$"),
+        ]
+    ] = Field(
+        default=None,
+        description="Binomial scientific name of the primary predator species studied (e.g. 'Canis lupus').",
+        examples=["Canis lupus", "Vulpes vulpes"],
+    )
+
+    study_location: Optional[
+        Annotated[str, constr(min_length=1, max_length=500)]
+    ] = Field(
+        default=None,
+        description="Geographic location where the study was conducted.",
+        examples=["Yellowstone National Park, Wyoming, USA"],
+    )
+
+    study_date: Optional[
+        Annotated[
+            str,
+            constr(
+                min_length=4,
+                max_length=30,
+                pattern=r"^\d{4}([\-–]\d{4})?$",
+            ),
+        ]
+    ] = Field(
+        default=None,
+        description="Year (YYYY) or year range (YYYY-YYYY) when the study was conducted.",
+        examples=["2019", "2019-2021"],
+    )
+
+    num_empty_stomachs: Optional[NonNegativeInt] = Field(
+        default=None,
+        description="Number of predators with empty stomachs. Must be >= 0.",
+    )
+
+    num_nonempty_stomachs: Optional[NonNegativeInt] = Field(
+        default=None,
+        description="Number of predators with non-empty (food-containing) stomachs. Must be >= 0.",
+    )
+
+    sample_size: Optional[Annotated[int, Field(gt=0)]] = Field(
+        default=None,
+        description="Total number of predators examined. Must be > 0.",
+    )
+
+    @model_validator(mode="after")
+    def _reconcile_sample_size(self) -> "PredatorDietMetrics":
+        """Ensure sample_size == num_empty + num_nonempty when both counts are present."""
+        empty = self.num_empty_stomachs
+        nonempty = self.num_nonempty_stomachs
+        if empty is not None and nonempty is not None:
+            calculated = empty + nonempty
+            if self.sample_size is None or self.sample_size != calculated:
+                self.sample_size = calculated
+        return self
+
+    @computed_field(  # type: ignore[misc]
+        description="Fraction of predators that had food in their stomachs (0.0–1.0).",
+    )
+    @property
+    def fraction_feeding(self) -> Optional[float]:
+        if self.num_nonempty_stomachs is not None and self.sample_size is not None and self.sample_size > 0:
+            return round(self.num_nonempty_stomachs / self.sample_size, 4)
+        return None
 
 
-def extract_metrics_from_text(text: str, model: str = "llama3.1:8b") -> PredatorDietMetrics:
+def extract_metrics_from_text(text: str, model: str = "llama3.1:8b", num_ctx: int = 4096) -> PredatorDietMetrics:
     """Extract structured metrics from text using Ollama.
 
     Args:
         text: Preprocessed text content from a scientific publication
         model: Name of the Ollama model to use
+        num_ctx: Context window size to request from Ollama (lower = less memory)
 
     Returns:
         PredatorDietMetrics object with extracted data
@@ -83,45 +159,14 @@ TEXT:
     return metrics
 
 
-def validate_and_calculate(metrics: dict) -> dict:
-    """Validate extracted metrics and calculate derived values.
-
-    Args:
-        metrics: Dictionary of extracted metrics
-
-    Returns:
-        Dictionary with validated metrics and calculated fraction_feeding
-    """
-    empty = metrics.get("num_empty_stomachs")
-    nonempty = metrics.get("num_nonempty_stomachs")
-    sample = metrics.get("sample_size")
-
-    # Validate and fix sample size if needed
-    if empty is not None and nonempty is not None:
-        calculated_sample = empty + nonempty
-        if sample is None:
-            metrics["sample_size"] = calculated_sample
-            sample = calculated_sample
-        elif sample != calculated_sample:
-            # LLM made an error, use calculated value
-            metrics["sample_size"] = calculated_sample
-            sample = calculated_sample
-
-    # Calculate fraction of feeding predators
-    fraction_feeding = None
-    if nonempty is not None and sample is not None and sample > 0:
-        fraction_feeding = round(nonempty / sample, 4)
-
-    metrics["fraction_feeding"] = fraction_feeding
-
-    return metrics
-
 
 def main():
     parser = argparse.ArgumentParser(description="Extract predator diet metrics from preprocessed text using LLM")
     parser.add_argument("text_file", type=str, help="Path to the preprocessed text file")
     parser.add_argument("--model", type=str, default="llama3.1:8b", help="Ollama model to use (default: llama3.1:8b)")
     parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory for JSON results (default: data/results)")
+    parser.add_argument("--max-chars", type=int, default=12000, help="Maximum characters of text to send to the model (default: 12000). Reduce if you hit CUDA/OOM errors.")
+    parser.add_argument("--num-ctx", type=int, default=4096, help="Context window size for the model (default: 4096). Lower values use less memory.")
 
     args = parser.parse_args()
 
@@ -145,20 +190,24 @@ def main():
     original_text = text
     print(f"[INFO] Text size: {len(text)} chars", file=sys.stderr)
 
+    if len(text) > args.max_chars:
+        print(f"[INFO] Truncating text from {len(text)} to {args.max_chars} chars to fit model context window", file=sys.stderr)
+        text = text[:args.max_chars]
+
     try:
-        metrics = extract_metrics_from_text(text, model=args.model)
+        metrics = extract_metrics_from_text(text, model=args.model, num_ctx=args.num_ctx)
     except Exception as e:
         print(f"[ERROR] Extraction failed: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Validate and calculate derived metrics
+    # model_validator reconciles sample_size; computed_field provides fraction_feeding
     metrics_dict = metrics.model_dump()
-    metrics_dict = validate_and_calculate(metrics_dict)
 
     # Extract page numbers programmatically from where data was found
-    source_pages = set()
-    for field, value in metrics_dict.items():
-        if value and field not in ['fraction_feeding']:
+    source_pages: set[int] = set()
+    _skip_fields = {"fraction_feeding", "source_pages"}
+    for field_name, value in metrics_dict.items():
+        if value is not None and field_name not in _skip_fields:
             value_str = str(value)
             if value_str in original_text:
                 pos = original_text.find(value_str)
@@ -166,7 +215,7 @@ def main():
                 if page_markers:
                     source_pages.add(int(page_markers[-1]))
 
-    metrics_dict["source_pages"] = sorted(list(source_pages)) if source_pages else None
+    metrics_dict["source_pages"] = sorted(source_pages) if source_pages else None
 
     # Prepare output
     result = {"source_file": text_path.name, "metrics": metrics_dict}
