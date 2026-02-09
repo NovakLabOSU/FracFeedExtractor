@@ -79,7 +79,7 @@ def process_api_mode():
     out_dir = Path("data/processed-text")
     out_dir.mkdir(parents=True, exist_ok=True)
     labels: Dict[str, str] = {}
-    count=1
+    count = 1
     for folder_id, label in [(useful_id, "useful"), (not_useful_id, "not-useful")]:
         files = list_pdfs_in_folder(service, folder_id, max_files=None)
         print(f"Found {len(files)} PDFs in folder label '{label}'")
@@ -91,7 +91,7 @@ def process_api_mode():
             (out_dir / txt_name).write_text(text, encoding="utf-8")
             labels[txt_name] = label
             print(f"{count} Processed {f['name']}")
-            count+=1
+            count += 1
 
     write_labels(labels, Path("data/labels.json"))
     print(f"Wrote {len(labels)} labeled text files.")
@@ -101,23 +101,23 @@ def process_local_mode(data_path: Path):
     """Process PDFs from local directory."""
     if not data_path.exists():
         raise RuntimeError(f"Data path does not exist: {data_path}")
-    
+
     useful_dir = data_path / "useful"
     not_useful_dir = data_path / "not-useful"
-    
+
     if not useful_dir.exists():
         raise RuntimeError(f"'useful' subfolder not found in {data_path}")
     if not not_useful_dir.exists():
         raise RuntimeError(f"'not-useful' subfolder not found in {data_path}")
-    
+
     out_dir = Path("data/processed-text")
     out_dir.mkdir(parents=True, exist_ok=True)
     labels: Dict[str, str] = {}
-    
+
     for folder, label in [(useful_dir, "useful"), (not_useful_dir, "not-useful")]:
         pdf_files = list(folder.glob("*.pdf"))
         print(f"Found {len(pdf_files)} PDFs in local folder '{label}'")
-        
+
         for pdf_path in pdf_files:
             try:
                 with open(pdf_path, "rb") as f:
@@ -131,7 +131,7 @@ def process_local_mode(data_path: Path):
             except Exception as e:
                 print(f"Error processing {pdf_path.name}: {e}")
                 continue
-    
+
     write_labels(labels, Path("data/labels.json"))
     print(f"Wrote {len(labels)} labeled text files.")
 
@@ -144,32 +144,23 @@ def main():
 Examples:
   API mode:   python full_pipeline.py --api
   Local mode: python full_pipeline.py --local ./data/pdfs
-        """
+        """,
     )
-    
+
     # Create mutually exclusive group for --api and --local
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        "--api",
-        action="store_true",
-        help="Use API mode to download PDFs from Google Drive"
-    )
-    group.add_argument(
-        "--local",
-        type=Path,
-        metavar="PATH",
-        help="Use local mode with PDFs from specified directory (should contain 'useful' and 'not-useful' subfolders)"
-    )
-    
+    group.add_argument("--api", action="store_true", help="Use API mode to download PDFs from Google Drive")
+    group.add_argument("--local", type=Path, metavar="PATH", help="Use local mode with PDFs from specified directory (should contain 'useful' and 'not-useful' subfolders)")
+
     args = parser.parse_args()
-    
+
     if args.local:
         print(f"Running in LOCAL mode with data path: {args.local}")
         process_local_mode(args.local)
     else:  # args.api
         print("Running in API mode (Google Drive)")
         process_api_mode()
-    
+
     print("Beginning model training...")
     run([sys.executable, "src/model/train_model.py"])
     print("Training complete.")

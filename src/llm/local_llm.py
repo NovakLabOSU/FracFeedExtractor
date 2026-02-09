@@ -47,9 +47,7 @@ class PredatorDietMetrics(BaseModel):
         examples=["Canis lupus", "Vulpes vulpes"],
     )
 
-    study_location: Optional[
-        Annotated[str, constr(min_length=1, max_length=500)]
-    ] = Field(
+    study_location: Optional[Annotated[str, constr(min_length=1, max_length=500)]] = Field(
         default=None,
         description="Geographic location where the study was conducted.",
         examples=["Yellowstone National Park, Wyoming, USA"],
@@ -82,9 +80,9 @@ class PredatorDietMetrics(BaseModel):
 
     sample_size: Optional[Annotated[int, Field(gt=0)]] = Field(
         default=None,
-        description="Total number of organisms, specimens, or individuals examined or included in the study group. " \
-        "Must be a positive integer (> 0). This represents the sample size regardless of organism role (e.g., predator, " \
-        "prey, or experimental subject). Extract the largest explicitly stated numeric count of organisms from explicit " \
+        description="Total number of organisms, specimens, or individuals examined or included in the study group. "
+        "Must be a positive integer (> 0). This represents the sample size regardless of organism role (e.g., predator, "
+        "prey, or experimental subject). Extract the largest explicitly stated numeric count of organisms from explicit "
         "counts of individuals, group sizes, or described cohort totals.",
     )
 
@@ -261,7 +259,6 @@ TEXT:
 
     metrics = PredatorDietMetrics.model_validate_json(response.message.content)
     return metrics
-
 
 
 def main():
