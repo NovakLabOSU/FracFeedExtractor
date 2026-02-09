@@ -124,7 +124,7 @@ _SECTION_PATTERNS: list[re.Pattern[str]] = [
 
 # Sections that are almost never useful for metric extraction.
 _SKIP_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"(?i)^\s*(?:acknowledg|literature\s*cited|references|bibliography|appendix|supplementary)"),
+    re.compile(r"(?i)^\s*(?:acknowledge|literature\s*cited|references|bibliography|appendix|supplementary)"),
 ]
 
 
