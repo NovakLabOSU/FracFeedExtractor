@@ -12,7 +12,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 from ollama import chat
 from pydantic import BaseModel, Field
@@ -54,12 +54,41 @@ def extract_stomach_counts_from_text(text: str) -> Dict[str, Optional[int]]:
 
     return result
 
+def format_tables_for_llm(tables: List[Dict]) -> str:
+    """Format extracted tables into readable text for LLM."""
+    if not tables:
+        return ""
+    
+    formatted = []
+    for table in tables:
+        if "error" in table:
+            continue
+            
+        cells = table.get("cells", [])
+        if not cells:
+            continue
+        
+        # Format as markdown-style table
+        table_text = f"\n--- {table['table_id']} (Page {table['page_number']}) ---\n"
+        
+        for row in cells:
+            # Clean and join cells with | separator
+            row_text = " | ".join(str(cell).strip() if cell else "" for cell in row)
+            table_text += row_text + "\n"
+        
+        formatted.append(table_text)
+    
+    return "\n".join(formatted)
 
-def extract_metadata_with_search(text: str, model: str) -> Dict[str, Optional[str]]:
+def extract_metadata_with_search(text: str, tables_text: str, model: str) -> Dict[str, Optional[str]]:
     """Extract metadata in full text."""
 
     # Get first 12000 chars which should include title, abstract, intro, methods
     context = text[:12000]
+
+    # Add tables if available
+    if tables_text:
+        context = f"TABLES:\n{tables_text}\n\nTEXT:\n{context}"
 
     prompt = f"""Extract metadata from this scientific paper about predator diet.
 
@@ -102,7 +131,7 @@ Remember: Extract ONLY from this text. If not clearly stated, return null.
         return {"species_name": None, "study_location": None, "study_date": None}
 
 
-def extract_stomach_data_with_search(text: str, model: str) -> Dict[str, Optional[int]]:
+def extract_stomach_data_with_search(text: str, tables_text: str, model: str) -> Dict[str, Optional[int]]:
     """Extract stomach content counts with targeted search."""
 
     # First try regex extraction as truth
@@ -116,6 +145,10 @@ def extract_stomach_data_with_search(text: str, model: str) -> Dict[str, Optiona
 
     if not context:
         context = text[:15000]  # Fallback to first part
+
+    # Prepend tables if available
+    if tables_text:
+        context = f"TABLES:\n{tables_text}\n\nTEXT:\n{context}"
 
     prompt = f"""Extract stomach content counts from this predator diet study.
 
@@ -226,7 +259,7 @@ def main():
         if str(src_path) not in sys.path:
             sys.path.insert(0, str(src_path))
 
-        from preprocessing.pdf_text_extraction import extract_text_from_pdf
+        from preprocessing.pdf_text_extraction import extract_text_from_pdf, extract_tables_from_pdf
 
         text = extract_text_from_pdf(str(pdf_path))
 
@@ -235,6 +268,13 @@ def main():
             sys.exit(1)
 
         print(f"[INFO] Extracted {len(text)} characters", file=sys.stderr)
+
+        # Extract tables
+        tables = extract_tables_from_pdf(str(pdf_path))
+        print(f"[INFO] Extracted {len(tables)} tables", file=sys.stderr)
+        
+        # Format tables for LLM
+        tables_text = format_tables_for_llm(tables)
 
     except Exception as e:
         print(f"[ERROR] Text extraction failed: {e}", file=sys.stderr)
@@ -247,13 +287,13 @@ def main():
     print(f"{'='*60}\n", file=sys.stderr)
 
     print("[1/2] Extracting metadata...", file=sys.stderr)
-    metadata = extract_metadata_with_search(text, args.model)
+    metadata = extract_metadata_with_search(text, tables_text, args.model)
     print(f"      Species: {metadata.get('species_name')}", file=sys.stderr)
     print(f"      Location: {metadata.get('study_location')}", file=sys.stderr)
     print(f"      Date: {metadata.get('study_date')}", file=sys.stderr)
 
     print("\n[2/2] Extracting stomach data...", file=sys.stderr)
-    stomach_data = extract_stomach_data_with_search(text, args.model)
+    stomach_data = extract_stomach_data_with_search(text, tables_text, args.model)
     print(f"      Empty: {stomach_data.get('num_empty_stomachs')}", file=sys.stderr)
     print(f"      Non-empty: {stomach_data.get('num_nonempty_stomachs')}", file=sys.stderr)
     print(f"      Total: {stomach_data.get('sample_size')}", file=sys.stderr)
@@ -263,7 +303,12 @@ def main():
     metrics_dict = validate_and_calculate(metrics_dict)
 
     # Save results
-    result = {"source_file": pdf_path.name, "model_used": args.model, "metrics": metrics_dict}
+    result = {
+        "source_file": pdf_path.name,
+        "model_used": args.model,
+        "metrics": metrics_dict,
+        "tables_found": len(tables)
+    }
 
     output_path = Path(args.output_dir) / f"{pdf_path.stem}_results.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
