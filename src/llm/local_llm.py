@@ -306,8 +306,7 @@ def main():
     result = {
         "source_file": pdf_path.name,
         "model_used": args.model,
-        "metrics": metrics_dict,
-        "tables_found": len(tables)
+        "metrics": metrics_dict
     }
 
     output_path = Path(args.output_dir) / f"{pdf_path.stem}_results.json"
