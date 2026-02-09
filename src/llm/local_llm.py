@@ -80,10 +80,10 @@ class PredatorDietMetrics(BaseModel):
 
     sample_size: Optional[Annotated[int, Field(gt=0)]] = Field(
         default=None,
-        description="Total number of organisms, specimens, or individuals examined or included in the study group. "
-        "Must be a positive integer (> 0). This represents the sample size regardless of organism role (e.g., predator, "
-        "prey, or experimental subject). Extract the largest explicitly stated numeric count of organisms from explicit "
-        "counts of individuals, group sizes, or described cohort totals.",
+        description="Total number of predator individuals whose stomachs (or gut contents) were examined in the diet survey. "
+        "Must be a positive integer (> 0). This is the count of predators dissected, stomach-pumped, or otherwise sampled — "
+        "not the number of prey items found. When both num_empty_stomachs and num_nonempty_stomachs are reported, "
+        "sample_size should equal their sum.",
     )
 
     @model_validator(mode="after")
@@ -219,30 +219,41 @@ def extract_metrics_from_text(text: str, model: str = "llama3.1:8b", num_ctx: in
     Returns:
         PredatorDietMetrics object with extracted data
     """
-    prompt = f"""You are a scientific data extraction assistant specializing in predator diet surveys.
+    prompt = f"""You are a scientific data extraction assistant. Your task is to read a predator diet survey publication and return a single flat JSON object with exactly these fields:
 
-Extract specific metrics from the text below. Focus on stomach content data where:
-- EMPTY stomachs = no food/prey
-- NON-EMPTY stomachs = contained food/prey
-- SAMPLE SIZE = total number of predators examined
+  species_name          - string or null
+  study_location        - string or null
+  study_date            - string or null
+  num_empty_stomachs    - integer (>= 0) or null
+  num_nonempty_stomachs - integer (>= 0) or null
+  sample_size           - integer (> 0) or null
 
-KEY INFORMATION TO FIND:
-- Species names are in Latin format (Genus species)
-- Look in tables, methods, and results sections
-- Empty stomachs: "empty", "vacant", "no prey"
-- Non-empty stomachs: "with prey", "fed", "containing food"
-- Page markers appear as [PAGE N] in the text
+Use null for any field whose value cannot be confidently determined from the text.
 
-EXTRACT:
-- species_name: Scientific name of PRIMARY predator studied (not prey)
-- study_location: Geographic location of sampling
-- study_date: Year or date range of collection
-- num_empty_stomachs: Number with empty stomachs
-- num_nonempty_stomachs: Number with food in stomachs
-- sample_size: Total number examined
+FIELD DEFINITIONS
 
+species_name: Binomial Latin name (Genus species) of the PRIMARY PREDATOR whose diet is studied. This is the animal whose stomachs/guts were examined, not its prey. Return exactly one species. If multiple predators are studied, choose the one with the most stomach samples. Capitalize the genus, lowercase the specific epithet (e.g., "Pygoscelis papua").
 
-TEXT:
+study_location: Geographic area where predator specimens were collected. Include site, region, and country if available (e.g., "Marion Island, sub-Antarctic"). Check Methods, Study Area, or Study Site sections.
+
+study_date: Year or year-range of specimen collection, not publication year. Format "YYYY" or "YYYY-YYYY". Return null if only publication year is visible.
+
+num_empty_stomachs: Number of predators with stomachs containing no food. Synonyms: "empty", "vacant", "without food", "zero prey items", "stomachs with no contents".
+
+num_nonempty_stomachs: Number of predators with stomachs containing food. Synonyms: "non-empty", "with food", "containing prey", "with contents", "fed".
+
+sample_size: Total number of predator individuals examined. When both num_empty_stomachs and num_nonempty_stomachs are available, sample_size equals their sum. Look for phrases like "N stomachs were examined", "a total of N individuals", "N specimens", "n=".
+
+RULES
+- Do not invent data; use null if ambiguous or missing.
+- Return a single JSON object; do not return arrays.
+- Ignore page markers [PAGE N].
+- Prioritize Abstract, Methods, and Results sections.
+
+Example output:
+{{"species_name": "Pygoscelis papua", "study_location": "Marion Island, sub-Antarctic", "study_date": "1984-1985", "num_empty_stomachs": 5, "num_nonempty_stomachs": 15, "sample_size": 20}}
+
+TEXT
 {text}
 """
     # Ollama call with structured schema output
