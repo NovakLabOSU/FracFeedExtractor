@@ -98,7 +98,7 @@ Extracted:
 
 def extract_metrics_from_text(text: str) -> PredatorDietMetrics:
     """Send text to BioMistral and get structured output."""
-    
+
     prompt = f"""You are a scientific data extraction assistant specializing in predator diet surveys.
 
 Your task is to extract specific metrics from a scientific paper. Study the examples below carefully, then extract from the actual text.
@@ -156,7 +156,7 @@ def main():
         text = f.read()
 
     print(f"Extracting from {text_path.name} using BioMistral...")
-    
+
     metrics = extract_metrics_from_text(text)
     metrics_dict = calculate_fraction_feeding(metrics.model_dump())
 
@@ -164,7 +164,7 @@ def main():
 
     output_path = Path(args.output_dir) / f"{text_path.stem}_biomistral_results.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_path, "w") as f:
         json.dump(result, f, indent=2)
 
