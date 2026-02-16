@@ -1,12 +1,15 @@
-"""LLM-based metric extraction from preprocessed text files.
+"""LLM-based metric extraction from scientific publications.
 
 Usage:
-    python local_llm.py path/to/text_file.txt
-    python local_llm.py path/to/text_file.txt --model llama3.1:8b
-    python local_llm.py path/to/text_file.txt --output-dir results/
+    python llm_client.py path/to/file.pdf
+    python llm_client.py path/to/file.txt
+    python llm_client.py path/to/file.pdf --model llama3.1:8b
+    python llm_client.py path/to/file.txt --output-dir results/
 
-This script uses Ollama to extract structured data from preprocessed predator diet
-surveys, including species name, study date, location, and stomach content data.
+This script uses Ollama to extract structured data from predator diet surveys.
+It can read PDFs directly (with automatic OCR for scanned pages) or preprocessed
+text files. Extracted data includes species name, study date, location, and
+stomach content metrics.
 """
 
 import argparse
@@ -18,7 +21,7 @@ from pathlib import Path
 from ollama import chat
 
 from models import PredatorDietMetrics
-from llm_text import extract_key_sections
+from llm_text import extract_key_sections, load_document
 
 
 def extract_metrics_from_text(text: str, model: str = "llama3.1:8b", num_ctx: int = 4096) -> PredatorDietMetrics:
@@ -56,7 +59,6 @@ num_empty_stomachs: Number of predators with stomachs containing no food. Synony
 num_nonempty_stomachs: Number of predators with stomachs containing food. Synonyms: "non-empty", "with food", "containing prey", "with contents", "fed", "N contained food", "N had prey items".
 
 sample_size: Total number of predator individuals examined. When both num_empty_stomachs and num_nonempty_stomachs are available, sample_size equals their sum. Look for phrases like "N stomachs were examined", "a total of N individuals", "N specimens", "n=", "sample size of N".
-
 
 RULES
 - Do not invent data; use null if ambiguous or missing.
@@ -102,46 +104,47 @@ TEXT
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Extract predator diet metrics from preprocessed text using LLM")
-    parser.add_argument("text_file", type=str, help="Path to the preprocessed text file")
+    parser = argparse.ArgumentParser(description="Extract predator diet metrics from PDFs or text files using LLM")
+    parser.add_argument("input_file", type=str, help="Path to the input file (.pdf or .txt)")
     parser.add_argument("--model", type=str, default="llama3.1:8b", help="Ollama model to use (default: llama3.1:8b)")
     parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory for JSON results (default: data/results)")
-    parser.add_argument("--max-chars", type=int, default=12000, help="Maximum characters of text to send to the model (default: 12000). Reduce if you hit CUDA/OOM errors.")
-    parser.add_argument("--num-ctx", type=int, default=4096, help="Context window size for the model (default: 4096). Lower values use less memory.")
+    parser.add_argument("--max-chars", type=int, default=12000, help="Maximum characters of text to send to the model (default: 12000). " "Reduce if you hit CUDA/OOM errors.")
+    parser.add_argument("--num-ctx", type=int, default=4096, help="Context window size for the model (default: 4096). " "Lower values use less memory.")
 
     args = parser.parse_args()
 
-    # Load text file
-    text_path = Path(args.text_file)
-    if not text_path.exists():
-        print(f"[ERROR] File not found: {text_path}", file=sys.stderr)
+    # Validate input file
+    input_path = Path(args.input_file)
+    if not input_path.exists():
+        print(f"[ERROR] File not found: {input_path}", file=sys.stderr)
         sys.exit(1)
 
+    # Load document (PDF or text)
+    print(f"Processing {input_path.name}...", file=sys.stderr)
     try:
-        with open(text_path, "r", encoding="utf-8") as f:
-            text = f.read()
+        text = load_document(input_path)
     except Exception as e:
-        print(f"[ERROR] Failed to read file: {e}", file=sys.stderr)
+        print(f"[ERROR] Failed to load file: {e}", file=sys.stderr)
         sys.exit(1)
-
-    # Extract metrics
-    print(f"Extracting metrics from {text_path.name}...", file=sys.stderr)
 
     # Store original text for page extraction
     original_text = text
     print(f"[INFO] Text size: {len(text)} chars", file=sys.stderr)
 
+    # Extract key sections if text is too long
     if len(text) > args.max_chars:
         text = extract_key_sections(text, args.max_chars)
         print(f"[INFO] Extracted key sections: {len(text)} chars (budget {args.max_chars})", file=sys.stderr)
 
+    # Extract metrics using LLM
+    print(f"[INFO] Extracting metrics with {args.model}...", file=sys.stderr)
     try:
         metrics = extract_metrics_from_text(text, model=args.model, num_ctx=args.num_ctx)
     except Exception as e:
         print(f"[ERROR] Extraction failed: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # model_validator reconciles sample_size; computed_field provides fraction_feeding
+    # Convert to dictionary
     metrics_dict = metrics.model_dump()
 
     # Extract page numbers programmatically from where data was found
@@ -159,10 +162,10 @@ def main():
     metrics_dict["source_pages"] = sorted(source_pages) if source_pages else None
 
     # Prepare output
-    result = {"source_file": text_path.name, "metrics": metrics_dict}
+    result = {"source_file": input_path.name, "file_type": input_path.suffix.lower(), "metrics": metrics_dict}
 
     # Generate output filename: input_name_results.json
-    output_filename = text_path.stem + "_results.json"
+    output_filename = input_path.stem + "_results.json"
     output_path = Path(args.output_dir) / output_filename
 
     # Save results
@@ -170,7 +173,17 @@ def main():
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
 
-    print(f"Results saved to {output_path}", file=sys.stderr)
+    print(f"[SUCCESS] Results saved to {output_path}", file=sys.stderr)
+
+    # Print summary
+    print("\n=== Extraction Summary ===", file=sys.stderr)
+    print(f"Species: {metrics_dict.get('species_name', 'N/A')}", file=sys.stderr)
+    print(f"Location: {metrics_dict.get('study_location', 'N/A')}", file=sys.stderr)
+    print(f"Date: {metrics_dict.get('study_date', 'N/A')}", file=sys.stderr)
+    print(f"Sample size: {metrics_dict.get('sample_size', 'N/A')}", file=sys.stderr)
+    print(f"Empty stomachs: {metrics_dict.get('num_empty_stomachs', 'N/A')}", file=sys.stderr)
+    print(f"Non-empty stomachs: {metrics_dict.get('num_nonempty_stomachs', 'N/A')}", file=sys.stderr)
+    print(f"Fraction feeding: {metrics_dict.get('fraction_feeding', 'N/A')}", file=sys.stderr)
 
 
 if __name__ == "__main__":

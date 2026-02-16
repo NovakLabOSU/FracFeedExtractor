@@ -6,8 +6,15 @@ within LLM context windows.
 """
 
 import re
+import sys
+from pathlib import Path
 from typing import List, Tuple
 
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
 
 # Section headers commonly found in scientific diet / stomach-content papers.
 # Order matters: earlier entries are higher priority when budget is tight.
@@ -118,3 +125,31 @@ def extract_key_sections(text: str, max_chars: int) -> str:
     # Re-sort by page number so the LLM sees content in reading order
     selected.sort(key=lambda t: t[0])
     return "\n".join(chunk for _, chunk in selected)
+
+
+def load_document(file_path: Path) -> str:
+    """Load document from PDF or text file.
+
+    Args:
+        file_path: Path to the input file (.pdf or .txt)
+
+    Returns:
+        Extracted text content with [PAGE N] markers
+
+    Raises:
+        RuntimeError: If file reading fails
+    """
+    suffix = file_path.suffix.lower()
+
+    if suffix == '.pdf':
+        print(f"[INFO] Reading PDF file...", file=sys.stderr)
+        return extract_text_from_pdf(str(file_path))
+    elif suffix in ['.txt', '.text']:
+        print(f"[INFO] Reading text file...", file=sys.stderr)
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except UnicodeDecodeError as e:
+            raise RuntimeError(f"Text file encoding error: {e}")
+    else:
+        raise RuntimeError(f"Unsupported file type: {suffix}. Use .pdf or .txt files.")
