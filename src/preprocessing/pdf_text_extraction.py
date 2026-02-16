@@ -158,6 +158,7 @@ def extract_tables_from_pdf(pdf_path: str) -> List[Dict]:
     return tables_data
 
 def parse_page_ocr(page: fitz.Page) -> str:
+    """Extracts text from page using OCR"""
     pix = page.get_pixmap(dpi=300)
     img = Image.open(io.BytesIO(pix.tobytes("png")))
     img_array = np.array(img)
@@ -168,6 +169,7 @@ def parse_page_ocr(page: fitz.Page) -> str:
 
 
 def parse_page_embedded(page: fitz.Page) -> str:
+    """Extracts text embedded in a PDF page"""
     # Extract text from the page using PyMuPDF
     page_text = page.get_text("text")
 
