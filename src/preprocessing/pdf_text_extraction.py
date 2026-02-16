@@ -27,21 +27,21 @@ Image.MAX_IMAGE_PIXELS = None
 fitz.TOOLS.mupdf_display_errors(False)
 
 # Maximum allowed ratio of misspelled words to total words in a pdf
-MAX_SPELLING_ERROR_RATE = 0.05       
+MAX_SPELLING_ERROR_RATE = 0.05
 
 
 def check_spelling(text: str) -> float:
     """
-        Returns ratio of mispelled words to total words
+    Returns ratio of mispelled words to total words
 
-        Returns 1 if no words detected in input string
+    Returns 1 if no words detected in input string
     """
     spellChecker = SpellChecker()
     words = spellChecker.split_words(text)
-    if (len(words) == 0):
+    if len(words) == 0:
         return 1
     misspelled = spellChecker.unknown(words)
-    return (len(misspelled) / len(words))
+    return len(misspelled) / len(words)
 
 
 def extract_tables_with_camelot(pdf_path: str) -> List[Dict]:
@@ -157,6 +157,7 @@ def extract_tables_from_pdf(pdf_path: str) -> List[Dict]:
 
     return tables_data
 
+
 def parse_page_ocr(page: fitz.Page) -> str:
     """Extracts text from page using OCR"""
     pix = page.get_pixmap(dpi=300)
@@ -191,9 +192,9 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     except Exception as e:
         print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
         return ""
-    
+
     # If there are too many errors in the file
-    if (check_spelling(text) > MAX_SPELLING_ERROR_RATE):
+    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
         text = []
         try:
             with fitz.open(pdf_path) as doc:
@@ -219,8 +220,8 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
     except Exception as e:
         print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
         return ""
-    
-    if (check_spelling(text) > MAX_SPELLING_ERROR_RATE):
+
+    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
         text = []
         try:
             with fitz.open(stream=data, filetype="pdf") as doc:
