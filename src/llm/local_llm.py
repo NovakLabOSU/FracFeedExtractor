@@ -24,24 +24,12 @@ from pydantic import BaseModel, Field, model_validator
 class PredatorDietMetrics(BaseModel):
     """Structured schema for extracted predator diet survey metrics."""
 
-    species_name: Optional[str] = Field(
-        None, description="Scientific name of the predator species studied"
-    )
-    study_location: Optional[str] = Field(
-        None, description="Geographic location where the study was conducted"
-    )
-    study_date: Optional[str] = Field(
-        None, description="Year or date range when the study was conducted"
-    )
-    num_empty_stomachs: Optional[int] = Field(
-        None, description="Number of predators with empty stomachs"
-    )
-    num_nonempty_stomachs: Optional[int] = Field(
-        None, description="Number of predators with non-empty stomachs"
-    )
-    sample_size: Optional[int] = Field(
-        None, description="Total number of predators surveyed"
-    )
+    species_name: Optional[str] = Field(None, description="Scientific name of the predator species studied")
+    study_location: Optional[str] = Field(None, description="Geographic location where the study was conducted")
+    study_date: Optional[str] = Field(None, description="Year or date range when the study was conducted")
+    num_empty_stomachs: Optional[int] = Field(None, description="Number of predators with empty stomachs")
+    num_nonempty_stomachs: Optional[int] = Field(None, description="Number of predators with non-empty stomachs")
+    sample_size: Optional[int] = Field(None, description="Total number of predators surveyed")
 
     @model_validator(mode="after")
     def validate_stomach_counts(self):
@@ -59,10 +47,7 @@ class PredatorDietMetrics(BaseModel):
             self.sample_size = None
 
         # Fix sample size if it doesn't match the sum
-        if (
-            self.num_empty_stomachs is not None
-            and self.num_nonempty_stomachs is not None
-        ):
+        if self.num_empty_stomachs is not None and self.num_nonempty_stomachs is not None:
             calculated = self.num_empty_stomachs + self.num_nonempty_stomachs
             if self.sample_size is None:
                 self.sample_size = calculated
@@ -71,15 +56,9 @@ class PredatorDietMetrics(BaseModel):
 
         # Check that parts don't exceed the whole
         if self.sample_size is not None:
-            if (
-                self.num_empty_stomachs is not None
-                and self.num_empty_stomachs > self.sample_size
-            ):
+            if self.num_empty_stomachs is not None and self.num_empty_stomachs > self.sample_size:
                 self.num_empty_stomachs = None
-            if (
-                self.num_nonempty_stomachs is not None
-                and self.num_nonempty_stomachs > self.sample_size
-            ):
+            if self.num_nonempty_stomachs is not None and self.num_nonempty_stomachs > self.sample_size:
                 self.num_nonempty_stomachs = None
 
         return self
@@ -134,9 +113,7 @@ Extracted:
 """
 
 
-def extract_metrics_from_text(
-    text: str, model: str = "llama3.1:8b"
-) -> PredatorDietMetrics:
+def extract_metrics_from_text(text: str, model: str = "llama3.1:8b") -> PredatorDietMetrics:
     """Extract structured metrics from text using Ollama with few-shot prompting.
 
     Args:
@@ -202,12 +179,8 @@ def calculate_fraction_feeding(metrics_dict: dict) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Extract predator diet metrics from preprocessed text using LLM"
-    )
-    parser.add_argument(
-        "text_file", type=str, help="Path to the preprocessed text file"
-    )
+    parser = argparse.ArgumentParser(description="Extract predator diet metrics from preprocessed text using LLM")
+    parser.add_argument("text_file", type=str, help="Path to the preprocessed text file")
     parser.add_argument(
         "--model",
         type=str,
