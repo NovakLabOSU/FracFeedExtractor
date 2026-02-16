@@ -20,3 +20,4 @@ opencv-python
 pymupdf_layout
 xgboost
 opencv-python
+pyspellchecker
