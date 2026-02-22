@@ -58,7 +58,7 @@ def test_classify_pdf_missing_model(capsys, tmp_path):
 
     classify_pdf(Path("tests/test.pdf"), model_dir)
 
-    output = capsys.readouterr().out
+    output = capsys.readouterr().err
     assert "[ERROR]" in output
     assert "Missing model" in output
 
@@ -67,10 +67,9 @@ def test_classify_pdf_missing_model(capsys, tmp_path):
 def test_classify_pdf_no_text(mock_extract, model_dir_with_mock_model, capsys):
     classify_pdf(Path("tests/empty.pdf"), model_dir_with_mock_model)
 
-    output = capsys.readouterr().out
+    output = capsys.readouterr().err
     assert "[ERROR]" in output
     assert "No text extracted" in output
-
 
 @patch("src.model.pdf_classifier.extract_text_from_pdf", return_value="diet prey stomach analysis")
 def test_classify_pdf_prediction_output(mock_extract, model_dir_with_mock_model, capsys):
@@ -84,6 +83,6 @@ def test_classify_pdf_prediction_output(mock_extract, model_dir_with_mock_model,
 def test_classify_pdf_handles_nonexistent_dir(tmp_path, capsys):
     classify_pdf(Path("tests/missing.pdf"), tmp_path / "nope")
 
-    output = capsys.readouterr().out
+    output = capsys.readouterr().err
     assert "[ERROR]" in output
     assert "Missing model" in output
