@@ -71,6 +71,7 @@ def test_classify_pdf_no_text(mock_extract, model_dir_with_mock_model, capsys):
     assert "[ERROR]" in output
     assert "No text extracted" in output
 
+
 @patch("src.model.pdf_classifier.extract_text_from_pdf", return_value="diet prey stomach analysis")
 def test_classify_pdf_prediction_output(mock_extract, model_dir_with_mock_model, capsys):
     classify_pdf(Path("tests/valid.pdf"), model_dir_with_mock_model)
