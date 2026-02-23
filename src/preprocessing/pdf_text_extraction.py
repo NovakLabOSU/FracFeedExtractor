@@ -158,7 +158,7 @@ def extract_tables_from_pdf(pdf_path: str) -> List[Dict]:
     return tables_data
 
 
-def parse_page_ocr(page: fitz.Page) -> str:
+def parse_page_ocr(page: fitz.Page, page_num: int) -> str:
     """Extracts text from page using OCR"""
     pix = page.get_pixmap(dpi=300)
     img = Image.open(io.BytesIO(pix.tobytes("png")))
@@ -166,19 +166,15 @@ def parse_page_ocr(page: fitz.Page) -> str:
     img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
     img_array = cv2.fastNlMeansDenoising(img_array, h=10, templateWindowSize=7, searchWindowSize=21)
     page_text = pytesseract.image_to_string(img_array)
-    return page_text
+    return f"[PAGE {page_num}]\n{page_text}"
 
 
-def parse_page_embedded(page: fitz.Page) -> str:
+def parse_page_embedded(page: fitz.Page, page_num: int) -> str:
     """Extracts text embedded in a PDF page"""
-    # Extract text from the page using PyMuPDF
     page_text = page.get_text("text")
-
-    # Clean out null bytes or UTF-16 artifacts
     if "\x00" in page_text:
         page_text = page_text.replace("\x00", "")
-
-    return page_text
+    return f"[PAGE {page_num}]\n{page_text}"
 
 
 def extract_text_from_pdf(pdf_path: str) -> str:
@@ -186,21 +182,18 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     try:
         with fitz.open(pdf_path) as doc:
             for page_num, page in enumerate(doc, start=1):
-                # try to extract embedded text first
-                text.append(parse_page_embedded(page))
+                text.append(parse_page_embedded(page, page_num))  # updated
             text = "\n".join(text)
     except Exception as e:
         print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
         return ""
 
-    # If there are too many errors in the file
     if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
         text = []
         try:
             with fitz.open(pdf_path) as doc:
                 for page_num, page in enumerate(doc, start=1):
-                    # extract page text with OCR
-                    text.append(parse_page_ocr(page))
+                    text.append(parse_page_ocr(page, page_num))  # updated
                 text = "\n".join(text)
         except Exception as e:
             print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
@@ -214,8 +207,7 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
     try:
         with fitz.open(stream=data, filetype="pdf") as doc:
             for page_num, page in enumerate(doc, start=1):
-                # try to extract embedded text first
-                text.append(parse_page_embedded(page))
+                text.append(parse_page_embedded(page, page_num))  # updated
             text = "\n".join(text)
     except Exception as e:
         print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
@@ -226,7 +218,7 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
         try:
             with fitz.open(stream=data, filetype="pdf") as doc:
                 for page_num, page in enumerate(doc, start=1):
-                    text.append(parse_page_ocr(page))
+                    text.append(parse_page_ocr(page, page_num))  # updated
                 text = "\n".join(text)
         except Exception as e:
             print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)

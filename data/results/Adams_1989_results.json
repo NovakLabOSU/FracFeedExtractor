@@ -1,0 +1,17 @@
+{
+  "source_file": "Adams_1989.txt",
+  "metrics": {
+    "species_name": "Gentoo Penguin",
+    "study_location": "Marion Island",
+    "study_date": "1984-1985",
+    "num_empty_stomachs": null,
+    "num_nonempty_stomachs": null,
+    "sample_size": 144,
+    "fraction_feeding": null,
+    "source_pages": [
+      1,
+      2,
+      6
+    ]
+  }
+}
