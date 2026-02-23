@@ -19,9 +19,29 @@ import sys
 import json
 from typing import List, Dict
 import camelot
+import cv2
+import numpy as np
+from spellchecker import SpellChecker
 
 Image.MAX_IMAGE_PIXELS = None
 fitz.TOOLS.mupdf_display_errors(False)
+
+# Maximum allowed ratio of misspelled words to total words in a pdf
+MAX_SPELLING_ERROR_RATE = 0.05
+
+
+def check_spelling(text: str) -> float:
+    """
+    Returns ratio of mispelled words to total words
+
+    Returns 1 if no words detected in input string
+    """
+    spellChecker = SpellChecker()
+    words = spellChecker.split_words(text)
+    if len(words) == 0:
+        return 1
+    misspelled = spellChecker.unknown(words)
+    return len(misspelled) / len(words)
 
 
 def extract_tables_with_camelot(pdf_path: str) -> List[Dict]:
@@ -138,31 +158,47 @@ def extract_tables_from_pdf(pdf_path: str) -> List[Dict]:
     return tables_data
 
 
+def parse_page_ocr(page: fitz.Page, page_num: int) -> str:
+    """Extracts text from page using OCR"""
+    pix = page.get_pixmap(dpi=300)
+    img = Image.open(io.BytesIO(pix.tobytes("png")))
+    img_array = np.array(img)
+    img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
+    img_array = cv2.fastNlMeansDenoising(img_array, h=10, templateWindowSize=7, searchWindowSize=21)
+    page_text = pytesseract.image_to_string(img_array)
+    return f"[PAGE {page_num}]\n{page_text}"
+
+
+def parse_page_embedded(page: fitz.Page, page_num: int) -> str:
+    """Extracts text embedded in a PDF page"""
+    page_text = page.get_text("text")
+    if "\x00" in page_text:
+        page_text = page_text.replace("\x00", "")
+    return f"[PAGE {page_num}]\n{page_text}"
+
+
 def extract_text_from_pdf(pdf_path: str) -> str:
     text = []
     try:
         with fitz.open(pdf_path) as doc:
             for page_num, page in enumerate(doc, start=1):
-                # Extract text from the page using PyMuPDF
-                page_text = page.get_text("text")
-
-                # Clean out null bytes or UTF-16 artifacts
-                if "\x00" in page_text:
-                    page_text = page_text.replace("\x00", "")
-
-                # If the page is mostly empty, treat as image and use OCR
-                if not page_text.strip():
-                    pix = page.get_pixmap(dpi=300)
-                    img = Image.open(io.BytesIO(pix.tobytes("png")))
-                    page_text = pytesseract.image_to_string(img)
-
-                # Add page marker for tracking
-                text.append(f"[PAGE {page_num}]\n{page_text}")
+                text.append(parse_page_embedded(page, page_num))  # updated
+            text = "\n".join(text)
     except Exception as e:
         print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
         return ""
 
-    return "\n".join(text)
+    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+        text = []
+        try:
+            with fitz.open(pdf_path) as doc:
+                for page_num, page in enumerate(doc, start=1):
+                    text.append(parse_page_ocr(page, page_num))  # updated
+                text = "\n".join(text)
+        except Exception as e:
+            print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
+            return ""
+    return text
 
 
 def extract_text_from_pdf_bytes(data: bytes) -> str:
@@ -171,19 +207,23 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
     try:
         with fitz.open(stream=data, filetype="pdf") as doc:
             for page_num, page in enumerate(doc, start=1):
-                page_text = page.get_text("text")
-                if "\x00" in page_text:
-                    page_text = page_text.replace("\x00", "")
-                if not page_text.strip():
-                    pix = page.get_pixmap(dpi=300)
-                    img = Image.open(io.BytesIO(pix.tobytes("png")))
-                    page_text = pytesseract.image_to_string(img)
-                # Add page marker for tracking
-                text.append(f"[PAGE {page_num}]\n{page_text}")
+                text.append(parse_page_embedded(page, page_num))  # updated
+            text = "\n".join(text)
     except Exception as e:
         print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
         return ""
-    return "\n".join(text)
+
+    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+        text = []
+        try:
+            with fitz.open(stream=data, filetype="pdf") as doc:
+                for page_num, page in enumerate(doc, start=1):
+                    text.append(parse_page_ocr(page, page_num))  # updated
+                text = "\n".join(text)
+        except Exception as e:
+            print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
+            return ""
+    return text
 
 
 def save_to_file(text: str, output_path: str):
