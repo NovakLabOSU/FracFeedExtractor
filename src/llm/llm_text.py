@@ -71,6 +71,96 @@ def _section_priority(heading: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Paragraph-level keyword scoring
+# ---------------------------------------------------------------------------
+# Each tuple is (compiled pattern, score weight).  A paragraph’s total score
+# is the sum of weights for every pattern that matches anywhere in it.
+# Higher-scoring paragraphs are packed into the LLM budget first.
+
+_FIELD_PATTERNS: List[Tuple[re.Pattern, int]] = [
+    # sample_size — explicit counts of stomachs / specimens / individuals
+    (re.compile(
+        r"(?i)(\bn\s*=\s*\d+"
+        r"|total\s+of\s+\d+"
+        r"|\d+\s+stomachs?"
+        r"|\d+\s+specimens?"
+        r"|\d+\s+individuals?"
+        r"|\d+\s+birds?"
+        r"|\d+\s+fish"
+        r"|\d+\s+samples?"
+        r"|sample\s+size\s+(of\s+)?\d+"
+        r"|examined\s+\d+"
+        r"|\d+\s+(were|was)\s+(examined|collected|analysed|analyzed|sampled))"
+    ), 4),
+    # num_empty_stomachs — explicit empty-stomach language
+    (re.compile(
+        r"(?i)(empty\s+stomachs?"
+        r"|stomachs?\s+(were\s+)?empty"
+        r"|had\s+empty"
+        r"|without\s+food"
+        r"|without\s+(stomach\s+)?contents?"
+        r"|zero\s+prey"
+        r"|no\s+food\s+(items?|remains?)"
+        r"|vacuous|vacant\s+stomachs?)"
+    ), 5),
+    # num_nonempty_stomachs / fraction_feeding
+    (re.compile(
+        r"(?i)(non.?empty"
+        r"|contained\s+(food|prey|items?)"
+        r"|with\s+food"
+        r"|with\s+(stomach\s+)?contents?"
+        r"|had\s+(food|prey)"
+        r"|feeding\s+rate"
+        r"|proportion\s+(feeding|with\s+food)"
+        r"|percent\s+(feeding|with\s+food)"
+        r"|\d+\s*%\s+of\s+(stomachs?|individuals?|birds?|fish|specimens?))"
+    ), 5),
+    # general percentage / fraction near gut/stomach context
+    (re.compile(
+        r"(?i)(\d+\.?\d*\s*%|\d+\s+percent"
+        r"|\d+\s+of\s+\d+\s+(were|had|contained)"
+        r"|proportion\s+of\s+\d+)"
+    ), 2),
+    # study date — collection period
+    (re.compile(
+        r"(?i)(collected\s+(in|during|between)"
+        r"|sampled\s+(in|during|between)"
+        r"|field\s+season"
+        r"|study\s+period"
+        r"|between\s+\d{4}\s+and\s+\d{4}"
+        r"|\d{4}[\-\u2013]\d{4}"
+        r"|sampling\s+period)"
+    ), 2),
+    # study location
+    (re.compile(
+        r"(?i)(study\s+(area|site|region)"
+        r"|specimens?\s+(were\s+)?(obtained|collected|caught)\s+(from|at|in)"
+        r"|sampling\s+(location|site|area))"
+    ), 2),
+    # any binomial species name (used as a weak relevance signal)
+    (re.compile(r"\b[A-Z][a-z]+\s+[a-z]{3,}\b"), 1),
+]
+
+# Maximum characters reserved for the pinned abstract/preamble.  Any
+# remaining budget is filled by keyword-scored paragraphs.
+_ABSTRACT_CAP: int = 2000
+
+
+def _score_paragraph(para: str) -> int:
+    """Return a keyword-relevance score for a single paragraph of text.
+
+    Paragraphs that mention many extraction targets (stomach counts, empty /
+    non-empty language, sample sizes, dates, locations) score higher and are
+    preferentially included in the LLM prompt.
+    """
+    score = 0
+    for pat, weight in _FIELD_PATTERNS:
+        if pat.search(para):
+            score += weight
+    return score
+
+
+# ---------------------------------------------------------------------------
 # Legacy page-split helpers (kept for source-page resolution in llm_client.py)
 # ---------------------------------------------------------------------------
 
@@ -137,35 +227,42 @@ def classify_page(page_text: str) -> Tuple[bool, int]:
 def extract_key_sections(text: str, max_chars: int) -> str:
     """Return the most informative portion of text within the character budget.
 
-    Strategy:
-    1. Scan the cleaned text for section headings (Abstract, Results, Methods …)
-       regardless of [PAGE N] markers, giving section-level rather than
-       page-level granularity.
-    2. Drop Reference / Acknowledgement / Appendix sections entirely.
-    3. Rank remaining sections by content priority:
-       Abstract > Results > Methods > Tables > Introduction > Discussion > other
-    4. Greedily pack sections in priority order until the budget is spent.
-    5. Re-order selected sections in their original reading order so the LLM
-       receives coherent, in-document-order text.
+    Two-phase strategy
+    ------------------
+    Phase 1 — Abstract pin
+        Always include the preamble (everything before the first section
+        heading), which almost always contains the abstract, title, and key
+        study metadata.  Capped at ``_ABSTRACT_CAP`` characters so it cannot
+        crowd out the data-rich content below.
 
-    Falls back to simple character truncation if no section headings are found
-    (e.g. very short files or files with no structural markers).
+    Phase 2 — Keyword-scored paragraph mining
+        Split all remaining non-dropped section text into blank-line-separated
+        paragraphs.  Score each paragraph by how many extraction-relevant
+        keywords it contains (sample counts, empty/non-empty stomach language,
+        percentages, dates, locations, species names).  Pack the
+        highest-scoring paragraphs first until the remaining budget is full.
+        Re-order selected paragraphs to their original document position so
+        the LLM receives coherent, in-order text.
+
+    This approach guarantees that sentences like
+        “A total of 144 stomach samples… 58% contained food”
+    are always included regardless of which named section they fall in.
 
     Args:
         text: Cleaned text of the document (may contain [PAGE N] markers).
         max_chars: Maximum character budget for the output.
 
     Returns:
-        Extracted text containing the most relevant sections within the budget.
-        If the full text fits within max_chars, it is returned as-is.
+        Extracted text fitting within *max_chars*.
+        If the full text already fits, it is returned unchanged.
     """
     if len(text) <= max_chars:
         return text
 
     lines = text.split("\n")
 
-    # ── Build section list ─────────────────────────────────────────────────
-    # Each entry: (original_line_index, heading_str, content_str)
+    # ── Phase 1: Split document into named sections ────────────────────────
+    # Each entry: (start_line_idx, heading, content)
     sections: List[Tuple[int, str, str]] = []
     current_heading: str = "[PREAMBLE]"
     current_start: int = 0
@@ -174,60 +271,86 @@ def extract_key_sections(text: str, max_chars: int) -> str:
     for i, line in enumerate(lines):
         stripped = line.strip()
         is_drop = bool(_DROP_SECTION_RE.match(stripped)) if stripped else False
-        is_known = any(pat.match(stripped) for pat, _ in _SECTION_PRIORITIES) if stripped else False
-
+        is_known = (
+            any(pat.match(stripped) for pat, _ in _SECTION_PRIORITIES)
+            if stripped else False
+        )
         if is_drop or is_known:
-            # Flush the in-progress section
             sections.append((current_start, current_heading, "\n".join(current_lines)))
             current_heading = stripped
             current_start = i
             current_lines = []
         else:
             current_lines.append(line)
-
-    # Flush the final section
     sections.append((current_start, current_heading, "\n".join(current_lines)))
 
-    # Fall back to simple truncation when no headings were detected
-    meaningful = [s for s in sections if s[1] != "[PREAMBLE]"]
-    if not meaningful:
-        return text[:max_chars]
-
-    # ── Score and filter ───────────────────────────────────────────────────
-    scored: List[Tuple[int, int, str, str]] = []  # (priority, orig_idx, heading, content)
-    for orig_idx, (start, heading, content) in enumerate(sections):
+    # ── Phase 1 result: pin the abstract/preamble ──────────────────────────
+    preamble_text = ""
+    body_sections: List[Tuple[int, str, str]] = []  # (start, heading, content)
+    for start, heading, content in sections:
         if _DROP_SECTION_RE.match(heading.strip()) if heading.strip() else False:
-            continue  # hard-drop references, acknowledgements, appendix, …
+            continue  # hard-drop references / acknowledgements / appendix
         if heading == "[PREAMBLE]":
-            # The preamble (everything before the first section heading)
-            # almost always contains the abstract.  Treat it as priority 0
-            # so it is packed first, ahead of all other sections.
-            priority = 0
+            preamble_text = content.strip()[:_ABSTRACT_CAP]
         else:
-            priority = _section_priority(heading)
-        scored.append((priority, orig_idx, heading, content))
+            body_sections.append((start, heading, content))
 
-    # Sort by priority: most important sections first
-    scored.sort(key=lambda t: t[0])
+    budget = max_chars - len(preamble_text)
 
-    # ── Greedily fill budget ───────────────────────────────────────────────
-    selected: List[Tuple[int, str]] = []  # (orig_idx, chunk)
-    budget = max_chars
-    for _pri, orig_idx, heading, content in scored:
-        chunk = (f"{heading}\n{content}").strip() if heading != "[PREAMBLE]" else content.strip()
-        if not chunk:
+    # ── Phase 2: keyword-scored paragraph mining ───────────────────────────
+    # Collect every paragraph from ALL body sections (blank-line separated).
+    # Each paragraph remembers its position so we can restore reading order.
+    # (start_line, paragraph_text, keyword_score)
+    raw_paragraphs: List[Tuple[int, str, int]] = []
+
+    for sec_start, heading, content in body_sections:
+        # Prepend the section heading so the LLM sees which section it’s in.
+        block = (f"{heading}\n{content}").strip() if heading else content.strip()
+        if not block:
             continue
-        if len(chunk) <= budget:
-            selected.append((orig_idx, chunk))
-            budget -= len(chunk)
-        elif budget > 200:
-            selected.append((orig_idx, chunk[:budget]))
-            budget = 0
-            break
+        # Split on blank lines into paragraphs
+        para_lines: List[str] = []
+        para_start = sec_start
+        for j, ln in enumerate(block.split("\n")):
+            if ln.strip():
+                para_lines.append(ln)
+            else:
+                if para_lines:
+                    para_text = "\n".join(para_lines).strip()
+                    raw_paragraphs.append(
+                        (sec_start + j, para_text, _score_paragraph(para_text))
+                    )
+                    para_lines = []
+                    para_start = sec_start + j + 1
+        if para_lines:
+            para_text = "\n".join(para_lines).strip()
+            raw_paragraphs.append(
+                (sec_start + len(block.split("\n")), para_text, _score_paragraph(para_text))
+            )
 
-    # Re-sort by original index so the LLM reads content in document order
-    selected.sort(key=lambda t: t[0])
-    return "\n\n".join(chunk for _, chunk in selected)
+    # Sort by score descending; use original position as tiebreaker (earlier first)
+    raw_paragraphs.sort(key=lambda t: (-t[2], t[0]))
+
+    # Greedily fill budget with highest-scoring paragraphs
+    selected_paras: List[Tuple[int, str]] = []  # (orig_pos, text)
+    for pos, para_text, score in raw_paragraphs:
+        if budget <= 0:
+            break
+        if len(para_text) <= budget:
+            selected_paras.append((pos, para_text))
+            budget -= len(para_text)
+        elif budget > 200:
+            selected_paras.append((pos, para_text[:budget]))
+            budget = 0
+
+    # Re-sort to original document order so the LLM reads coherent text
+    selected_paras.sort(key=lambda t: t[0])
+
+    parts: List[str] = []
+    if preamble_text:
+        parts.append(preamble_text)
+    parts.extend(p for _, p in selected_paras)
+    return "\n\n".join(parts)
 
 
 def load_document(file_path: Path) -> str:
