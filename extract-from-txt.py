@@ -32,6 +32,7 @@ Usage::
         --num-ctx    4096
 
 Output:
+    - data/cleaned-text/<stem>_<YYYYMMDD_HHMMSS>.txt  trimmed text passed to Ollama
     - data/results/metrics/<stem>_results.json  per file
     - data/results/summaries/txt_pipeline_summary_<timestamp>.csv  overall
 """
@@ -85,6 +86,8 @@ def run_txt_pipeline(
 
     print(f"[INFO] Found {len(txt_paths)} .txt file(s) to process", file=sys.stderr)
     output_dir.mkdir(parents=True, exist_ok=True)
+    cleaned_text_dir = output_dir.parent / "cleaned-text"
+    cleaned_text_dir.mkdir(parents=True, exist_ok=True)
     summary_rows = []
 
     for idx, txt_path in enumerate(txt_paths, start=1):
@@ -147,7 +150,16 @@ def run_txt_pipeline(
 
         row["trimmed_chars"] = len(trimmed)
 
-        # ── Step 4: LLM extraction ──────────────────────────────────────────
+        # ── Step 4: Save cleaned text snapshot ─────────────────────────────
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        cleaned_path = cleaned_text_dir / f"{txt_path.stem}_{ts}.txt"
+        try:
+            cleaned_path.write_text(trimmed, encoding="utf-8")
+            print(f"  [INFO] Cleaned text : {cleaned_path.name}", file=sys.stderr)
+        except Exception as exc:
+            print(f"  [WARN] Could not save cleaned text: {exc}", file=sys.stderr)
+
+        # ── Step 5: LLM extraction ──────────────────────────────────────────
         print(f"  [INFO] Calling Ollama ({llm_model})…", file=sys.stderr)
         try:
             metrics = extract_metrics_from_text(
@@ -161,7 +173,7 @@ def run_txt_pipeline(
             summary_rows.append(row)
             continue
 
-        # ── Step 5: Save JSON ───────────────────────────────────────────────
+        # ── Step 6: Save JSON ───────────────────────────────────────────────
         try:
             result = save_extraction_result(
                 metrics=metrics,
