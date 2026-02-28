@@ -123,9 +123,37 @@ _LINE_DROP_PATTERNS: List[re.Pattern] = [
                r"universidad|universit[éy]|université|universidade|"
                r"university\s+of|college\s+of)"),
 
-    # Running page headers / footers: short all-caps lines
+    # Running page headers / footers: short all-caps lines that are NOT
+    # known section headings (those are whitelisted in _drop_line below).
     re.compile(r"^[A-Z\s\d\.\-–—:,]{5,60}$"),
 ]
+
+# ---------------------------------------------------------------------------
+# Section-header whitelist
+# Lines matching this pattern are structural anchors the LLM needs; they must
+# never be removed even if they look like all-caps noise.
+# ---------------------------------------------------------------------------
+_SECTION_HEADER_WHITELIST: re.Pattern = re.compile(
+    r"(?i)^\s*"
+    # optional section number prefix  e.g. "1.", "2.1.", "3.2.1 "
+    r"(?:\d{1,2}(?:\.\d{1,2})*\.?\s+)?"
+    r"("
+    r"abstract"
+    r"|summary"
+    r"|introduction"
+    r"|background"
+    r"|methods?"
+    r"|materials?\s*(?:and|&)\s*methods?"
+    r"|methodology"
+    r"|study\s*(?:area|site|design|region|period)"
+    r"|results?"
+    r"|findings?"
+    r"|discussion"
+    r"|conclusions?"
+    r"|summary\s+and\s+discussion"
+    r"|acknowledge?ments?"
+    r")\s*[:\.\-]?\s*$"
+)
 
 # ---------------------------------------------------------------------------
 # Whitespace normalisation
@@ -185,6 +213,10 @@ def _drop_line(line: str) -> bool:
     stripped = line.strip()
     if not stripped:
         return False  # preserve blank lines for now; collapsed later
+    # Never drop structural section headings — the LLM and section-ranker
+    # both depend on them to orient in the document.
+    if _SECTION_HEADER_WHITELIST.match(stripped):
+        return False
     for pat in _LINE_DROP_PATTERNS:
         if pat.search(stripped):
             return True
