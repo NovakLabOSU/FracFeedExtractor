@@ -1,0 +1,18 @@
+{
+  "source_file": "Adams_1989.txt",
+  "file_type": ".txt",
+  "metrics": {
+    "species_name": "Pygoscelis papua",
+    "study_location": "Marion Island, sub-Antarctic",
+    "study_date": "1984-1985",
+    "num_empty_stomachs": null,
+    "num_nonempty_stomachs": 144,
+    "sample_size": 144,
+    "fraction_feeding": 1.0,
+    "source_pages": [
+      1,
+      2,
+      6
+    ]
+  }
+}
