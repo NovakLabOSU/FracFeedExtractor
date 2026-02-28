@@ -54,6 +54,17 @@ _SECTION_DROP_HEADERS: re.Pattern = re.compile(
     r")\s*[:\.]?\s*$"
 )
 
+# Structured-header block patterns common in two-column journal PDFs.
+# When a line matches, subsequent short lines (< 60 chars) that look like
+# keyword / metadata values are dropped until a long content line resumes.
+# NOTE: requires actual whitespace between letters to avoid matching "Abstract".
+_STRUCTURED_HEADER_START: re.Pattern = re.compile(
+    r"(?i)^\s*("
+    r"a\s+b\s+s\s+t\s+r\s+a\s+c\s+t"               # spaced "A B S T R A C T"
+    r"|a\s+r\s+t\s+i\s+c\s+l\s+e\s+i\s+n\s+f\s+o"  # spaced "A R T I C L E  I N F O"
+    r")\s*$"
+)
+
 # ---------------------------------------------------------------------------
 # Line-level drop patterns
 # Lines that individually match one of these are removed regardless of where
@@ -67,8 +78,8 @@ _LINE_DROP_PATTERNS: List[re.Pattern] = [
     re.compile(r"^\s*\[\d+\]\s+[A-Z]"),
     re.compile(r"^\s*\d{1,3}[.)]\s{1,4}[A-Z][a-z]"),
 
-    # DOI and bare URLs
-    re.compile(r"(?i)(https?://|doi\.org/|www\.)\S+"),
+    # DOI and bare URLs (doi.org/, bare doi:, https://, www.)
+    re.compile(r"(?i)(https?://|doi\.org/|\bdoi:\s*10\.|www\.)\S*"),
 
     # Email addresses
     re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"),
@@ -83,11 +94,20 @@ _LINE_DROP_PATTERNS: List[re.Pattern] = [
                r"|journal\s+of|proceedings\s+of)"),
 
     # Received / accepted / revised / available-online timestamps
+    # Match with or without trailing colon/semicolon
     re.compile(r"(?i)^\s*(received|accepted|revised|available\s+online|"
-               r"published\s+online|handling\s+editor)\s*[:;]"),
+               r"published\s+online|handling\s+editor)"
+               r"(\s*[:;]|\s+\d|\s+in)"),
 
-    # Keywords line
+    # Article history block header
+    re.compile(r"(?i)^\s*article\s+history\s*[:\.]?\s*$"),
+
+    # Keywords header line AND single-word keyword-style lines that follow it
     re.compile(r"(?i)^\s*key\s*-?\s*words?\s*[:\-]"),
+
+    # Journal / publisher metadata lines
+    re.compile(r"(?i)^\s*(contents?\s+lists?\s+available|journal\s+homepage|"
+               r"elsevier\.com|sciencedirect\.com|springer\.|wiley\.com)"),
 
     # Figure / table / plate captions
     re.compile(r"(?i)^\s*(fig(ure)?\.?\s*\d|table\s*\d|plate\s*\d|"
@@ -95,7 +115,9 @@ _LINE_DROP_PATTERNS: List[re.Pattern] = [
                r"[\s.\-–—:]"),
 
     # Author affiliation lines (institution / department / lab names)
-    re.compile(r"(?i)^\s*(department\s+of|faculty\s+of|institute\s+(of|for)|"
+    # Allow for leading special characters (e.g. ⁎, *, †)
+    re.compile(r"(?i)^[\s\*⁎†‡#]*"
+               r"(department\s+of|faculty\s+of|institute\s+(of|for)|"
                r"division\s+of|school\s+of|laboratory\s+of|lab\s+of|"
                r"centre?\s+(for|of)|program(me)?\s+(in|of)|"
                r"universidad|universit[éy]|université|universidade|"
@@ -110,6 +132,52 @@ _LINE_DROP_PATTERNS: List[re.Pattern] = [
 # ---------------------------------------------------------------------------
 _MULTI_BLANK = re.compile(r"\n{3,}")
 _TRAILING_SPACES = re.compile(r"[ \t]+\n")
+# Line ending with a soft hyphen or mid-word break (next line starts lowercase
+# or with punctuation that continues the word).
+_SOFT_HYPHEN_END = re.compile(r"-$")
+_CONTINUATION_LINE = re.compile(r"^[a-z,\.\)\];:!\?]")
+
+
+def _rejoin_broken_lines(text: str) -> str:
+    """Rejoin lines that were broken mid-sentence or mid-word by column wrapping.
+
+    Two cases are handled:
+    1. Hard hyphenation: line ends with ``-`` and next line starts with a
+       lowercase letter → join without any space (remove the hyphen).
+    2. Soft wrap: line ends without sentence-terminating punctuation and next
+       line starts with lowercase → join with a single space.
+
+    ``[PAGE N]`` marker lines are never joined.
+    """
+    lines = text.split("\n")
+    out: List[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # Never merge PAGE markers
+        if re.match(r"\[PAGE\s+\d+\]", line.strip()):
+            out.append(line)
+            i += 1
+            continue
+
+        rstripped = line.rstrip()
+        if i + 1 < len(lines):
+            next_line = lines[i + 1].lstrip()
+            next_is_page = re.match(r"\[PAGE\s+\d+\]", next_line)
+            if not next_is_page and next_line and _CONTINUATION_LINE.match(next_line):
+                # Hard hyphen: remove hyphen and join directly
+                if _SOFT_HYPHEN_END.search(rstripped):
+                    out.append(rstripped[:-1] + next_line)
+                    i += 2
+                    continue
+                # Soft wrap: line doesn't end with sentence-ending punctuation
+                if rstripped and rstripped[-1] not in ".!?:;)]":
+                    out.append(rstripped + " " + next_line)
+                    i += 2
+                    continue
+        out.append(line)
+        i += 1
+    return "\n".join(out)
 
 
 def _drop_line(line: str) -> bool:
@@ -175,6 +243,25 @@ def clean_text(text: str) -> str:
 
     after_section_pass = "".join(cleaned_parts)
 
+    # ── Pass 1b: strip structured-header blocks (spaced-letter headers +
+    # short keyword/metadata lines that follow them in two-column PDFs) ──────
+    structured_lines: List[str] = []
+    in_structured_block = False
+    for line in after_section_pass.split("\n"):
+        stripped = line.strip()
+        if _STRUCTURED_HEADER_START.match(stripped):
+            in_structured_block = True
+            continue  # drop the header itself
+        if in_structured_block:
+            # Exit block once a long line (real content) appears
+            if len(stripped) > 60:
+                in_structured_block = False
+                structured_lines.append(line)
+            # Drop short keyword/metadata values
+            continue
+        structured_lines.append(line)
+    after_section_pass = "\n".join(structured_lines)
+
     # ── Pass 2: line-level drop ──────────────────────────────────────────
     output_lines: List[str] = []
     for line in after_section_pass.split("\n"):
@@ -186,6 +273,7 @@ def clean_text(text: str) -> str:
 
     # ── Normalise whitespace ────────────────────────────────────────────────
     after_line_pass = _TRAILING_SPACES.sub("\n", after_line_pass)
+    after_line_pass = _rejoin_broken_lines(after_line_pass)
     after_line_pass = _MULTI_BLANK.sub("\n\n", after_line_pass)
     return after_line_pass.strip()
 
