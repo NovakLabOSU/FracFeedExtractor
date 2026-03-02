@@ -35,14 +35,20 @@ from src.llm.llm_text import extract_key_sections, load_document
 def extract_metrics_from_text(
     text: str,
     model: str = "llama3.1:8b",
-    num_ctx: int = 4096,
+    num_ctx: int = 8192,
+    _retry: bool = False,
 ) -> PredatorDietMetrics:
     """Extract structured metrics from text using Ollama.
+
+    On the first call, if ``species_name`` or ``sample_size`` come back null
+    the function automatically retries once with a focused follow-up prompt
+    that asks the model to look more carefully.
 
     Args:
         text: Preprocessed text content from a scientific publication.
         model: Name of the Ollama model to use.
         num_ctx: Context window size to request from Ollama (lower = less memory).
+        _retry: Internal flag — True when this is the automatic retry attempt.
 
     Returns:
         PredatorDietMetrics object with extracted data.
@@ -78,6 +84,7 @@ RULES
 - Ignore page markers [PAGE N].
 - Prioritize Abstract, Methods, and Results sections.
 - Be especially careful to distinguish collection dates from publication dates.
+- For each non-null field, also look for a short verbatim phrase (5-15 words) from the text that supports your answer. This helps verify accuracy.
 
 EXAMPLES
 
@@ -103,9 +110,62 @@ TEXT
         messages=[{"role": "user", "content": prompt}],
         model=model,
         format=PredatorDietMetrics.model_json_schema(),
+        options={"num_ctx": num_ctx},
     )
 
     metrics = PredatorDietMetrics.model_validate_json(response.message.content)
+
+    # ── Retry once if critical fields are null ──────────────────────────────
+    if not _retry and (metrics.species_name is None or metrics.sample_size is None):
+        missing = []
+        if metrics.species_name is None:
+            missing.append("species_name")
+        if metrics.sample_size is None:
+            missing.append("sample_size")
+        print(
+            f"  [INFO] Retry: {', '.join(missing)} came back null — re-prompting",
+            file=sys.stderr,
+        )
+        retry_prompt = (
+            "The following fields were returned as null but are very likely present "
+            "in the text. Please re-read the text carefully — especially the Abstract, "
+            "Methods, and Results sections — and try again.\n\n"
+            f"Missing fields: {', '.join(missing)}\n\n"
+            "Hints:\n"
+        )
+        if "species_name" in missing:
+            retry_prompt += (
+                "- species_name: Look for the first binomial Latin name (Genus species) "
+                "mentioned in the title or abstract. This is the PREDATOR, not its prey.\n"
+            )
+        if "sample_size" in missing:
+            retry_prompt += (
+                "- sample_size: Look for phrases like 'N stomachs', 'N specimens', "
+                "'a total of N', 'n=N', 'N individuals were examined'. Check Results "
+                "and Methods sections.\n"
+            )
+        retry_prompt += f"\nTEXT\n{text}"
+
+        retry_response = chat(
+            messages=[{"role": "user", "content": retry_prompt}],
+            model=model,
+            format=PredatorDietMetrics.model_json_schema(),
+            options={"num_ctx": num_ctx},
+        )
+        retry_metrics = PredatorDietMetrics.model_validate_json(
+            retry_response.message.content
+        )
+
+        # Merge: prefer retry values for fields that were null, keep originals otherwise
+        merged = metrics.model_dump()
+        retry_dict = retry_metrics.model_dump()
+        for field in ["species_name", "study_location", "study_date",
+                       "num_empty_stomachs", "num_nonempty_stomachs", "sample_size"]:
+            if merged.get(field) is None and retry_dict.get(field) is not None:
+                merged[field] = retry_dict[field]
+
+        metrics = PredatorDietMetrics.model_validate(merged)
+
     return metrics
 
 
@@ -172,7 +232,7 @@ def main():
     parser.add_argument("--model", type=str, default="llama3.1:8b", help="Ollama model to use (default: llama3.1:8b)")
     parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory for JSON results (default: data/results/metrics)")
     parser.add_argument("--max-chars", type=int, default=12000, help="Maximum characters of text to send to the model (default: 12000). Reduce if you hit CUDA/OOM errors.")
-    parser.add_argument("--num-ctx", type=int, default=4096, help="Context window size for the model (default: 4096). Lower values use less memory.")
+    parser.add_argument("--num-ctx", type=int, default=8192, help="Context window size for the model (default: 8192). Lower values use less memory.")
 
     args = parser.parse_args()
 
