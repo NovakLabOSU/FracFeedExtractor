@@ -34,15 +34,16 @@ from src.llm.llm_text import extract_key_sections, load_document
 
 def extract_metrics_from_text(
     text: str,
-    model: str = "llama3.1:8b",
+    # model: str = "llama3.1:8b",
+    model: str = "qwen2.5:7b",
     num_ctx: int = 8192,
     _retry: bool = False,
 ) -> PredatorDietMetrics:
     """Extract structured metrics from text using Ollama.
 
-    On the first call, if ``species_name`` or ``sample_size`` come back null
-    the function automatically retries once with a focused follow-up prompt
-    that asks the model to look more carefully.
+    On the first call, if any fields come back null the function automatically
+    retries once with a focused follow-up prompt that gives method-specific
+    hints for finding the missing data.
 
     Args:
         text: Preprocessed text content from a scientific publication.
@@ -53,7 +54,7 @@ def extract_metrics_from_text(
     Returns:
         PredatorDietMetrics object with extracted data.
     """
-    prompt = f"""You are a scientific data extraction assistant. Your task is to read a predator diet survey publication and return a single flat JSON object with exactly these fields:
+    prompt = f"""You are a scientific data extraction assistant. Your task is to read a predator diet study and return a single flat JSON object with exactly these fields:
 
   species_name          - string or null
   study_location        - string or null
@@ -62,46 +63,66 @@ def extract_metrics_from_text(
   num_nonempty_stomachs - integer (>= 0) or null
   sample_size           - integer (> 0) or null
 
-Use null for any field whose value cannot be confidently determined from the text.
+Use null ONLY when the value truly cannot be determined from any part of the text.
 
 FIELD DEFINITIONS
 
-species_name: Binomial Latin name (Genus species) of the PRIMARY PREDATOR whose diet is studied. This is the animal whose stomachs/guts were examined, not its prey. Return exactly one species. If multiple predators are studied, choose the one with the most stomach samples. Capitalize the genus, lowercase the specific epithet (e.g., "Pygoscelis papua").
+species_name: Binomial Latin name (Genus species) of the PRIMARY PREDATOR whose diet is studied. This is the animal being studied, not its prey. Return exactly one species. If multiple predators appear, choose the one with the most samples. Capitalize genus, lowercase epithet (e.g., "Pygoscelis papua").
 
-study_location: Geographic area where predator specimens were collected. Include site, region, and country if available (e.g., "Marion Island, sub-Antarctic"). Check Methods, Study Area, or Study Site sections.
+study_location: Geographic area where specimens were collected. Include site, region, and country if available (e.g., "Marion Island, sub-Antarctic"). Check Methods, Study Area, Study Site, and Abstract.
 
-study_date: Year or year-range of specimen collection, NOT publication year. Format "YYYY" or "YYYY-YYYY". Look for phrases like "specimens collected in", "sampling period", "field season", "between [year] and [year]". Return null if only publication year is visible.
+study_date: Year or year-range of specimen collection, NOT publication year. Format "YYYY" or "YYYY-YYYY".
+  Where to look:
+  - "specimens collected in", "sampling period", "field season", "between [year] and [year]"
+  - "from March 1984 to March 1985" → "1984-1985"
+  - "Received 23 November 2007" in article info suggests collection was ~2005-2007
+  - If the only dates are "Received" or "Accepted" submission dates and no collection dates are stated, estimate the collection period as 1-2 years before submission.
 
-num_empty_stomachs: Number of predators with stomachs containing no food. Synonyms: "empty", "vacant", "without food", "zero prey items", "stomachs with no contents", "N individuals had empty stomachs".
+num_empty_stomachs: Number of predators with NO food in their digestive tract. Apply broadly across study methods:
+  - Stomach dissection: "empty", "vacant", "without food", "zero prey items"
+  - Stomach pumping / lavage: "yielded no food", "no contents obtained", "produced no material"
+  - Scat / fecal analysis: "scats with no identifiable prey", "empty scats"
+  - Regurgitation: "failed to regurgitate", "no pellet produced"
+  - Immunoassay / molecular: "tested negative for all prey", "no prey detected"
+  If the study uses stomach pumping and ALL samples contained food, set this to 0.
 
-num_nonempty_stomachs: Number of predators with stomachs containing food. Synonyms: "non-empty", "with food", "containing prey", "with contents", "fed", "N contained food", "N had prey items".
+num_nonempty_stomachs: Number of predators with food in their digestive tract. Same method mapping as above:
+  - "non-empty", "with food", "containing prey", "with contents", "fed"
+  - Stomach pumping: "food samples collected", "samples containing prey"
+  - Scat: "scats with identifiable prey remains"
+  - Immunoassay: "tested positive for prey", "positive reactions"
+  If study says "a total of N food samples was collected" and implies ALL had food, set num_nonempty_stomachs = N.
 
-sample_size: Total number of predator individuals examined. When both num_empty_stomachs and num_nonempty_stomachs are available, sample_size equals their sum. Look for phrases like "N stomachs were examined", "a total of N individuals", "N specimens", "n=", "sample size of N".
+sample_size: Total number of predator individuals examined. Equals num_empty + num_nonempty when both are known.
+  - "N stomachs examined", "N individuals", "N specimens", "n=N", "a total of N"
+  - "N food samples" when all sampled animals contributed one sample
+  - "two groups of 225" → sample_size = 450
+  - Check Abstract, Methods, and Results.
 
 RULES
-- Do not invent data; use null if ambiguous or missing.
+- Do not invent data; use null only if truly ambiguous or missing.
 - Return a single JSON object; do not return arrays.
 - Ignore page markers [PAGE N].
 - Prioritize Abstract, Methods, and Results sections.
-- Be especially careful to distinguish collection dates from publication dates.
-- For each non-null field, also look for a short verbatim phrase (5-15 words) from the text that supports your answer. This helps verify accuracy.
+- Carefully distinguish collection dates from publication/submission dates.
+- If ALL samples had food (e.g., stomach pumping where every sample yielded prey), set num_empty_stomachs = 0 and num_nonempty_stomachs = sample_size.
 
 EXAMPLES
 
-1. Simple complete case:
-{{"species_name": "Pygoscelis papua", "study_location": "Marion Island, sub-Antarctic", "study_date": "1984-1985", "num_empty_stomachs": 5, "num_nonempty_stomachs": 15, "sample_size": 20}}
+1. Traditional stomach dissection:
+{{"species_name": "Canis lupus", "study_location": "Yellowstone National Park, Wyoming, USA", "study_date": "2019", "num_empty_stomachs": 5, "num_nonempty_stomachs": 47, "sample_size": 52}}
 
-2. Missing empty stomach data (can infer from sample_size):
-{{"species_name": "Canis lupus", "study_location": "Yellowstone National Park, Wyoming, USA", "study_date": "2019", "num_empty_stomachs": null, "num_nonempty_stomachs": 47, "sample_size": 52}}
+2. Stomach pumping (all samples had food):
+{{"species_name": "Pygoscelis papua", "study_location": "Marion Island, sub-Antarctic", "study_date": "1984-1985", "num_empty_stomachs": 0, "num_nonempty_stomachs": 144, "sample_size": 144}}
 
-3. Multi-year study:
+3. Immunoassay / molecular detection:
+{{"species_name": "Nucella lapillus", "study_location": "Swans Island, Maine, USA", "study_date": "2005-2007", "num_empty_stomachs": null, "num_nonempty_stomachs": null, "sample_size": 450}}
+
+4. Scat / fecal analysis:
 {{"species_name": "Vulpes vulpes", "study_location": "Bristol, UK", "study_date": "2015-2018", "num_empty_stomachs": 12, "num_nonempty_stomachs": 88, "sample_size": 100}}
 
-4. Minimal data available:
+5. Minimal data:
 {{"species_name": "Ursus arctos", "study_location": null, "study_date": "2020", "num_empty_stomachs": null, "num_nonempty_stomachs": null, "sample_size": 23}}
-
-5. Only some fields extractable:
-{{"species_name": "Zalophus californianus", "study_location": "California coast", "study_date": null, "num_empty_stomachs": 8, "num_nonempty_stomachs": 34, "sample_size": 42}}
 
 TEXT
 {text}
@@ -115,35 +136,62 @@ TEXT
 
     metrics = PredatorDietMetrics.model_validate_json(response.message.content)
 
-    # ── Retry once if critical fields are null ──────────────────────────────
-    if not _retry and (metrics.species_name is None or metrics.sample_size is None):
-        missing = []
-        if metrics.species_name is None:
-            missing.append("species_name")
-        if metrics.sample_size is None:
-            missing.append("sample_size")
+    # ── Retry once if any extractable fields are null ───────────────────────
+    _retryable = [
+        "species_name", "study_location", "study_date",
+        "num_empty_stomachs", "num_nonempty_stomachs", "sample_size",
+    ]
+    missing = [f for f in _retryable if getattr(metrics, f) is None]
+
+    if not _retry and missing:
         print(
             f"  [INFO] Retry: {', '.join(missing)} came back null — re-prompting",
             file=sys.stderr,
         )
+
+        # Build targeted hints for each missing field
+        _hints = {
+            "species_name": (
+                "- species_name: Look for the first binomial Latin name (Genus species) "
+                "in the title or abstract. This is the PREDATOR, not its prey.\n"
+            ),
+            "study_location": (
+                "- study_location: Check Methods or Study Area sections for place names, "
+                "islands, countries, or coordinates.\n"
+            ),
+            "study_date": (
+                "- study_date: Look for phrases like 'collected in', 'sampled during', "
+                "'field season', 'from [month] [year] to [month] [year]'. "
+                "If no collection date is explicit, infer from 'Received [date]' — "
+                "collection is typically 1-2 years before manuscript submission.\n"
+            ),
+            "num_empty_stomachs": (
+                "- num_empty_stomachs: Look for 'empty', 'no food', 'no contents', "
+                "'negative for prey'. If ALL samples had food (e.g., stomach pumping "
+                "where every sample produced material), return 0.\n"
+            ),
+            "num_nonempty_stomachs": (
+                "- num_nonempty_stomachs: Look for 'contained food', 'with prey', "
+                "'non-empty', 'food samples collected'. If ALL samples had food, "
+                "this equals sample_size.\n"
+            ),
+            "sample_size": (
+                "- sample_size: Look for 'N stomachs', 'N specimens', 'a total of N', "
+                "'n=N', 'N individuals examined', 'two groups of N'. Check Abstract, "
+                "Methods, and Results.\n"
+            ),
+        }
+
         retry_prompt = (
-            "The following fields were returned as null but are very likely present "
-            "in the text. Please re-read the text carefully — especially the Abstract, "
-            "Methods, and Results sections — and try again.\n\n"
+            "The following fields were returned as null. Please re-read the text "
+            "carefully — especially the Abstract, Methods, and Results sections — "
+            "and try harder to find values for them. Think about different study "
+            "methods (stomach pumping, scat analysis, immunoassays, etc.).\n\n"
             f"Missing fields: {', '.join(missing)}\n\n"
             "Hints:\n"
         )
-        if "species_name" in missing:
-            retry_prompt += (
-                "- species_name: Look for the first binomial Latin name (Genus species) "
-                "mentioned in the title or abstract. This is the PREDATOR, not its prey.\n"
-            )
-        if "sample_size" in missing:
-            retry_prompt += (
-                "- sample_size: Look for phrases like 'N stomachs', 'N specimens', "
-                "'a total of N', 'n=N', 'N individuals were examined'. Check Results "
-                "and Methods sections.\n"
-            )
+        for field in missing:
+            retry_prompt += _hints.get(field, "")
         retry_prompt += f"\nTEXT\n{text}"
 
         retry_response = chat(
@@ -159,8 +207,7 @@ TEXT
         # Merge: prefer retry values for fields that were null, keep originals otherwise
         merged = metrics.model_dump()
         retry_dict = retry_metrics.model_dump()
-        for field in ["species_name", "study_location", "study_date",
-                       "num_empty_stomachs", "num_nonempty_stomachs", "sample_size"]:
+        for field in _retryable:
             if merged.get(field) is None and retry_dict.get(field) is not None:
                 merged[field] = retry_dict[field]
 
@@ -229,7 +276,8 @@ def save_extraction_result(
 def main():
     parser = argparse.ArgumentParser(description="Extract predator diet metrics from PDFs or text files using LLM")
     parser.add_argument("input_file", type=str, help="Path to the input file (.pdf or .txt)")
-    parser.add_argument("--model", type=str, default="llama3.1:8b", help="Ollama model to use (default: llama3.1:8b)")
+    # parser.add_argument("--model", type=str, default="llama3.1:8b", help="Ollama model to use (default: llama3.1:8b)")
+    parser.add_argument("--model", type=str, default="qwen2.5:7b", help="Ollama model to use (default: qwen2.5:7b)")
     parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory for JSON results (default: data/results/metrics)")
     parser.add_argument("--max-chars", type=int, default=12000, help="Maximum characters of text to send to the model (default: 12000). Reduce if you hit CUDA/OOM errors.")
     parser.add_argument("--num-ctx", type=int, default=8192, help="Context window size for the model (default: 8192). Lower values use less memory.")
