@@ -177,7 +177,7 @@ def parse_page_embedded(page: fitz.Page, page_num: int) -> str:
     return f"[PAGE {page_num}]\n{page_text}"
 
 
-def extract_text_from_pdf(pdf_path: str) -> str:
+def extract_text_from_pdf(pdf_path: str, do_ocr: bool = True) -> str:
     text = []
     try:
         with fitz.open(pdf_path) as doc:
@@ -188,7 +188,8 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
         return ""
 
-    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+    if check_spelling(text) > MAX_SPELLING_ERROR_RATE and do_ocr:
+        print(f"  Errors detected in extraction, retrying with OCR")
         text = []
         try:
             with fitz.open(pdf_path) as doc:
@@ -201,7 +202,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     return text
 
 
-def extract_text_from_pdf_bytes(data: bytes) -> str:
+def extract_text_from_pdf_bytes(data: bytes, do_ocr: bool = True) -> str:
     """Extract text from an in-memory PDF without writing the PDF to disk."""
     text = []
     try:
@@ -213,7 +214,8 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
         print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
         return ""
 
-    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+    if check_spelling(text) > MAX_SPELLING_ERROR_RATE and do_ocr:
+        print(f"  Errors detected in extraction, retrying with OCR")
         text = []
         try:
             with fitz.open(stream=data, filetype="pdf") as doc:
@@ -239,6 +241,7 @@ def main():
     parser = argparse.ArgumentParser(description="Extract text and tables from PDF using PyMuPDF and camelot-py.")
     parser.add_argument("pdf", type=str, help="Path to the input PDF file.")
     parser.add_argument("--output-dir", type=str, default="data/processed-text", help="Output directory for extracted text (default: data/processed-text)")
+    parser.add_argument("--no-ocr", action="store_false", help="Skip OCR during text extraction (speeds up execution but may drastically reduce extraction quality)")
 
     args = parser.parse_args()
 
@@ -248,7 +251,7 @@ def main():
         sys.exit(1)
 
     # Extract text
-    text = extract_text_from_pdf(str(pdf_path))
+    text = extract_text_from_pdf(str(pdf_path), args.no_ocr)
 
     # Extract tables
     tables_data = extract_tables_from_pdf(str(pdf_path))
