@@ -332,8 +332,9 @@ Examples:
     parser.add_argument(
         "--llm-model",
         type=str,
-        default="llama3.1:8b",
-        help="Ollama model name (default: llama3.1:8b).",
+        # default="llama3.1:8b",
+        default="qwen2.5:7b",
+        help="Ollama model name (default: qwen2.5:7b).",
     )
     parser.add_argument(
         "--max-chars",
