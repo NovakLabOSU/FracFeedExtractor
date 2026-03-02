@@ -277,6 +277,16 @@ _PAGE_MARKER_RE: re.Pattern = re.compile(r"^\s*\[PAGE\s+\d+\]\s*$")
 
 
 # ---------------------------------------------------------------------------
+# Long-document threshold — above this many chars the filter becomes stricter,
+# dropping paragraphs that have *no* signal at all (neither positive nor
+# negative).  This prevents very long papers from passing through unfiltered
+# when most paragraphs simply lack a negative keyword.
+# ---------------------------------------------------------------------------
+
+_LONG_DOC_THRESHOLD: int = 15_000
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -287,6 +297,10 @@ def filter_relevant_sections(text: str) -> str:
     each one against positive (keep) and negative (drop) pattern lists, and
     removes paragraphs that trigger negative patterns while scoring zero on
     positive patterns.
+
+    For documents longer than ``_LONG_DOC_THRESHOLD`` characters, paragraphs
+    with *no signal at all* (neither positive nor negative) are also dropped.
+    This prevents very long papers from passing through almost unfiltered.
 
     ``[PAGE N]`` markers and section headings are always preserved so
     ``extract_key_sections()`` can still perform section-priority ranking
@@ -302,6 +316,8 @@ def filter_relevant_sections(text: str) -> str:
     """
     if not text or not text.strip():
         return text
+
+    strict = len(text) > _LONG_DOC_THRESHOLD
 
     # Split into blocks on blank lines while tracking structure
     blocks = _split_into_blocks(text)
@@ -320,7 +336,7 @@ def filter_relevant_sections(text: str) -> str:
             continue
 
         # Score the paragraph
-        if _should_keep(stripped):
+        if _should_keep(stripped, strict=strict):
             kept.append(block)
 
     result = "\n\n".join(kept)
@@ -367,17 +383,25 @@ def _has_negative_signal(text: str) -> bool:
     return False
 
 
-def _should_keep(text: str) -> bool:
+def _should_keep(text: str, *, strict: bool = False) -> bool:
     """Decide whether a paragraph should be kept.
 
     Decision logic (conservative — defaults to keep):
       1. If the paragraph has ANY positive signal → **keep**.
       2. If the paragraph has a negative signal AND no positive signal → **drop**.
-      3. If the paragraph has neither signal → **keep** (borderline).
+      3. If ``strict`` is True and there is NO signal either way → **drop**.
+      4. Otherwise (no signal, not strict) → **keep** (borderline).
+
+    Args:
+        text: Paragraph text to evaluate.
+        strict: When True (used for long documents), paragraphs with zero
+            signal are dropped rather than kept by default.
     """
     if _has_positive_signal(text):
         return True
     if _has_negative_signal(text):
         return False
-    # No signal either way — keep to be safe
+    # No signal either way
+    if strict:
+        return False  # long doc — drop borderline paragraphs
     return True
