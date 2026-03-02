@@ -1,7 +1,8 @@
 """Extract-from-TXT Pipeline
 
-Processes pre-classified useful .txt files through noise cleaning, text
-trimming, and LLM extraction — bypassing the XGBoost classifier entirely.
+Processes pre-classified useful .txt files through noise cleaning, section
+filtering, text trimming, and LLM extraction — bypassing the XGBoost
+classifier entirely.
 
 Every .txt file fed to this script is assumed to have already been confirmed
 as useful (e.g. by the classifier in classify-extract.py or by manual review).
@@ -10,10 +11,12 @@ The pipeline:
   1. Read raw .txt file
   2. Strip noise (references, acknowledgements, affiliations, captions, …)
      via src/preprocessing/text_cleaner.py
-  3. Trim to the character budget using section-priority ranking
+  3. Drop irrelevant paragraphs (taxonomy, morphometrics, stats methods, …)
+     via src/preprocessing/section_filter.py
+  4. Trim to the character budget using section-priority ranking
      via src/llm/llm_text.py::extract_key_sections()
-  4. Call Ollama for structured extraction via src/llm/llm_client.py
-  5. Save result JSON per file and a summary CSV
+  5. Call Ollama for structured extraction via src/llm/llm_client.py
+  6. Save result JSON per file and a summary CSV
 
 Usage::
 
@@ -32,7 +35,9 @@ Usage::
         --num-ctx    4096
 
 Output:
-    - data/cleaned-text/<stem>_<YYYYMMDD_HHMMSS>.txt  trimmed text passed to Ollama
+    - data/cleaned-text/text_cleaner/<stem>_<YYYYMMDD_HHMMSS>.txt  noise-stripped text
+    - data/cleaned-text/section_filter/<stem>_<YYYYMMDD_HHMMSS>.txt  section-filtered text
+    - data/cleaned-text/llm_text/<stem>_<YYYYMMDD_HHMMSS>.txt  trimmed text passed to Ollama
     - data/results/metrics/<stem>_results.json  per file
     - data/results/summaries/txt_pipeline_summary_<timestamp>.csv  overall
 """
@@ -49,6 +54,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.preprocessing.text_cleaner import clean_text
+from src.preprocessing.section_filter import filter_relevant_sections
 from src.llm.llm_text import extract_key_sections
 from src.llm.llm_client import extract_metrics_from_text, save_extraction_result
 
@@ -65,7 +71,7 @@ def run_txt_pipeline(
     num_ctx: int,
     single_file: Path = None,
 ) -> None:
-    """Process every .txt file in *input_dir* through clean → trim → extract.
+    """Process every .txt file in *input_dir* through clean → filter → trim → extract.
 
     Args:
         input_dir:   Directory containing pre-classified useful .txt files.
@@ -86,8 +92,12 @@ def run_txt_pipeline(
 
     print(f"[INFO] Found {len(txt_paths)} .txt file(s) to process", file=sys.stderr)
     output_dir.mkdir(parents=True, exist_ok=True)
-    cleaned_text_dir = output_dir.parent / "cleaned-text"
-    cleaned_text_dir.mkdir(parents=True, exist_ok=True)
+    cleaner_text_dir = output_dir.parent / "cleaned-text" / "text_cleaner"
+    filter_text_dir = output_dir.parent / "cleaned-text" / "section_filter"
+    llm_text_dir = output_dir.parent / "cleaned-text" / "llm_text"
+    cleaner_text_dir.mkdir(parents=True, exist_ok=True)
+    filter_text_dir.mkdir(parents=True, exist_ok=True)
+    llm_text_dir.mkdir(parents=True, exist_ok=True)
     summary_rows = []
 
     for idx, txt_path in enumerate(txt_paths, start=1):
@@ -97,6 +107,7 @@ def run_txt_pipeline(
             "filename": txt_path.name,
             "raw_chars": "",
             "cleaned_chars": "",
+            "filtered_chars": "",
             "trimmed_chars": "",
             "extraction_status": "",
             "species_name": "",
@@ -137,29 +148,50 @@ def run_txt_pipeline(
             summary_rows.append(row)
             continue
 
-        # ── Step 3: Trim to LLM budget ──────────────────────────────────────
-        if len(cleaned) > max_chars:
-            trimmed = extract_key_sections(cleaned, max_chars)
+        # ── Step 3: Save text_cleaner output ────────────────────────────────
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        cleaner_path = cleaner_text_dir / f"{txt_path.stem}_{ts}.txt"
+        try:
+            cleaner_path.write_text(cleaned, encoding="utf-8")
+            print(f"  [INFO] Cleaner text : {cleaner_path.name}", file=sys.stderr)
+        except Exception as exc:
+            print(f"  [WARN] Could not save cleaner text: {exc}", file=sys.stderr)
+
+        # ── Step 4: Section filter ──────────────────────────────────────────
+        filtered = filter_relevant_sections(cleaned)
+        row["filtered_chars"] = len(filtered)
+        print(f"  [INFO] After filter: {len(filtered):,} chars", file=sys.stderr)
+
+        # ── Step 4b: Save section_filter output ─────────────────────────────
+        filter_path = filter_text_dir / f"{txt_path.stem}_{ts}.txt"
+        try:
+            filter_path.write_text(filtered, encoding="utf-8")
+            print(f"  [INFO] Filter text  : {filter_path.name}", file=sys.stderr)
+        except Exception as exc:
+            print(f"  [WARN] Could not save filter text: {exc}", file=sys.stderr)
+
+        # ── Step 5: Trim to LLM budget ──────────────────────────────────────
+        if len(filtered) > max_chars:
+            trimmed = extract_key_sections(filtered, max_chars)
             print(
                 f"  [INFO] After trim : {len(trimmed):,} chars "
                 f"(budget {max_chars:,})",
                 file=sys.stderr,
             )
         else:
-            trimmed = cleaned
+            trimmed = filtered
 
         row["trimmed_chars"] = len(trimmed)
 
-        # ── Step 4: Save cleaned text snapshot ─────────────────────────────
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        cleaned_path = cleaned_text_dir / f"{txt_path.stem}_{ts}.txt"
+        # ── Step 5b: Save llm_text output ──────────────────────────────────
+        llm_path = llm_text_dir / f"{txt_path.stem}_{ts}.txt"
         try:
-            cleaned_path.write_text(trimmed, encoding="utf-8")
-            print(f"  [INFO] Cleaned text : {cleaned_path.name}", file=sys.stderr)
+            llm_path.write_text(trimmed, encoding="utf-8")
+            print(f"  [INFO] LLM text     : {llm_path.name}", file=sys.stderr)
         except Exception as exc:
-            print(f"  [WARN] Could not save cleaned text: {exc}", file=sys.stderr)
+            print(f"  [WARN] Could not save LLM text: {exc}", file=sys.stderr)
 
-        # ── Step 5: LLM extraction ──────────────────────────────────────────
+        # ── Step 6: LLM extraction ──────────────────────────────────────────
         print(f"  [INFO] Calling Ollama ({llm_model})…", file=sys.stderr)
         try:
             metrics = extract_metrics_from_text(
@@ -173,7 +205,7 @@ def run_txt_pipeline(
             summary_rows.append(row)
             continue
 
-        # ── Step 6: Save JSON ───────────────────────────────────────────────
+        # ── Step 7: Save JSON ───────────────────────────────────────────────
         try:
             result = save_extraction_result(
                 metrics=metrics,
@@ -224,6 +256,7 @@ def run_txt_pipeline(
         "filename",
         "raw_chars",
         "cleaned_chars",
+        "filtered_chars",
         "trimmed_chars",
         "extraction_status",
         "species_name",

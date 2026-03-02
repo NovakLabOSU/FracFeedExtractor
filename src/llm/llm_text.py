@@ -14,7 +14,9 @@ from typing import List, Optional, Tuple
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
+# NOTE: pdf_text_extraction is imported lazily inside read_file_text() to
+# avoid pulling in heavy PDF dependencies (camelot, fitz) when only the
+# text-based pipeline is used.
 
 # ---------------------------------------------------------------------------
 # Section-boundary splitting helpers
@@ -369,6 +371,7 @@ def load_document(file_path: Path) -> str:
 
     if suffix == '.pdf':
         print(f"[INFO] Reading PDF file...", file=sys.stderr)
+        from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
         return extract_text_from_pdf(str(file_path))
     elif suffix in ['.txt', '.text']:
         print(f"[INFO] Reading text file...", file=sys.stderr)
