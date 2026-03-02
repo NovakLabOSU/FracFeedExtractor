@@ -29,11 +29,7 @@ _NUM_PREFIX = r"(?:\d{1,2}(?:\.\d{1,2})*\.?\s+)?"
 _SECTION_PRIORITIES: List[Tuple[re.Pattern, int]] = [
     (re.compile(r"(?i)^\s*" + _NUM_PREFIX + r"(abstract|summary)\s*[:\.]?\s*$"), 0),
     (re.compile(r"(?i)^\s*" + _NUM_PREFIX + r"(results?|findings?)\s*[:\.]?\s*$"), 1),
-    (re.compile(
-        r"(?i)^\s*" + _NUM_PREFIX +
-        r"(materials?\s*(?:and|&)\s*methods?|methods?|methodology"
-        r"|study\s*(?:area|site|design|region|period))\s*[:\.]?\s*$"
-    ), 2),
+    (re.compile(r"(?i)^\s*" + _NUM_PREFIX + r"(materials?\s*(?:and|&)\s*methods?|methods?|methodology" r"|study\s*(?:area|site|design|region|period))\s*[:\.]?\s*$"), 2),
     (re.compile(r"(?i)^\s*table\s*\d"), 3),
     (re.compile(r"(?i)^\s*" + _NUM_PREFIX + r"(introduction|background)\s*[:\.]?\s*$"), 4),
     (re.compile(r"(?i)^\s*" + _NUM_PREFIX + r"(discussion|conclusions?|summary\s+and\s+discussion)\s*[:\.]?\s*$"), 5),
@@ -41,7 +37,7 @@ _SECTION_PRIORITIES: List[Tuple[re.Pattern, int]] = [
 
 _DROP_SECTION_RE: re.Pattern = re.compile(
     r"(?i)^\s*"
-    r"(?:\d{1,2}(?:\.\d{1,2})*\.?\s+)?"   # optional numeric prefix
+    r"(?:\d{1,2}(?:\.\d{1,2})*\.?\s+)?"  # optional numeric prefix
     r"("
     r"acknowledge?ments?"
     r"|literature\s+cited"
@@ -81,64 +77,68 @@ def _section_priority(heading: str) -> int:
 
 _FIELD_PATTERNS: List[Tuple[re.Pattern, int]] = [
     # sample_size — explicit counts of stomachs / specimens / individuals
-    (re.compile(
-        r"(?i)(\bn\s*=\s*\d+"
-        r"|total\s+of\s+\d+"
-        r"|\d+\s+stomachs?"
-        r"|\d+\s+specimens?"
-        r"|\d+\s+individuals?"
-        r"|\d+\s+birds?"
-        r"|\d+\s+fish"
-        r"|\d+\s+samples?"
-        r"|sample\s+size\s+(of\s+)?\d+"
-        r"|examined\s+\d+"
-        r"|\d+\s+(were|was)\s+(examined|collected|analysed|analyzed|sampled))"
-    ), 4),
+    (
+        re.compile(
+            r"(?i)(\bn\s*=\s*\d+"
+            r"|total\s+of\s+\d+"
+            r"|\d+\s+stomachs?"
+            r"|\d+\s+specimens?"
+            r"|\d+\s+individuals?"
+            r"|\d+\s+birds?"
+            r"|\d+\s+fish"
+            r"|\d+\s+samples?"
+            r"|sample\s+size\s+(of\s+)?\d+"
+            r"|examined\s+\d+"
+            r"|\d+\s+(were|was)\s+(examined|collected|analysed|analyzed|sampled))"
+        ),
+        4,
+    ),
     # num_empty_stomachs — explicit empty-stomach language
-    (re.compile(
-        r"(?i)(empty\s+stomachs?"
-        r"|stomachs?\s+(were\s+)?empty"
-        r"|had\s+empty"
-        r"|without\s+food"
-        r"|without\s+(stomach\s+)?contents?"
-        r"|zero\s+prey"
-        r"|no\s+food\s+(items?|remains?)"
-        r"|vacuous|vacant\s+stomachs?)"
-    ), 5),
+    (
+        re.compile(
+            r"(?i)(empty\s+stomachs?"
+            r"|stomachs?\s+(were\s+)?empty"
+            r"|had\s+empty"
+            r"|without\s+food"
+            r"|without\s+(stomach\s+)?contents?"
+            r"|zero\s+prey"
+            r"|no\s+food\s+(items?|remains?)"
+            r"|vacuous|vacant\s+stomachs?)"
+        ),
+        5,
+    ),
     # num_nonempty_stomachs / fraction_feeding
-    (re.compile(
-        r"(?i)(non.?empty"
-        r"|contained\s+(food|prey|items?)"
-        r"|with\s+food"
-        r"|with\s+(stomach\s+)?contents?"
-        r"|had\s+(food|prey)"
-        r"|feeding\s+rate"
-        r"|proportion\s+(feeding|with\s+food)"
-        r"|percent\s+(feeding|with\s+food)"
-        r"|\d+\s*%\s+of\s+(stomachs?|individuals?|birds?|fish|specimens?))"
-    ), 5),
+    (
+        re.compile(
+            r"(?i)(non.?empty"
+            r"|contained\s+(food|prey|items?)"
+            r"|with\s+food"
+            r"|with\s+(stomach\s+)?contents?"
+            r"|had\s+(food|prey)"
+            r"|feeding\s+rate"
+            r"|proportion\s+(feeding|with\s+food)"
+            r"|percent\s+(feeding|with\s+food)"
+            r"|\d+\s*%\s+of\s+(stomachs?|individuals?|birds?|fish|specimens?))"
+        ),
+        5,
+    ),
     # general percentage / fraction near gut/stomach context
-    (re.compile(
-        r"(?i)(\d+\.?\d*\s*%|\d+\s+percent"
-        r"|\d+\s+of\s+\d+\s+(were|had|contained)"
-        r"|proportion\s+of\s+\d+)"
-    ), 2),
+    (re.compile(r"(?i)(\d+\.?\d*\s*%|\d+\s+percent" r"|\d+\s+of\s+\d+\s+(were|had|contained)" r"|proportion\s+of\s+\d+)"), 2),
     # study date — collection period
-    (re.compile(
-        r"(?i)(collected\s+(in|during|between)"
-        r"|sampled\s+(in|during|between)"
-        r"|field\s+season"
-        r"|study\s+period"
-        r"|between\s+\d{4}\s+and\s+\d{4}"
-        r"|\d{4}[\-\u2013]\d{4}"
-        r"|sampling\s+period)"
-    ), 2),
+    (
+        re.compile(
+            r"(?i)(collected\s+(in|during|between)"
+            r"|sampled\s+(in|during|between)"
+            r"|field\s+season"
+            r"|study\s+period"
+            r"|between\s+\d{4}\s+and\s+\d{4}"
+            r"|\d{4}[\-\u2013]\d{4}"
+            r"|sampling\s+period)"
+        ),
+        2,
+    ),
     # study location
-    (re.compile(
-        r"(?i)(study\s+(area|site|region)"
-        r"|specimens?\s+(were\s+)?(obtained|collected|caught)\s+(from|at|in)"
-        r"|sampling\s+(location|site|area))"
-    ), 2),
+    (re.compile(r"(?i)(study\s+(area|site|region)" r"|specimens?\s+(were\s+)?(obtained|collected|caught)\s+(from|at|in)" r"|sampling\s+(location|site|area))"), 2),
     # any binomial species name (used as a weak relevance signal)
     (re.compile(r"\b[A-Z][a-z]+\s+[a-z]{3,}\b"), 1),
 ]
@@ -273,10 +273,7 @@ def extract_key_sections(text: str, max_chars: int) -> str:
     for i, line in enumerate(lines):
         stripped = line.strip()
         is_drop = bool(_DROP_SECTION_RE.match(stripped)) if stripped else False
-        is_known = (
-            any(pat.match(stripped) for pat, _ in _SECTION_PRIORITIES)
-            if stripped else False
-        )
+        is_known = any(pat.match(stripped) for pat, _ in _SECTION_PRIORITIES) if stripped else False
         if is_drop or is_known:
             sections.append((current_start, current_heading, "\n".join(current_lines)))
             current_heading = stripped
@@ -319,16 +316,12 @@ def extract_key_sections(text: str, max_chars: int) -> str:
             else:
                 if para_lines:
                     para_text = "\n".join(para_lines).strip()
-                    raw_paragraphs.append(
-                        (sec_start + j, para_text, _score_paragraph(para_text))
-                    )
+                    raw_paragraphs.append((sec_start + j, para_text, _score_paragraph(para_text)))
                     para_lines = []
                     para_start = sec_start + j + 1
         if para_lines:
             para_text = "\n".join(para_lines).strip()
-            raw_paragraphs.append(
-                (sec_start + len(block.split("\n")), para_text, _score_paragraph(para_text))
-            )
+            raw_paragraphs.append((sec_start + len(block.split("\n")), para_text, _score_paragraph(para_text)))
 
     # Sort by score descending; use original position as tiebreaker (earlier first)
     raw_paragraphs.sort(key=lambda t: (-t[2], t[0]))
@@ -372,6 +365,7 @@ def load_document(file_path: Path) -> str:
     if suffix == '.pdf':
         print(f"[INFO] Reading PDF file...", file=sys.stderr)
         from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
+
         return extract_text_from_pdf(str(file_path))
     elif suffix in ['.txt', '.text']:
         print(f"[INFO] Reading text file...", file=sys.stderr)

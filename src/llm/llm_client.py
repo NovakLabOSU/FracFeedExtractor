@@ -138,8 +138,12 @@ TEXT
 
     # ── Retry once if any extractable fields are null ───────────────────────
     _retryable = [
-        "species_name", "study_location", "study_date",
-        "num_empty_stomachs", "num_nonempty_stomachs", "sample_size",
+        "species_name",
+        "study_location",
+        "study_date",
+        "num_empty_stomachs",
+        "num_nonempty_stomachs",
+        "sample_size",
     ]
     missing = [f for f in _retryable if getattr(metrics, f) is None]
 
@@ -151,14 +155,8 @@ TEXT
 
         # Build targeted hints for each missing field
         _hints = {
-            "species_name": (
-                "- species_name: Look for the first binomial Latin name (Genus species) "
-                "in the title or abstract. This is the PREDATOR, not its prey.\n"
-            ),
-            "study_location": (
-                "- study_location: Check Methods or Study Area sections for place names, "
-                "islands, countries, or coordinates.\n"
-            ),
+            "species_name": ("- species_name: Look for the first binomial Latin name (Genus species) " "in the title or abstract. This is the PREDATOR, not its prey.\n"),
+            "study_location": ("- study_location: Check Methods or Study Area sections for place names, " "islands, countries, or coordinates.\n"),
             "study_date": (
                 "- study_date: Look for phrases like 'collected in', 'sampled during', "
                 "'field season', 'from [month] [year] to [month] [year]'. "
@@ -171,15 +169,9 @@ TEXT
                 "where every sample produced material), return 0.\n"
             ),
             "num_nonempty_stomachs": (
-                "- num_nonempty_stomachs: Look for 'contained food', 'with prey', "
-                "'non-empty', 'food samples collected'. If ALL samples had food, "
-                "this equals sample_size.\n"
+                "- num_nonempty_stomachs: Look for 'contained food', 'with prey', " "'non-empty', 'food samples collected'. If ALL samples had food, " "this equals sample_size.\n"
             ),
-            "sample_size": (
-                "- sample_size: Look for 'N stomachs', 'N specimens', 'a total of N', "
-                "'n=N', 'N individuals examined', 'two groups of N'. Check Abstract, "
-                "Methods, and Results.\n"
-            ),
+            "sample_size": ("- sample_size: Look for 'N stomachs', 'N specimens', 'a total of N', " "'n=N', 'N individuals examined', 'two groups of N'. Check Abstract, " "Methods, and Results.\n"),
         }
 
         retry_prompt = (
@@ -200,9 +192,7 @@ TEXT
             format=PredatorDietMetrics.model_json_schema(),
             options={"num_ctx": num_ctx},
         )
-        retry_metrics = PredatorDietMetrics.model_validate_json(
-            retry_response.message.content
-        )
+        retry_metrics = PredatorDietMetrics.model_validate_json(retry_response.message.content)
 
         # Merge: prefer retry values for fields that were null, keep originals otherwise
         merged = metrics.model_dump()

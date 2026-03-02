@@ -14,6 +14,7 @@ from src.preprocessing.text_cleaner import clean_text
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_page(n: int, body: str) -> str:
     return f"[PAGE {n}]\n{body}"
 
@@ -25,19 +26,13 @@ def _make_page(n: int, body: str) -> str:
 
 class TestReferenceSectionRemoval:
     def test_drops_references_header_and_trailing_content(self):
-        text = (
-            "Methods\nWe examined 50 stomachs from Canis lupus.\n\n"
-            "References\nSmith J. 2001. J Ecol 10:1-5.\nDoe A. 2002. Nature 400:1.\n"
-        )
+        text = "Methods\nWe examined 50 stomachs from Canis lupus.\n\n" "References\nSmith J. 2001. J Ecol 10:1-5.\nDoe A. 2002. Nature 400:1.\n"
         result = clean_text(text)
         assert "Smith J." not in result
         assert "Doe A." not in result
 
     def test_keeps_content_before_references(self):
-        text = (
-            "Results\nSample size was 30.\n\n"
-            "References\n1. Author A. 2000. Title. Journal.\n"
-        )
+        text = "Results\nSample size was 30.\n\n" "References\n1. Author A. 2000. Title. Journal.\n"
         result = clean_text(text)
         assert "Sample size was 30" in result
 
@@ -52,11 +47,7 @@ class TestReferenceSectionRemoval:
         assert "Bar C." not in result
 
     def test_references_on_separate_page_doesnt_poison_next_page(self):
-        text = (
-            "[PAGE 3]\nResults\nSample size = 30.\n"
-            "[PAGE 4]\nReferences\n1. Smith 2001.\n"
-            "[PAGE 5]\nDiscussion\nThis study found important results.\n"
-        )
+        text = "[PAGE 3]\nResults\nSample size = 30.\n" "[PAGE 4]\nReferences\n1. Smith 2001.\n" "[PAGE 5]\nDiscussion\nThis study found important results.\n"
         result = clean_text(text)
         assert "Sample size = 30" in result
         assert "Smith 2001" not in result

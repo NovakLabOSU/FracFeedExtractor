@@ -63,6 +63,7 @@ from src.llm.llm_client import extract_metrics_from_text, save_extraction_result
 # Core pipeline function
 # ---------------------------------------------------------------------------
 
+
 def run_txt_pipeline(
     input_dir: Path,
     output_dir: Path,
@@ -174,8 +175,7 @@ def run_txt_pipeline(
         if len(filtered) > max_chars:
             trimmed = extract_key_sections(filtered, max_chars)
             print(
-                f"  [INFO] After trim : {len(trimmed):,} chars "
-                f"(budget {max_chars:,})",
+                f"  [INFO] After trim : {len(trimmed):,} chars " f"(budget {max_chars:,})",
                 file=sys.stderr,
             )
         else:
@@ -210,7 +210,7 @@ def run_txt_pipeline(
             result = save_extraction_result(
                 metrics=metrics,
                 source_file=txt_path,
-                original_text=raw_text,   # keep full text for page resolution
+                original_text=raw_text,  # keep full text for page resolution
                 output_dir=output_dir,
             )
         except Exception as exc:
@@ -224,23 +224,13 @@ def run_txt_pipeline(
         row["species_name"] = m.get("species_name") or ""
         row["study_location"] = m.get("study_location") or ""
         row["study_date"] = m.get("study_date") or ""
-        row["sample_size"] = (
-            "" if m.get("sample_size") is None else m["sample_size"]
-        )
-        row["num_empty_stomachs"] = (
-            "" if m.get("num_empty_stomachs") is None else m["num_empty_stomachs"]
-        )
-        row["num_nonempty_stomachs"] = (
-            "" if m.get("num_nonempty_stomachs") is None else m["num_nonempty_stomachs"]
-        )
-        row["fraction_feeding"] = (
-            "" if m.get("fraction_feeding") is None else m["fraction_feeding"]
-        )
+        row["sample_size"] = "" if m.get("sample_size") is None else m["sample_size"]
+        row["num_empty_stomachs"] = "" if m.get("num_empty_stomachs") is None else m["num_empty_stomachs"]
+        row["num_nonempty_stomachs"] = "" if m.get("num_nonempty_stomachs") is None else m["num_nonempty_stomachs"]
+        row["fraction_feeding"] = "" if m.get("fraction_feeding") is None else m["fraction_feeding"]
 
         print(
-            f"  [OK] species={m.get('species_name')}  "
-            f"n={m.get('sample_size')}  "
-            f"date={m.get('study_date')}",
+            f"  [OK] species={m.get('species_name')}  " f"n={m.get('sample_size')}  " f"date={m.get('study_date')}",
             file=sys.stderr,
         )
 
@@ -291,12 +281,10 @@ def run_txt_pipeline(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description=(
-            "Extract structured predator-diet metrics from pre-classified "
-            "useful .txt files using Ollama."
-        ),
+        description=("Extract structured predator-diet metrics from pre-classified " "useful .txt files using Ollama."),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -326,8 +314,7 @@ Examples:
         "--output-dir",
         type=str,
         default="data/results",
-        help="Root output directory for JSON results and CSV summary "
-             "(default: data/results).",
+        help="Root output directory for JSON results and CSV summary " "(default: data/results).",
     )
     parser.add_argument(
         "--llm-model",

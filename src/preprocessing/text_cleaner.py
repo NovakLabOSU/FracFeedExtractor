@@ -60,7 +60,7 @@ _SECTION_DROP_HEADERS: re.Pattern = re.compile(
 # NOTE: requires actual whitespace between letters to avoid matching "Abstract".
 _STRUCTURED_HEADER_START: re.Pattern = re.compile(
     r"(?i)^\s*("
-    r"a\s+b\s+s\s+t\s+r\s+a\s+c\s+t"               # spaced "A B S T R A C T"
+    r"a\s+b\s+s\s+t\s+r\s+a\s+c\s+t"  # spaced "A B S T R A C T"
     r"|a\s+r\s+t\s+i\s+c\s+l\s+e\s+i\s+n\s+f\s+o"  # spaced "A R T I C L E  I N F O"
     r")\s*$"
 )
@@ -73,56 +73,38 @@ _STRUCTURED_HEADER_START: re.Pattern = re.compile(
 _LINE_DROP_PATTERNS: List[re.Pattern] = [
     # Standalone page numbers (digit-only line, 1–4 digits, optional spaces)
     re.compile(r"^\s*\d{1,4}\s*$"),
-
     # Reference list entries: "[1] Smith ...", "1. Smith ...", "1) Smith ..."
     re.compile(r"^\s*\[\d+\]\s+[A-Z]"),
     re.compile(r"^\s*\d{1,3}[.)]\s{1,4}[A-Z][a-z]"),
-
     # DOI and bare URLs (doi.org/, bare doi:, https://, www.)
     re.compile(r"(?i)(https?://|doi\.org/|\bdoi:\s*10\.|www\.)\S*"),
-
     # Email addresses
     re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"),
-
     # Copyright / licence lines
-    re.compile(r"(?i)(©|\(c\)\s*\d{4}|copyright\s+\d{4}|all\s+rights\s+reserved"
-               r"|published\s+by\s+elsevier|creative\s+commons|open\s+access"
-               r"|this\s+(article|paper|is)\s+(is\s+)?published)"),
-
+    re.compile(r"(?i)(©|\(c\)\s*\d{4}|copyright\s+\d{4}|all\s+rights\s+reserved" r"|published\s+by\s+elsevier|creative\s+commons|open\s+access" r"|this\s+(article|paper|is)\s+(is\s+)?published)"),
     # Journal metadata: volume, issue, ISSN, page range
-    re.compile(r"(?i)^\s*(vol(ume)?\.?\s*\d|issue\s*\d|pp\.\s*\d|issn\s*[\d\-]"
-               r"|journal\s+of|proceedings\s+of)"),
-
+    re.compile(r"(?i)^\s*(vol(ume)?\.?\s*\d|issue\s*\d|pp\.\s*\d|issn\s*[\d\-]" r"|journal\s+of|proceedings\s+of)"),
     # Received / accepted / revised / available-online timestamps
     # Match with or without trailing colon/semicolon
-    re.compile(r"(?i)^\s*(received|accepted|revised|available\s+online|"
-               r"published\s+online|handling\s+editor)"
-               r"(\s*[:;]|\s+\d|\s+in)"),
-
+    re.compile(r"(?i)^\s*(received|accepted|revised|available\s+online|" r"published\s+online|handling\s+editor)" r"(\s*[:;]|\s+\d|\s+in)"),
     # Article history block header
     re.compile(r"(?i)^\s*article\s+history\s*[:\.]?\s*$"),
-
     # Keywords header line AND single-word keyword-style lines that follow it
     re.compile(r"(?i)^\s*key\s*-?\s*words?\s*[:\-]"),
-
     # Journal / publisher metadata lines
-    re.compile(r"(?i)^\s*(contents?\s+lists?\s+available|journal\s+homepage|"
-               r"elsevier\.com|sciencedirect\.com|springer\.|wiley\.com)"),
-
+    re.compile(r"(?i)^\s*(contents?\s+lists?\s+available|journal\s+homepage|" r"elsevier\.com|sciencedirect\.com|springer\.|wiley\.com)"),
     # Figure / table / plate captions
-    re.compile(r"(?i)^\s*(fig(ure)?\.?\s*\d|table\s*\d|plate\s*\d|"
-               r"fig\.\s*s\d|supplemental?\s+(table|figure)\s*\d)"
-               r"[\s.\-–—:]"),
-
+    re.compile(r"(?i)^\s*(fig(ure)?\.?\s*\d|table\s*\d|plate\s*\d|" r"fig\.\s*s\d|supplemental?\s+(table|figure)\s*\d)" r"[\s.\-–—:]"),
     # Author affiliation lines (institution / department / lab names)
     # Allow for leading special characters (e.g. ⁎, *, †)
-    re.compile(r"(?i)^[\s\*⁎†‡#]*"
-               r"(department\s+of|faculty\s+of|institute\s+(of|for)|"
-               r"division\s+of|school\s+of|laboratory\s+of|lab\s+of|"
-               r"centre?\s+(for|of)|program(me)?\s+(in|of)|"
-               r"universidad|universit[éy]|université|universidade|"
-               r"university\s+of|college\s+of)"),
-
+    re.compile(
+        r"(?i)^[\s\*⁎†‡#]*"
+        r"(department\s+of|faculty\s+of|institute\s+(of|for)|"
+        r"division\s+of|school\s+of|laboratory\s+of|lab\s+of|"
+        r"centre?\s+(for|of)|program(me)?\s+(in|of)|"
+        r"universidad|universit[éy]|université|universidade|"
+        r"university\s+of|college\s+of)"
+    ),
     # Running page headers / footers: short all-caps lines that are NOT
     # known section headings (those are whitelisted in _drop_line below).
     re.compile(r"^[A-Z\s\d\.\-–—:,]{5,60}$"),
@@ -314,12 +296,11 @@ def clean_text(text: str) -> str:
 # Standalone usage
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:  # pragma: no cover
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Strip noise from a raw .txt file extracted from a scientific PDF."
-    )
+    parser = argparse.ArgumentParser(description="Strip noise from a raw .txt file extracted from a scientific PDF.")
     parser.add_argument("input", type=str, help="Path to the .txt file to clean.")
     parser.add_argument(
         "--max-chars",

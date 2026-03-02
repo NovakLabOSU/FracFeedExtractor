@@ -41,6 +41,7 @@ from src.llm.llm_client import extract_metrics_from_text, save_extraction_result
 # Pipeline
 # ---------------------------------------------------------------------------
 
+
 def run_pipeline(
     input_path: Path,
     model_dir: str,
@@ -190,15 +191,25 @@ def run_pipeline(
 
     # ── Write summary CSV ─────────────────────────────────────────────────
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     summaries_dir = output_dir / "summaries"
     summaries_dir.mkdir(parents=True, exist_ok=True)
     summary_path = summaries_dir / f"pipeline_summary_{timestamp}.csv"
-    
+
     fieldnames = [
-        "filename", "classification", "confidence", "pred_prob",
-        "extraction_status", "species_name", "study_location", "study_date",
-        "sample_size", "num_empty_stomachs", "num_nonempty_stomachs", "fraction_feeding",
+        "filename",
+        "classification",
+        "confidence",
+        "pred_prob",
+        "extraction_status",
+        "species_name",
+        "study_location",
+        "study_date",
+        "sample_size",
+        "num_empty_stomachs",
+        "num_nonempty_stomachs",
+        "fraction_feeding",
     ]
     with open(summary_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -228,12 +239,10 @@ def run_pipeline(
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(
-        description=(
-            "Classify PDFs as useful/not-useful, then extract structured diet "
-            "metrics from useful ones using an LLM."
-        ),
+        description=("Classify PDFs as useful/not-useful, then extract structured diet " "metrics from useful ones using an LLM."),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

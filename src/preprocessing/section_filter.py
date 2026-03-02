@@ -76,11 +76,7 @@ _POSITIVE_PATTERNS: List[re.Pattern] = [
         r"|\d+\s*%\s+of\s+(stomachs?|individuals?|birds?|fish|specimens?))"
     ),
     # percentage / fraction near gut/stomach context
-    re.compile(
-        r"(?i)(\d+\.?\d*\s*%|\d+\s+percent"
-        r"|\d+\s+of\s+\d+\s+(were|had|contained)"
-        r"|proportion\s+of\s+\d+)"
-    ),
+    re.compile(r"(?i)(\d+\.?\d*\s*%|\d+\s+percent" r"|\d+\s+of\s+\d+\s+(were|had|contained)" r"|proportion\s+of\s+\d+)"),
     # study date — collection period
     re.compile(
         r"(?i)(collected\s+(in|during|between)"
@@ -92,11 +88,7 @@ _POSITIVE_PATTERNS: List[re.Pattern] = [
         r"|sampling\s+period)"
     ),
     # study location
-    re.compile(
-        r"(?i)(study\s+(area|site|region)"
-        r"|specimens?\s+(were\s+)?(obtained|collected|caught)\s+(from|at|in)"
-        r"|sampling\s+(location|site|area))"
-    ),
+    re.compile(r"(?i)(study\s+(area|site|region)" r"|specimens?\s+(were\s+)?(obtained|collected|caught)\s+(from|at|in)" r"|sampling\s+(location|site|area))"),
     # gut / stomach / diet core vocabulary
     re.compile(
         r"(?i)(stomach\s+content"
@@ -109,17 +101,9 @@ _POSITIVE_PATTERNS: List[re.Pattern] = [
         r"|gastrointestinal|foregut|hindgut|crop\s+content)"
     ),
     # predator species name — binomial in a sentence with diet/food/stomach
-    re.compile(
-        r"(?i)\b[A-Z][a-z]+\s+[a-z]{3,}\b.{0,80}"
-        r"(stomach|diet|prey|food|feeding|gut|trophic|forag)"
-    ),
+    re.compile(r"(?i)\b[A-Z][a-z]+\s+[a-z]{3,}\b.{0,80}" r"(stomach|diet|prey|food|feeding|gut|trophic|forag)"),
     # geographic coordinates or explicit lat/lon
-    re.compile(
-        r"(\d{1,3}[°º]\s*\d{0,2}['′]?\s*[NS]"
-        r"|\d{1,3}[°º]\s*\d{0,2}['′]?\s*[EW]"
-        r"|latitude|longitude"
-        r"|\d+\.\d+\s*[°º]?\s*[NS],?\s*\d+\.\d+\s*[°º]?\s*[EW])"
-    ),
+    re.compile(r"(\d{1,3}[°º]\s*\d{0,2}['′]?\s*[NS]" r"|\d{1,3}[°º]\s*\d{0,2}['′]?\s*[EW]" r"|latitude|longitude" r"|\d+\.\d+\s*[°º]?\s*[NS],?\s*\d+\.\d+\s*[°º]?\s*[EW])"),
     # table-like numeric data (rows of numbers separated by whitespace/tabs)
     re.compile(r"(?m)^.*(\d+\s*[\t|]\s*){2,}\d+"),
 ]
@@ -244,8 +228,7 @@ _NEGATIVE_PATTERNS: List[re.Pattern] = [
 _NUM_PREFIX = r"(?:\d{1,2}(?:\.\d{1,2})*\.?\s+)?"
 
 _SECTION_HEADING_RE: re.Pattern = re.compile(
-    r"(?i)^\s*" + _NUM_PREFIX +
-    r"("
+    r"(?i)^\s*" + _NUM_PREFIX + r"("
     r"abstract|summary"
     r"|introduction|background"
     r"|methods?|materials?\s*(?:and|&)\s*methods?"
@@ -289,6 +272,7 @@ _LONG_DOC_THRESHOLD: int = 15_000
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def filter_relevant_sections(text: str) -> str:
     """Remove paragraphs unlikely to contain target diet metrics.
@@ -350,6 +334,7 @@ def filter_relevant_sections(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _split_into_blocks(text: str) -> List[str]:
     """Split text into paragraph blocks separated by blank lines.

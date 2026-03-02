@@ -21,6 +21,7 @@ from src.preprocessing.section_filter import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_page(n: int, body: str) -> str:
     return f"[PAGE {n}]\n{body}"
 
@@ -40,11 +41,7 @@ class TestStructuralPreservation:
         assert "[PAGE 2]" in result
 
     def test_preserves_section_headings(self):
-        text = (
-            "Abstract\n\nWe studied diets.\n\n"
-            "Methods\n\nWe sampled fish.\n\n"
-            "Results\n\nN=42 stomachs examined."
-        )
+        text = "Abstract\n\nWe studied diets.\n\n" "Methods\n\nWe sampled fish.\n\n" "Results\n\nN=42 stomachs examined."
         result = filter_relevant_sections(text)
         assert "Abstract" in result
         assert "Methods" in result
@@ -145,78 +142,49 @@ class TestNegativeSignalDropped:
     """Paragraphs with only negative signals should be removed."""
 
     def test_drops_phylogenetic_paragraph(self):
-        para = (
-            "Bayesian inference of the phylogenetic relationships among "
-            "the sister group taxa revealed strong bootstrap support for "
-            "the monophyletic clade."
-        )
+        para = "Bayesian inference of the phylogenetic relationships among " "the sister group taxa revealed strong bootstrap support for " "the monophyletic clade."
         text = f"Discussion\n\n{para}"
         result = filter_relevant_sections(text)
         assert "Bayesian inference" not in result
 
     def test_drops_habitat_description(self):
-        para = (
-            "Vegetation type was classified as tropical dry forest with "
-            "canopy cover dense and understory dominated by shrubs."
-        )
+        para = "Vegetation type was classified as tropical dry forest with " "canopy cover dense and understory dominated by shrubs."
         text = f"Methods\n\n{para}"
         result = filter_relevant_sections(text)
         assert "canopy cover" not in result
 
     def test_drops_literature_review(self):
-        para = (
-            "Several studies have reported similar findings. "
-            "Previously reported by Smith (2001) and consistent with "
-            "the findings of Jones et al. (2005)."
-        )
+        para = "Several studies have reported similar findings. " "Previously reported by Smith (2001) and consistent with " "the findings of Jones et al. (2005)."
         text = f"Discussion\n\n{para}"
         result = filter_relevant_sections(text)
         assert "Several studies have reported" not in result
 
     def test_drops_prey_id_methodology(self):
-        para = (
-            "Prey were identified to the lowest taxonomic level using "
-            "a stereomicroscope and reference collection of diagnostic bones."
-        )
+        para = "Prey were identified to the lowest taxonomic level using " "a stereomicroscope and reference collection of diagnostic bones."
         text = f"Methods\n\n{para}"
         result = filter_relevant_sections(text)
         assert "stereomicroscope" not in result
 
     def test_drops_morphometric_paragraph(self):
-        para = (
-            "Snout-vent length was measured to the nearest 0.1 mm. "
-            "Total length was measured for each individual using calipers."
-        )
+        para = "Snout-vent length was measured to the nearest 0.1 mm. " "Total length was measured for each individual using calipers."
         text = f"Methods\n\n{para}"
         result = filter_relevant_sections(text)
         assert "Snout-vent length" not in result
 
     def test_drops_statistical_methods(self):
-        para = (
-            "Differences were tested using Kruskal-Wallis tests with "
-            "Bonferroni correction for multiple comparisons. A generalized "
-            "linear model was used to assess trends."
-        )
+        para = "Differences were tested using Kruskal-Wallis tests with " "Bonferroni correction for multiple comparisons. A generalized " "linear model was used to assess trends."
         text = f"Methods\n\n{para}"
         result = filter_relevant_sections(text)
         assert "Kruskal-Wallis" not in result
 
     def test_drops_conservation_policy(self):
-        para = (
-            "Conservation implications suggest the species should be "
-            "upgraded to a higher IUCN Red List category given the "
-            "observed population decline."
-        )
+        para = "Conservation implications suggest the species should be " "upgraded to a higher IUCN Red List category given the " "observed population decline."
         text = f"Discussion\n\n{para}"
         result = filter_relevant_sections(text)
         assert "IUCN Red List" not in result
 
     def test_drops_genetic_methods(self):
-        para = (
-            "DNA was extracted using a commercial kit. PCR amplification "
-            "was performed using primers targeting the mitochondrial gene "
-            "region. Products were separated by gel electrophoresis."
-        )
+        para = "DNA was extracted using a commercial kit. PCR amplification " "was performed using primers targeting the mitochondrial gene " "region. Products were separated by gel electrophoresis."
         text = f"Methods\n\n{para}"
         result = filter_relevant_sections(text)
         assert "PCR amplification" not in result
@@ -238,11 +206,7 @@ class TestConservativeBehaviour:
 
     def test_keeps_paragraph_with_mixed_signals(self):
         """Positive signal overrides co-occurring negative signal."""
-        para = (
-            "A total of 50 stomachs were examined. Prey were identified "
-            "using a stereomicroscope and diagnostic bones from a "
-            "reference collection."
-        )
+        para = "A total of 50 stomachs were examined. Prey were identified " "using a stereomicroscope and diagnostic bones from a " "reference collection."
         text = f"Methods\n\n{para}"
         result = filter_relevant_sections(text)
         assert "50 stomachs" in result
@@ -315,13 +279,7 @@ class TestFullDocumentFiltering:
 
     def test_does_not_over_filter_short_doc(self):
         """A short document with mostly positive content should lose very little."""
-        text = (
-            "Abstract\n\n"
-            "We examined stomach contents of 50 Accipiter nisus.\n\n"
-            "Results\n\n"
-            "Sample size was n=50. Of these, 12 stomachs were empty.\n"
-            "Birds comprised 78% of prey items.\n"
-        )
+        text = "Abstract\n\n" "We examined stomach contents of 50 Accipiter nisus.\n\n" "Results\n\n" "Sample size was n=50. Of these, 12 stomachs were empty.\n" "Birds comprised 78% of prey items.\n"
         result = filter_relevant_sections(text)
         # Everything here is positive — nothing should be lost
         assert "50 Accipiter nisus" in result
@@ -346,39 +304,26 @@ class TestInternalHelpers:
 
     def test_has_positive_signal_false(self):
         assert not _has_positive_signal("The weather was mild that year.")
-        assert not _has_positive_signal(
-            "Bayesian inference supported the monophyletic clade."
-        )
+        assert not _has_positive_signal("Bayesian inference supported the monophyletic clade.")
 
     def test_has_negative_signal_true(self):
-        assert _has_negative_signal(
-            "Phylogenetic analysis using maximum likelihood trees."
-        )
-        assert _has_negative_signal(
-            "Habitat type was classified as open grassland."
-        )
-        assert _has_negative_signal(
-            "Mann-Whitney tests were used for comparisons."
-        )
+        assert _has_negative_signal("Phylogenetic analysis using maximum likelihood trees.")
+        assert _has_negative_signal("Habitat type was classified as open grassland.")
+        assert _has_negative_signal("Mann-Whitney tests were used for comparisons.")
 
     def test_has_negative_signal_false(self):
         assert not _has_negative_signal("We counted 30 prey items in the gut.")
         assert not _has_negative_signal("The study was conducted in Brazil.")
 
     def test_should_keep_positive_overrides_negative(self):
-        text = (
-            "A total of 100 stomachs were examined using a stereomicroscope "
-            "and reference collection."
-        )
+        text = "A total of 100 stomachs were examined using a stereomicroscope " "and reference collection."
         assert _should_keep(text) is True
 
     def test_should_keep_neutral_kept(self):
         assert _should_keep("The area has a subtropical climate.") is True
 
     def test_should_keep_negative_only_dropped(self):
-        assert _should_keep(
-            "Bayesian inference of phylogenetic relationships."
-        ) is False
+        assert _should_keep("Bayesian inference of phylogenetic relationships.") is False
 
     def test_split_into_blocks_basic(self):
         text = "Para one.\n\nPara two.\n\nPara three."
@@ -436,10 +381,7 @@ class TestLongDocumentStrictMode:
 
     def test_negative_para_dropped_in_long_doc(self):
         """Negative-signal paragraphs still dropped in long docs."""
-        negative = (
-            "Bayesian inference of the phylogenetic relationships "
-            "revealed strong bootstrap support."
-        )
+        negative = "Bayesian inference of the phylogenetic relationships " "revealed strong bootstrap support."
         text = self._make_long_doc([negative])
         result = filter_relevant_sections(text)
         assert "Bayesian inference" not in result
