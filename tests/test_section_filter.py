@@ -13,6 +13,7 @@ from src.preprocessing.section_filter import (
     _has_negative_signal,
     _should_keep,
     _split_into_blocks,
+    _LONG_DOC_THRESHOLD,
 )
 
 
@@ -392,3 +393,90 @@ class TestInternalHelpers:
         blocks = _split_into_blocks(text)
         page_blocks = [b for b in blocks if "[PAGE" in b]
         assert len(page_blocks) >= 2
+
+
+# ---------------------------------------------------------------------------
+# Long-document strict filtering
+# ---------------------------------------------------------------------------
+
+
+class TestLongDocumentStrictMode:
+    """Documents > _LONG_DOC_THRESHOLD drop zero-signal paragraphs."""
+
+    def _make_long_doc(self, extra_paragraphs: list[str]) -> str:
+        """Build a document that exceeds the threshold with filler + extras."""
+        # Use positive-signal filler so the base text is kept
+        filler_line = "A total of 50 specimens were examined."
+        repeat_count = (_LONG_DOC_THRESHOLD // len(filler_line)) + 2
+        filler = "\n\n".join([filler_line] * repeat_count)
+        return filler + "\n\n" + "\n\n".join(extra_paragraphs)
+
+    def test_neutral_para_kept_in_short_doc(self):
+        """Below threshold, neutral paragraphs survive."""
+        neutral = "The weather was mild and skies were overcast."
+        text = f"Abstract\n\n{neutral}"
+        assert len(text) < _LONG_DOC_THRESHOLD
+        result = filter_relevant_sections(text)
+        assert neutral in result
+
+    def test_neutral_para_dropped_in_long_doc(self):
+        """Above threshold, neutral paragraphs are dropped."""
+        neutral = "The weather was mild and skies were overcast."
+        text = self._make_long_doc([neutral])
+        assert len(text) > _LONG_DOC_THRESHOLD
+        result = filter_relevant_sections(text)
+        assert neutral not in result
+
+    def test_positive_para_kept_in_long_doc(self):
+        """Positive-signal paragraphs are STILL kept in long docs."""
+        positive = "A total of 200 stomachs were examined."
+        text = self._make_long_doc([positive])
+        result = filter_relevant_sections(text)
+        assert positive in result
+
+    def test_negative_para_dropped_in_long_doc(self):
+        """Negative-signal paragraphs still dropped in long docs."""
+        negative = (
+            "Bayesian inference of the phylogenetic relationships "
+            "revealed strong bootstrap support."
+        )
+        text = self._make_long_doc([negative])
+        result = filter_relevant_sections(text)
+        assert "Bayesian inference" not in result
+
+    def test_headings_preserved_in_long_doc(self):
+        """Section headings never dropped, even in strict mode."""
+        text = self._make_long_doc(["Methods", "Results"])
+        result = filter_relevant_sections(text)
+        assert "Methods" in result
+        assert "Results" in result
+
+    def test_page_markers_preserved_in_long_doc(self):
+        text = self._make_long_doc(["[PAGE 99]"])
+        result = filter_relevant_sections(text)
+        assert "[PAGE 99]" in result
+
+    def test_should_keep_strict_drops_neutral(self):
+        """Direct test of _should_keep with strict=True."""
+        neutral = "The area has a subtropical climate."
+        assert _should_keep(neutral, strict=False) is True
+        assert _should_keep(neutral, strict=True) is False
+
+    def test_should_keep_strict_keeps_positive(self):
+        positive = "A total of 100 stomachs were analyzed."
+        assert _should_keep(positive, strict=True) is True
+
+    def test_long_doc_reduces_size(self):
+        """A long document with lots of neutral text gets meaningfully reduced."""
+        neutral = "The atmospheric conditions were unremarkable that day."
+        positive = "We examined 85 stomachs from Vulpes vulpes."
+        # 50 neutral paras + a few positive ones
+        paras = [neutral] * 50 + [positive] * 3
+        text = "\n\n".join(paras)
+        # Make sure it's over the threshold
+        while len(text) < _LONG_DOC_THRESHOLD:
+            text += f"\n\n{neutral}"
+        result = filter_relevant_sections(text)
+        assert len(result) < len(text)
+        assert positive in result
+        assert neutral not in result
