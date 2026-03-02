@@ -31,8 +31,8 @@ Usage::
         --input-dir  data/processed-text/ \\
         --output-dir data/results/ \\
         --llm-model  llama3.1:8b \\
-        --max-chars  5000 \\
-        --num-ctx    4096
+        --max-chars  10000 \\
+        --num-ctx    8192
 
 Output:
     - data/cleaned-text/text_cleaner/<stem>_<YYYYMMDD_HHMMSS>.txt  noise-stripped text
@@ -338,14 +338,14 @@ Examples:
     parser.add_argument(
         "--max-chars",
         type=int,
-        default=5000,
-        help="Maximum characters to send to Ollama after cleaning (default: 5000).",
+        default=10000,
+        help="Maximum characters to send to Ollama after cleaning (default: 10000).",
     )
     parser.add_argument(
         "--num-ctx",
         type=int,
-        default=4096,
-        help="Ollama context window size (default: 4096).",
+        default=8192,
+        help="Ollama context window size (default: 8192).",
     )
 
     args = parser.parse_args()
