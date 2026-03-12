@@ -177,15 +177,16 @@ Examples:
     parser.add_argument(
         "--workers",
         type=int,
-        default=1,
-        help="Number of parallel worker processes for PDF extraction (default: 1 = sequential).",
+        default=0,
+        help="Number of parallel worker processes for PDF extraction (default: 0 = auto-detect CPU count).",
     )
 
     args = parser.parse_args()
 
+    workers = args.workers if args.workers > 0 else os.cpu_count() or 4
     if args.local:
         print(f"Running in LOCAL mode with data path: {args.local}")
-        process_local_mode(args.local, workers=args.workers)
+        process_local_mode(args.local, workers=workers)
     else:  # args.api
         print("Running in API mode (Google Drive)")
         process_api_mode()
