@@ -29,6 +29,9 @@ fitz.TOOLS.mupdf_display_errors(False)
 # Maximum allowed ratio of misspelled words to total words in a pdf
 MAX_SPELLING_ERROR_RATE = 0.05
 
+# Module-level singleton — avoids reloading the dictionary for every PDF
+_spell_checker = SpellChecker()
+
 
 def check_spelling(text: str) -> float:
     """
@@ -36,11 +39,10 @@ def check_spelling(text: str) -> float:
 
     Returns 1 if no words detected in input string
     """
-    spellChecker = SpellChecker()
-    words = spellChecker.split_words(text)
+    words = _spell_checker.split_words(text)
     if len(words) == 0:
         return 1
-    misspelled = spellChecker.unknown(words)
+    misspelled = _spell_checker.unknown(words)
     return len(misspelled) / len(words)
 
 
