@@ -29,6 +29,7 @@ Output:
 import argparse
 import csv
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
@@ -42,6 +43,112 @@ from src.llm.llm_client import extract_metrics_from_text, save_extraction_result
 # ---------------------------------------------------------------------------
 
 
+def _process_single_pdf(
+    pdf_path: Path,
+    model_dir: str,
+    llm_model: str,
+    output_dir: Path,
+    confidence_threshold: float,
+    max_chars: int,
+    num_ctx: int,
+) -> dict:
+    """Process a single PDF: classify and optionally extract metrics.
+
+    Designed to run inside a worker process. All heavy resources (classifier,
+    LLM client) are created per-call so that the function is safe for
+    multiprocessing.
+
+    Returns:
+        A summary-row dict for the CSV.
+    """
+    row = {
+        "filename": pdf_path.name,
+        "classification": "",
+        "confidence": "",
+        "pred_prob": "",
+        "extraction_status": "",
+        "species_name": "",
+        "study_location": "",
+        "study_date": "",
+        "sample_size": "",
+        "num_empty_stomachs": "",
+        "num_nonempty_stomachs": "",
+        "fraction_feeding": "",
+    }
+
+    # ── Step 1: Extract text ─────────────────
+    try:
+        original_text = extract_text_from_pdf(str(pdf_path))
+    except Exception as e:
+        print(f"  [ERROR] Text extraction failed ({pdf_path.name}): {e}", file=sys.stderr)
+        row["extraction_status"] = "text_extraction_failed"
+        return row
+
+    if not original_text.strip():
+        print(f"  [WARN] No text extracted from {pdf_path.name}. Skipping.", file=sys.stderr)
+        row["extraction_status"] = "empty_text"
+        return row
+
+    print(f"  [INFO] {pdf_path.name}: {len(original_text)} chars", file=sys.stderr)
+
+    # ── Step 2: Classify ──────────────────────────
+    clf_model, vectorizer, encoder = load_classifier(model_dir)
+    label, confidence, pred_prob = classify_text(
+        text=original_text,
+        model=clf_model,
+        vectorizer=vectorizer,
+        encoder=encoder,
+        threshold=confidence_threshold,
+    )
+    print(f"  [CLASSIFIER] {pdf_path.name} → {label} ({confidence:.2%})", file=sys.stderr)
+
+    row["classification"] = label
+    row["confidence"] = f"{confidence:.4f}"
+    row["pred_prob"] = f"{pred_prob:.4f}"
+
+    # ── Step 3: Extract ─────────────────
+    if label == "useful":
+        print(f"  [INFO] {pdf_path.name}: Running LLM extraction...", file=sys.stderr)
+
+        text_for_llm = original_text
+        if len(text_for_llm) > max_chars:
+            text_for_llm = extract_key_sections(text_for_llm, max_chars)
+            print(f"  [INFO] {pdf_path.name}: trimmed to {len(text_for_llm)} chars (budget {max_chars})", file=sys.stderr)
+
+        try:
+            metrics = extract_metrics_from_text(
+                text=text_for_llm,
+                model=llm_model,
+                num_ctx=num_ctx,
+            )
+            result = save_extraction_result(
+                metrics=metrics,
+                source_file=pdf_path,
+                original_text=original_text,
+                output_dir=output_dir,
+            )
+
+            m = result["metrics"]
+            row["extraction_status"] = "success"
+            row["species_name"] = m.get("species_name") or ""
+            row["study_location"] = m.get("study_location") or ""
+            row["study_date"] = m.get("study_date") or ""
+            row["sample_size"] = "" if m.get("sample_size") is None else m["sample_size"]
+            row["num_empty_stomachs"] = "" if m.get("num_empty_stomachs") is None else m["num_empty_stomachs"]
+            row["num_nonempty_stomachs"] = "" if m.get("num_nonempty_stomachs") is None else m["num_nonempty_stomachs"]
+            row["fraction_feeding"] = "" if m.get("fraction_feeding") is None else m["fraction_feeding"]
+
+        except Exception as e:
+            print(f"  [ERROR] LLM extraction failed ({pdf_path.name}): {e}", file=sys.stderr)
+            row["extraction_status"] = "extraction_failed"
+
+    else:
+        print(f"  [INFO] {pdf_path.name}: Not useful — skipping LLM extraction.", file=sys.stderr)
+        row["extraction_status"] = "skipped_not_useful"
+
+    return row
+
+
 def run_pipeline(
     input_path: Path,
     model_dir: str,
@@ -50,6 +157,7 @@ def run_pipeline(
     confidence_threshold: float,
     max_chars: int,
     num_ctx: int,
+    workers: int = 1,
 ):
     """Run classify → extract pipeline on one or more PDFs.
 
@@ -68,6 +176,7 @@ def run_pipeline(
         confidence_threshold: Classifier probability threshold for 'useful'.
         max_chars: Max characters to send to the LLM.
         num_ctx: Context window size for Ollama.
+        workers: Number of parallel worker processes (default: 1 = sequential).
     """
     # ── Collect PDF paths ─────────────────────────────────────────────────
     if input_path.is_dir():
@@ -82,112 +191,41 @@ def run_pipeline(
         print(f"[ERROR] Input must be a .pdf file or a directory of PDFs: {input_path}", file=sys.stderr)
         sys.exit(1)
 
-    # ── Load classifier once (avoid re-reading model artifacts per file) ──
-    print("[INFO] Loading classifier...", file=sys.stderr)
-    try:
-        clf_model, vectorizer, encoder = load_classifier(model_dir)
-    except FileNotFoundError as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
-        sys.exit(1)
-    print("[INFO] Classifier loaded.", file=sys.stderr)
-
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_rows = []
 
-    for idx, pdf_path in enumerate(pdf_paths, start=1):
-        print(f"\n[{idx}/{len(pdf_paths)}] Processing: {pdf_path.name}", file=sys.stderr)
-
-        row = {
-            "filename": pdf_path.name,
-            "classification": "",
-            "confidence": "",
-            "pred_prob": "",
-            "extraction_status": "",
-            "species_name": "",
-            "study_location": "",
-            "study_date": "",
-            "sample_size": "",
-            "num_empty_stomachs": "",
-            "num_nonempty_stomachs": "",
-            "fraction_feeding": "",
-        }
-
-        # ── Step 1: Extract text ─────────────────
-        try:
-            original_text = extract_text_from_pdf(str(pdf_path))
-        except Exception as e:
-            print(f"  [ERROR] Text extraction failed: {e}", file=sys.stderr)
-            row["extraction_status"] = "text_extraction_failed"
+    if workers > 1 and len(pdf_paths) > 1:
+        print(f"[INFO] Using {workers} worker processes.", file=sys.stderr)
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(
+                    _process_single_pdf,
+                    pdf_path,
+                    model_dir,
+                    llm_model,
+                    output_dir,
+                    confidence_threshold,
+                    max_chars,
+                    num_ctx,
+                ): pdf_path
+                for pdf_path in pdf_paths
+            }
+            for future in as_completed(futures):
+                pdf_path = futures[future]
+                try:
+                    row = future.result()
+                except Exception as exc:
+                    print(f"  [ERROR] Worker failed for {pdf_path.name}: {exc}", file=sys.stderr)
+                    row = {"filename": pdf_path.name, "extraction_status": "worker_failed"}
+                summary_rows.append(row)
+    else:
+        for idx, pdf_path in enumerate(pdf_paths, start=1):
+            print(f"\n[{idx}/{len(pdf_paths)}] Processing: {pdf_path.name}", file=sys.stderr)
+            row = _process_single_pdf(
+                pdf_path, model_dir, llm_model, output_dir,
+                confidence_threshold, max_chars, num_ctx,
+            )
             summary_rows.append(row)
-            continue
-
-        if not original_text.strip():
-            print(f"  [WARN] No text extracted from {pdf_path.name}. Skipping.", file=sys.stderr)
-            row["extraction_status"] = "empty_text"
-            summary_rows.append(row)
-            continue
-
-        print(f"  [INFO] Text size: {len(original_text)} chars", file=sys.stderr)
-
-        # ── Step 2: Classify ──────────────────────────
-        label, confidence, pred_prob = classify_text(
-            text=original_text,
-            model=clf_model,
-            vectorizer=vectorizer,
-            encoder=encoder,
-            threshold=confidence_threshold,
-        )
-        print(f"  [CLASSIFIER] → {label} ({confidence:.2%} confidence)", file=sys.stderr)
-
-        row["classification"] = label
-        row["confidence"] = f"{confidence:.4f}"
-        row["pred_prob"] = f"{pred_prob:.4f}"
-
-        # ── Step 3: Extract ─────────────────
-        if label == "useful":
-            print(f"  [INFO] Running LLM extraction...", file=sys.stderr)
-
-            # Trim text to budget using section-priority logic (llm_text.py)
-            text_for_llm = original_text
-            if len(text_for_llm) > max_chars:
-                text_for_llm = extract_key_sections(text_for_llm, max_chars)
-                print(f"  [INFO] Text trimmed to {len(text_for_llm)} chars (budget {max_chars})", file=sys.stderr)
-
-            try:
-                # LLM call (llm_client.py)
-                metrics = extract_metrics_from_text(
-                    text=text_for_llm,
-                    model=llm_model,
-                    num_ctx=num_ctx,
-                )
-
-                # Resolve source pages + save JSON (llm_client.py)
-                result = save_extraction_result(
-                    metrics=metrics,
-                    source_file=pdf_path,
-                    original_text=original_text,
-                    output_dir=output_dir,
-                )
-
-                m = result["metrics"]
-                row["extraction_status"] = "success"
-                row["species_name"] = m.get("species_name") or ""
-                row["study_location"] = m.get("study_location") or ""
-                row["study_date"] = m.get("study_date") or ""
-                row["sample_size"] = "" if m.get("sample_size") is None else m["sample_size"]
-                row["num_empty_stomachs"] = "" if m.get("num_empty_stomachs") is None else m["num_empty_stomachs"]
-                row["num_nonempty_stomachs"] = "" if m.get("num_nonempty_stomachs") is None else m["num_nonempty_stomachs"]
-                row["fraction_feeding"] = "" if m.get("fraction_feeding") is None else m["fraction_feeding"]
-
-            except Exception as e:
-                print(f"  [ERROR] LLM extraction failed: {e}", file=sys.stderr)
-                row["extraction_status"] = "extraction_failed"
-
-        else:
-            print(f"  [INFO] Not useful — skipping LLM extraction.", file=sys.stderr)
-            row["extraction_status"] = "skipped_not_useful"
-
-        summary_rows.append(row)
 
     # ── Write summary CSV ─────────────────────────────────────────────────
     from datetime import datetime
@@ -301,6 +339,12 @@ Examples:
         default=4096,
         help="Context window size for Ollama (default: 4096).",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of parallel worker processes (default: 1 = sequential).",
+    )
 
     args = parser.parse_args()
 
@@ -317,6 +361,7 @@ Examples:
         confidence_threshold=args.confidence_threshold,
         max_chars=args.max_chars,
         num_ctx=args.num_ctx,
+        workers=args.workers,
     )
 
 
