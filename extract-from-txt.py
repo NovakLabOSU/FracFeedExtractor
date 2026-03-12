@@ -89,7 +89,7 @@ def run_txt_pipeline(
     else:
         txt_paths = sorted(input_dir.glob("*.txt"))
         if useful_stems is not None:
-            txt_paths = [p for p in txt_paths if p.stem in useful_stems]
+            txt_paths = [p for p in txt_paths if p.stem in useful_stems or p.name in useful_stems]
         if not txt_paths:
             print(f"[ERROR] No .txt files found in: {input_dir}", file=sys.stderr)
             sys.exit(1)
