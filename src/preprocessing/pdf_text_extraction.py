@@ -179,7 +179,7 @@ def parse_page_embedded(page: fitz.Page, page_num: int) -> str:
     return f"[PAGE {page_num}]\n{page_text}"
 
 
-def extract_text_from_pdf(pdf_path: str) -> str:
+def extract_text_from_pdf(pdf_path: str, skip_ocr: bool = False) -> str:
     text = []
     try:
         with fitz.open(pdf_path) as doc:
@@ -190,7 +190,8 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
         return ""
 
-    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+    if not skip_ocr and check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+        print(f"[INFO] High misspelling rate in {Path(pdf_path).name} — falling back to OCR", file=sys.stderr)
         text = []
         try:
             with fitz.open(pdf_path) as doc:
@@ -203,7 +204,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     return text
 
 
-def extract_text_from_pdf_bytes(data: bytes) -> str:
+def extract_text_from_pdf_bytes(data: bytes, skip_ocr: bool = False) -> str:
     """Extract text from an in-memory PDF without writing the PDF to disk."""
     text = []
     try:
@@ -215,7 +216,8 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
         print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
         return ""
 
-    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+    if not skip_ocr and check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+        print(f"[INFO] High misspelling rate — falling back to OCR", file=sys.stderr)
         text = []
         try:
             with fitz.open(stream=data, filetype="pdf") as doc:
