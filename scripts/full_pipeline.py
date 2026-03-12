@@ -25,8 +25,9 @@ from __future__ import annotations
 import os
 import json
 import argparse
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Tuple
 import subprocess
 import sys
 
@@ -47,6 +48,19 @@ from scripts.google_drive.drive_io import (
     sanitize_filename,
 )
 from src.preprocessing.pdf_text_extraction import extract_text_from_pdf_bytes
+
+
+def _extract_local_pdf(args: Tuple[Path, str]) -> Tuple[str, str, str | None]:
+    """Worker: read a local PDF and return (txt_name, label, text | None)."""
+    pdf_path, label = args
+    try:
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+        text = extract_text_from_pdf_bytes(pdf_bytes)
+        return (f"{pdf_path.stem}.txt", label, text)
+    except Exception as e:
+        print(f"Error processing {pdf_path.name}: {e}")
+        return (f"{pdf_path.stem}.txt", label, None)
 
 
 def run(cmd):
@@ -97,7 +111,7 @@ def process_api_mode():
     print(f"Wrote {len(labels)} labeled text files.")
 
 
-def process_local_mode(data_path: Path):
+def process_local_mode(data_path: Path, workers: int = 1):
     """Process PDFs from local directory."""
     if not data_path.exists():
         raise RuntimeError(f"Data path does not exist: {data_path}")
@@ -114,23 +128,31 @@ def process_local_mode(data_path: Path):
     out_dir.mkdir(parents=True, exist_ok=True)
     labels: Dict[str, str] = {}
 
+    # Build work items: (pdf_path, label)
+    work_items = []
     for folder, label in [(useful_dir, "useful"), (not_useful_dir, "not-useful")]:
         pdf_files = list(folder.glob("*.pdf"))
         print(f"Found {len(pdf_files)} PDFs in local folder '{label}'")
-
         for pdf_path in pdf_files:
-            try:
-                with open(pdf_path, "rb") as f:
-                    pdf_bytes = f.read()
-                text = extract_text_from_pdf_bytes(pdf_bytes)
-                stem = pdf_path.stem
-                txt_name = f"{stem}.txt"
+            work_items.append((pdf_path, label))
+
+    if workers > 1 and len(work_items) > 1:
+        print(f"[INFO] Using {workers} worker processes for PDF extraction.")
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            futures = {executor.submit(_extract_local_pdf, item): item for item in work_items}
+            for future in as_completed(futures):
+                txt_name, label, text = future.result()
+                if text is not None:
+                    (out_dir / txt_name).write_text(text, encoding="utf-8")
+                    labels[txt_name] = label
+                    print(f"Processed {txt_name}")
+    else:
+        for item in work_items:
+            txt_name, label, text = _extract_local_pdf(item)
+            if text is not None:
                 (out_dir / txt_name).write_text(text, encoding="utf-8")
                 labels[txt_name] = label
-                print(f"Processed {pdf_path.name}")
-            except Exception as e:
-                print(f"Error processing {pdf_path.name}: {e}")
-                continue
+                print(f"Processed {txt_name}")
 
     write_labels(labels, Path("data/labels.json"))
     print(f"Wrote {len(labels)} labeled text files.")
@@ -152,11 +174,18 @@ Examples:
     group.add_argument("--api", action="store_true", help="Use API mode to download PDFs from Google Drive")
     group.add_argument("--local", type=Path, metavar="PATH", help="Use local mode with PDFs from specified directory (should contain 'useful' and 'not-useful' subfolders)")
 
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of parallel worker processes for PDF extraction (default: 1 = sequential).",
+    )
+
     args = parser.parse_args()
 
     if args.local:
         print(f"Running in LOCAL mode with data path: {args.local}")
-        process_local_mode(args.local)
+        process_local_mode(args.local, workers=args.workers)
     else:  # args.api
         print("Running in API mode (Google Drive)")
         process_api_mode()
