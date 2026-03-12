@@ -122,6 +122,29 @@ _FIELD_PATTERNS: List[Tuple[re.Pattern, int]] = [
         ),
         5,
     ),
+    # frequency of occurrence — standard diet-study metric
+    (
+        re.compile(
+            r"(?i)(frequency\s+of\s+occurrence"
+            r"|occurrence\s+frequency"
+            r"|%\s*fo\b"
+            r"|\bfo\s*=\s*\d"
+            r"|index\s+of\s+relative\s+importance"
+            r"|\biri\b)"
+        ),
+        3,
+    ),
+    # stomach content / diet composition — general relevance signal
+    (
+        re.compile(
+            r"(?i)(stomach\s+content"
+            r"|gut\s+content"
+            r"|diet\s+composition"
+            r"|food\s+habits?"
+            r"|dietary\s+(analysis|study|data))"
+        ),
+        2,
+    ),
     # general percentage / fraction near gut/stomach context
     (re.compile(r"(?i)(\d+\.?\d*\s*%|\d+\s+percent" r"|\d+\s+of\s+\d+\s+(were|had|contained)" r"|proportion\s+of\s+\d+)"), 2),
     # study date — collection period
@@ -146,6 +169,23 @@ _FIELD_PATTERNS: List[Tuple[re.Pattern, int]] = [
 # Maximum characters reserved for the pinned abstract/preamble.  Any
 # remaining budget is filled by keyword-scored paragraphs.
 _ABSTRACT_CAP: int = 2000
+
+
+def _truncate_at_sentence(text: str, limit: int) -> str:
+    """Truncate *text* to at most *limit* chars, preferring a sentence boundary.
+
+    Searches backwards from *limit* for the last ``.``, ``!``, or ``?``.  If
+    one is found in the second half of the allowed window it is used; otherwise
+    the hard character limit is applied.
+    """
+    if len(text) <= limit:
+        return text
+    candidate = text[:limit]
+    for punct in (".", "!", "?"):
+        pos = candidate.rfind(punct)
+        if pos > limit // 2:
+            return candidate[: pos + 1]
+    return candidate
 
 
 def _score_paragraph(para: str) -> int:
@@ -284,15 +324,23 @@ def extract_key_sections(text: str, max_chars: int) -> str:
     sections.append((current_start, current_heading, "\n".join(current_lines)))
 
     # ── Phase 1 result: pin the abstract/preamble ──────────────────────────
-    preamble_text = ""
+    # Sections whose content is always pinned (counted against _ABSTRACT_CAP):
+    # the implicit preamble and any explicitly-named Abstract/Summary section.
+    _ABSTRACT_HEADING_RE = re.compile(
+        r"(?i)^\s*" + _NUM_PREFIX + r"(abstract|summary)\s*[:\.]?\s*$"
+    )
+
+    preamble_parts: List[str] = []
     body_sections: List[Tuple[int, str, str]] = []  # (start, heading, content)
     for start, heading, content in sections:
         if _DROP_SECTION_RE.match(heading.strip()) if heading.strip() else False:
             continue  # hard-drop references / acknowledgements / appendix
-        if heading == "[PREAMBLE]":
-            preamble_text = content.strip()[:_ABSTRACT_CAP]
+        if heading == "[PREAMBLE]" or _ABSTRACT_HEADING_RE.match(heading.strip()):
+            preamble_parts.append(content.strip())
         else:
             body_sections.append((start, heading, content))
+
+    preamble_text = "\n\n".join(p for p in preamble_parts if p)[:_ABSTRACT_CAP]
 
     budget = max_chars - len(preamble_text)
 
@@ -321,7 +369,7 @@ def extract_key_sections(text: str, max_chars: int) -> str:
                     para_start = sec_start + j + 1
         if para_lines:
             para_text = "\n".join(para_lines).strip()
-            raw_paragraphs.append((sec_start + len(block.split("\n")), para_text, _score_paragraph(para_text)))
+            raw_paragraphs.append((para_start, para_text, _score_paragraph(para_text)))
 
     # Sort by score descending; use original position as tiebreaker (earlier first)
     raw_paragraphs.sort(key=lambda t: (-t[2], t[0]))
@@ -335,7 +383,7 @@ def extract_key_sections(text: str, max_chars: int) -> str:
             selected_paras.append((pos, para_text))
             budget -= len(para_text)
         elif budget > 200:
-            selected_paras.append((pos, para_text[:budget]))
+            selected_paras.append((pos, _truncate_at_sentence(para_text, budget)))
             budget = 0
 
     # Re-sort to original document order so the LLM reads coherent text

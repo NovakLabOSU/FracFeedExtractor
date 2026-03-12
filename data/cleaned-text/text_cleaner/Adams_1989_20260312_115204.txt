@@ -1,0 +1,433 @@
+[PAGE 1]
+Temporal Variation in the Diet of the Gentoo Penguin Pygoscelis papua at Sub-Antarctic
+Marion Island
+
+Author(s): N. J. Adams and N. T. Klages
+Source: Colonial Waterbirds , 1989, Vol. 12, No. 1 (1989), pp. 30-36
+Published by: Waterbird Society
+ [PAGE 2]
+ Temporal variation in the diet of the Gentoo Penguin
+ Pygoscelis papua at sub-Antarctic Marion Island
+ N. J. ADAMS & N. T. KLAGES'
+ Percy FitzPatrick Institute of African Ornithology, University of Cape Town,
+ Rondebosch 7700, South Africa
+ 'Port Elizabeth Museum, P. 0. Box 13147, Humewood 6013, South Africa
+ Abstract.-The diet of the Gentoo Penguin Pygoscelis papua at sub-Antarctic Marion Island was sampled by stomach pumping at monthly intervals from March 1984 to March 1985. Overall, fish accounted for 53%
+ of the diet by mass, crustaceans 44% and cephalopods 2%. Crustaceans predominated between March and
+ June 1984; a marked increase in the proportion of fish in July coincided with the start of egg laying by Gentoo
+ Penguins. Fish accounted for almost all of the diet in January and March 1985. Juvenile nototheniid fish, in particular Notothenia squamifrons, formed the bulk of the fish component; myctophids and Channichthys
+ rhinoceratus were less common. The pelagic euphausiid Euphausia vallentini accounted for about 50% by mass of the overall crustacean component lumped over the entire study period. The decapod shrimp Nauticaris
+ marionis was the most important crustacean species consumed during June to September 1984. Cephalopods, predominantly octopods, were taken mainly in February and March 1985. The hypothesis that seasonal
+ changes in diet occur in direct response to the arrival of crested penguins (Eudyptes spp) early in summer is not supported by the data. Changes in diet appear to reflect local changes in the availability of prey species
+ within the inshore waters exploited by Gentoo Penguins. Received 10 March 1988, accepted 25 November 1988.
+ Key words.-diet, Gentoo Penguin, Pygoscelis papua, sub-Antarctic.
+ Colonial Waterbirds 12(1): 30-36, 1989
+ Studies of the diets of both migrant and resident penguins in the Southern
+ Ocean region have concentrated on birds during the chick-rearing period, with little
+ information for the non-breeding season
+ (see Croxall and Lishman 1987). The Gentoo Penguin Pygoscelis papua is a year-
+ round resident at sub-Antarctic Marion Island (van Zinderen Bakker 1971), and at
+ some other breeding sites in the Southern
+ Ocean (Watson 1975), affording opportunities for sampling its diet throughout
+ the year.
+ Williams (1981) suggested that seasonal changes in the diet and earlier, winter
+ breeding by Gentoo Penguins at Marion
+ Island, compared to populations at higher latitudes, ensured a crustacean diet during
+ incubation and early chick rearing. He suggested that a switch by Gentoo Pen-
+ guins to a fish diet later in the season, deduced from a change in color of the
+ excreta, was a response to the arrival of large numbers of two species of potentially
+ competing, summer-resident crested penguins, the Macaroni Eudyptes chrysolophus
+ and the Rockhopper E. chrysocome. However, food samples collected at Marion Is-
+ land in September 1982 showed that fish are common in the diet of Gentoo Pen-
+ guins before the arrival of the other penguin species (La Cock et al. 1984). We re-
+ port here on a more comprehensive set o samples collected throughout a single ye
+ at Marion Island. Our principal objecti was to investigate temporal changes i
+ diet.
+ METHODS
+ A total of 144 stomach samples was collected fr
+ Gentoo Penguins at three colonies distributed alo a nine kilometre stretch of the east coast of Marion
+ Island (46? 53'S, 37?54'E) from March 1984 to March
+ 1985 inclusive. Using the technique of Wilson (1984), we stomach pumped an average of 11 birds a month
+ as they returned to their landing beaches in the evening. We did not attempt to distinguish the breeding
+ status of the birds. Gentoo Penguins at Marion Island tend chicks from late July to December. Con-
+ sequently, during this period, we probably sampled both breeding and non-breeding birds.
+ Immediately after collection, samples were drained through a 0.5 mm sieve. Subsequently,
+ drained samples were weighed to the nearest gram and then stored at 4?C until sorting, generally com-
+ pleted within 24 h of collection. Soft identifiable material was sorted into fish, cephalopod and crustacean
+ components (further separated into shrimps, euphausiids and amphipods) and weighed. Since fish
+ muscle is digested more rapidly than squid, which is in turn digested more rapidly than crustacea muscle
+ (Jackson et al. 1987), we may have overestimated, in particular, the mass of crustaceans in mixed samples.
+ However, most stomach samples from Gentoo Penguins contained one prey type only (see below).
+ Most fish were recovered with heads separated from the remainder of the body. Consequently,
+ analyses were based on identification and measure-
+This content downloaded from
+97.113.13.157 on Tue, 29 Mar 2022 18:03:12 UTC
+
+[PAGE 3]
+ ADAMS & KLAGES * GENTOO PENGUIN DIET ment of otoliths (Adams and Klages, 1987). We esti-
+ mated standard length (SL) and mass of fish from regressions relating otolith diameter to these
+ parameters. Regressions not available in Adams and
+ Klages (1987) and Brown and Klages (1987) are given in Duhamel (1981), Hecht and Cooper (1986), and
+ Hecht (1987). Since otoliths were removed from intact fish crania, digestion and hence measurement
+ error were minimal.
+ Crustacean species were identified with the aid of published keys (Bowman and Gruner, 1973;
+ Kirkwood, 1982; 1984). Total length of intact individuals was measured from the anterior margin of an
+ eye to the tip of the telson. Numbers of crustaceans in each sample were estimated by dividing total mass
+ by the average mass of an individual crustacean of each respective species. Actual numbers and fresh
+ mass of prey ingested will be underestimated in welldigested samples.
+ Most of the small cephalopods were recovered intact, and numbers were counted directly. The iden-
+ tification of squid beaks was facilitated by a reference collection at the Port Elizabeth Museum, and con-
+ firmed by comparison with the literature (Clarke,
+ 1986). We estimated dorsal mantle length (DML) and mass of squid from regressions relating lower ros-
+ trum length (LRL) to these parameters (Adams and
+ Klages, 1987). Juvenile octopods were not identified.
+ samples at Marion Island.
+ Prey species Total % numbers % frequency number of prey class of occurrence
+ FISH
+ Notothiniidae
+ Notothenia squamifrons
+ Unident.juv. nototheniids
+ Notothenia acuta
+ Dissostichus eleginoides
+ Channichthyidae
+ Channichthys rhinoceratus
+ Myctophidae
+ Protomyctophum normani
+ Gymnoscopelus nicholsi
+ Protomyctophum tenisoni
+ Krefftichthys anderssoni
+ Protomyctophum bolini unid. myctophids
+ Electrona carlsbergi
+ Gymnoscopelus sp.
+ Muraenolepidae
+ Muraenolepts sp.
+ Unident. fish
+ Euphausiacea
+ Euphausia vallentini
+ Hippolytidae
+ Nauticaris marionis
+ Amphipoda
+ Themisto gaudichaudii
+ Hyperiella sp.
+ Unident. amphipods
+ Vibilia sp.
+ Primno sp.
+ Nematocarcinidae
+ Nematocarcinus longirostris
+ Octopoda
+ Unident.juv. octopods
+ Decapoda
+ Unident.juv. squid
+ Kondakovia longimana
+ Onychoteuthidae LRL >2mm
+ Onychoteuthidae LRL < 2mm
+ Margarella expansa
+ Ophiuroidea
+ 58.6
+ 21.1
+ 1.3
+ 0.5
+ 50.7
+ 14.6
+ 11.1
+ 6.3
+ 6.3
+ 5.8
+ 1.5
+ 1.4
+ 1.1
+ 1.0
+ 0.7
+ 0.2
+ <0.1
+ 12.5
+ 4.2
+ 4.2
+ 4.9
+ 3.5
+ 4.2
+ 4.9
+ 1.4
+ 0.7
+ 0.2
+ 0.1
+ 0.7
+ 1.4
+ 86.4
+ 25.7
+ 33.3
+ 13.5
+ 0.1
+ <0.1
+ <0.1
+ <0.1
+ <0.1
+ <0.1
+ 4.9
+ 2.1
+ 2.1
+ 1.4
+ 1.4
+ 1.4
+ 94.9
+ 2.9
+ 1.1
+ 0.6
+ 0.6
+ 18.8
+ 9.0
+ 3.5
+ 3.5
+ 3.5
+ 2.1
+This content downloaded from
+97.113.13.157 on Tue, 29 Mar 2022 18:03:12 UTC
+
+[PAGE 4]
+ RESULTS
+ Mean mass of food samples was 139.2
+ + 130.5 g (range: 8- 650 g, n= 144), similar to the 147 g recorded by La Cock et al.
+ (1984). Mean monthly sample mass was highest in December at 332 g.
+ General Composition of the Diet
+ Thirty species or species groups were identified (Table 1), with fish comprising
+ the largest single group (11 species). However, samples from individual penguins
+ were largely homogeneous consisting of a single species of crustacean or fish (see also
+ Jablonski 1985, Croxall et al. 1988). Fiftyeight percent of stomach samples con-
+ tained only a single prey taxon, 26% contained two taxa and 10% contained three
+ taxa (analysis based on taxa comprising at least 5% by mass of individual samples).
+ Fish and crustaceans accounted for
+ 53.5 and 44.4% respectively of the total annual diet by mass (Table 2). However, con-
+ siderable changes in proportions of fish, crustaceans and cephalopods occurred
+ over the year (Table 3, Fig. 1). Crustaceans accounted for over 75% of the diet by mass
+ from March to June 1984 but decreased to
+ 0% by March 1985. Cephalopods accounted for more than 10% of the diet
+ only in February and March 1985.
+ Fish
+ The fish component of the diet was dominated by the family Nototheniidae,
+ particularly Notothenia squamifrons. It is likely that most of the unidentified
+ juvenile nototheniids were also this species
+ (Table 1). Nototheniids accounted for over
+ 90% of the fish component during June to
+ October 1984. Myctophids and the channichthyid Channichthys rhinoceratus ap-
+ peared more commonly in the diet from
+ October and accounted for most of the food items in March 1985 (Table 3).
+ Fish of 78.8 - 84.1 mm (5.9 - 7.3 were the most frequently taken size clas
+ When plotted on a monthly basis, the was no evidence of any progressive chan
+ in size-class distribution throughout t year. However, during January and Fe
+ ruary smaller fish between 28.6 - 41.8 m
+ (0.2 - 0.7 g) accounted for the most fr quently taken size class, whereas larger
+ dividuals (76.2 - 84.1 mm, 5.3 - 7.3 g) we more numerous during the remaini
+ months. Standard parameters for all fish species are given in Table 4.
+ Crustaceans
+ Euphausia vallentini and Nauticaris marionis made up nearly all of the crusta
+ cean component. During winter (March to
+ August 1984), N. marionis formed the largest part of the crustacean component, but E.
+ vallentini subsequently increased to nearly
+ 100% in January and February 1985
+ (Table 3). Mean length of E. vallentini was
+ 22.5 mm ? 1.74 (n = 681), considerably smaller than that of N. marionis (35.1 mm
+ + 5.18, n = 1481).
+ Cephalopods
+ Cephalopods accounted for just over
+ 10% of the diet during February and
+ March 1985 but seldom occurred in the remaining months (Table 3). Most
+ cephalopods were small octopods (DML <
+ 15 mm). The only squid identified were juveniles of the species Kondakovia lon-
+ gimana of estimated dorsal mantle length and mass of 58.4 ? 11.4 mm and 9.6 ?
+ 3.8 g (n = 4) respectively.
+ DISCUSSION
+ Fish (Ealey 1954, Volkman et al. 198 and, in particular, nototheniids may fo
+ a substantial portion of the diet of the G too Penguin throughout its range. T
+ most important prey species by mass in
+ Fish Crustaceans Cephalopods
+ Wet mass (%) Mean 53.5 44.4 2.1
+ Range (0-100) (0-100) (0-51.8)
+This content downloaded from
+97.113.13.157 on Tue, 29 Mar 2022 18:03:12 UTC
+
+[PAGE 5]
+ ADAMS & KLAGES * GENTOO PENGUIN DIET by month.
+ Species Mar Apr May Jun Jul Aug Sep Oct Nov Dec Jan Feb Mar
+ Crustaceans
+ Euphausia va lentini 16.5 42.8 47.1 4.5 4.2 8.9 17.6 23.6 29.7 11.6 1.0 36.2 0
+ Nauticaris marionis 65.8 42.8 51.0 70.8 23.9 26.7 38.1 4.7 4.2 7.0 0 0 0
+ Themisto gaudichaudii 0 0 0 0 0 0 0 0 0 0 0 1.8 0
+ Fish
+ Nototheniidae 0 0 0 23.5 66.4 62.5 44.3 68.4 45.1 79.1 71.4 35.2 13.5
+ Myctophidae 0 14.4 0 0 0.5 1.9 0 1.6 20.8 1.9 4.8 10.0 48.2
+ Channichythidae 0 0 0 0 0 0 0 0 0 0 21.9 6.1 23.7
+ Muraenolpidae 0 0 0 0 4.3 0 0 0 0 0 0 0 0
+ Unidentified 16.8 0 1.4 0 0 0 0 0 0 0 0 0 0
+ Cephalopods 0 0 0.5 1.2 0.7 0 0 1.7 0.2 0.4 0.9 10.7 14.6 diet of Gentoo Penguins at Marion Island
+ was Notothenia squamifrons (incorrectly identified as Harpagifer georgianus in La
+ Cock et al. 1984, N. T. Klages pers. obs.)
+ whereas N. rossi and N. larseni were consumed at southerly sites (Croxall and Pr-
+ ince 1980a, Jablonski 1985). N. squamifrons is widely distributed occurring around the
+ islands of the southern Indian and, less commonly, the South Atlantic Oceans
+ MAMJJii A S N D J F M guin at Marion Island throughout a single year. Un-
+ shaded segment: crustaceans, stippled segment:
+ fish, shaded segment: cephalopods.
+ (Duhamel et al. 1983). N. squamifrons taken by Gentoo Penguins at Marion Island, all
+ in the range 28 - 134 mm, were larval or juvenile fish of 0 - 4 years (Duhamel and
+ Ozouf-Costaz 1985). The occurrence of large numbers of unidentified juvenile
+ nototheniids in the diet in November and
+ December preceded an increase in the relative abundance of small-size class N.
+ squamifrons in the diet in January and Feb ruary 1985. This may reflect growth o
+ these larval fish.
+ Juvenile Channichthys rhinoceratus, were the largest and second most abundant fish
+ in the diet. Adults were presumably too large for consumption. The species had
+ previously been considered a demersal species endemic to the colder waters
+ around Kerguelen (48?27'-50?S, 60?27'-
+ 70?35'E) and Heard Islands (53?01'S,
+ 73?23'E) (Kock et al. 1985). The presence of this species in the relatively warm waters
+ around Marion Island was surprising.
+ However, hydrographical evidence (Benon and Murail 1979) and sampling of
+ zooplankton (Grindley and Lane 1979,
+ Boden and Parker 1986) suggests that advection of foreign water masses past the
+ island with associated fauna may occur
+ (Boden & Parker 1986).
+ The appearance of myctophids in the diet of Gentoo Penguins coincided with
+ the increase in relative abundance of these fish in the diet of King Penguins Apteno-
+ dytes patagonicus during summer, suggesting increased availability (Adams and
+ Klages 1987). Small numbers of myctophids have previously been reported in
+ the diet of Gentoo Penguins of unknown status at Marion Island (La Cock et al.
+ 1984).
+ U9
+ -
+ CO a
+ C,
+This content downloaded from
+97.113.13.157 on Tue, 29 Mar 2022 18:03:12 UTC
+
+[PAGE 6]
+ recovered from Gentoo Penguin stomach samples at Marion Island.
+ Species OD (mm) Estimated SL (mm) Estimated mass (g)
+ N Mean SD Range Mean SD Range Mean SD Range
+ Nototheniidae
+ Notothenia squamifrons 1109 2.43 0.87 (0.8-5.8) 71.1 ? 18.7 (23.3-155.5) 5.6?4.1 (0.1-56.3)
+ Notothenia acuta 47 3.19?0.64 (1.38-4.7) 85.0+20.3 (38.6-126.4) 9.2?6.6 (0.6-28.3)
+ Dissostichus eleginoides 17 3.52?0.73 (2.19-5.27) 105.7?42.6 (42.4-215.1) 10.6+ 16.9 (0.3-65.0)
+ Channichthyidae
+ Channichthys rhinoceratus 170 1.48?0.38 (0.97-2.45) 170.3+36.8 (127.0-238.3) 21.1 ? 18.9 (6.8-61.9)
+ Myctophidae
+ Protomvctophum normani 61 2.38?0.10 (2.19-2.6) 77.7? 3.7 (70.0-85.2) 6.4? 0.9 (4.7-8.3)
+ Protomyctophum tenisoni 57 1.63?0.13 (1.3-1.78) 49.2 ?4.9 (37.0-54.8) 1.8 ?0.5 (0.8-2.3)
+ Krefftichthys anderssoni 35 1.51 0.25 (0.97-1.87) 49.6? 11.2 (25.2-66.0) 2.0? 1.1 (0.2-4.3)
+ Gymnoscopelus nicholsi 12 6.20?0.19 (5.91-6.55) 156.2+5.7 (147.4-166.7) 44.3?4.8 (37.4-53.3)
+ Protomvctophum bolini 4 2.00?0.38 (1.7-2.35) 57.7 12.2 (46.1-67.3) 1.5?0.8 (0.8-2.2)
+ Muraenolepidae
+ Muraenolepis sp. 7 2.7?0.58 (1.87-3.4) 141.1 46.6 (76.8-200.8) 24.9?20.8 (2.3-60.6)
+ Two species of crustacean Euphausia vallentini and Nauticaris marionis, were of
+ almost equal importance by mass at Marion Island. This is in contrast to the situa-
+ tion at sites south of the Antarctic Polar
+ Front, where the crustacean component of the diet of the Gentoo Penguin is domi-
+ nated by a single species, E. superba. E. vallentini was the most important prey con-
+ sumed by Macaroni and Rockhopper penguins during the 1984-1985 summer, and
+ remained abundant in the diet of Rockhopper Penguins in March 1985 (Brown
+ and Klages 1987) when it was absent from the diet of the Gentoo Penguin. Both
+ species of crested penguins probably forage farther offshore during late chick-
+ rearing than do Gentoo Penguins (Brown
+ 1987, Adams and Wilson 1987). This may indicate a movement of euphausiids out of
+ the immediate inshore waters during February and March 1985.
+ Due to its benthic nature, adult N.
+ marionis may be available to Gentoo Penguins only within a few kilometers of the
+ shore (Adams and Wilson 1987). The size
+ (average length: 35.1 mm) of N. marionis taken by Gentoo Penguins at Marion Is-
+ land in 1984-1985 is clearly greater than juveniles (maximum length: 23 mm) taken
+ by crested penguins during December
+ 1983 to February 1984 (Brown and Klages
+ 1987) and by Gentoo Penguins in September 1982 (La Cock et al. 1984). The ab-
+ sence of juvenile N. marionis in the diet of
+ Gentoo and crested penguins at Marion Island during January to March 1985 is dif-
+ ficult to explain, since at least some adult individuals recovered during April to Sep-
+ tember 1984 were ovigerous (N. J. Adams pers. obs.).
+ The occurrence of octopods in the diet of Gentoo Penguins is apparently unique
+ to the Marion Island site. The appearance of juvenile octopods in the diet coincided
+ with their occurrence in the diet of Rockhopper Penguins late in the chick-rearing
+ period (Brown and Klages 1987). Adult octopods are generally benthic and solit-
+ ary. The appearance of large numbers of juveniles in the diet suggests highly sea-
+ sonal spawning, coupled with a tendency to form dense aggregations in shallower
+ water. In contrast, the small number of juvenile squid in the diet of the inshore
+ foraging Gentoo Penguin again emphasizes the generally pelagic nature of
+ squid (Adams and Klages 1987).
+This content downloaded from
+97.113.13.157 on Tue, 29 Mar 2022 18:03:12 UTC
+
+[PAGE 7]
+ ADAMS & KLAGES * GENTOO PENGUIN DIET
+ Gentoo Penguins apparently switched from a largely crustacean diet during
+ March to June 1984 to a largely fish diet during July 1984 to March 1985. This
+ change coincided with peak egg laying and could not be considered as a direct re-
+ sponse to the arrival, in October and
+ November, of the largely, euphausiid consuming and hence potentially competing
+ crested penguins (cf. Williams 1981).
+ Moreover, the most important crustacean component by mass in the diet during
+ March 1984 to September 1984 was adult
+ N. marionis (not taken by Macaroni and
+ Rockhopper penguins) and not krill
+ (euphausiids) as intimated by Williams
+ (1981). The large variation in abundance and prey-species composition of crusta-
+ ceans in penguin diet from year-to-year, indicated by the differences in the diet of
+ the Macaroni and Rockhopper Penguins in two years at Marion Island (Brown and
+ Klages 1987) and Gentoo Penguins in
+ March 1984 and March 1985 may reflect a greater degree of unpredictability in
+ availability of crustacean prey than at higher latitudes. Switches in diet may
+ merely reflect local changes in availability of particular prey within the inshore area
+ exploited by Gentoo Penguins.
+ Average meal size of Gentoo Penguins at Marion Island is small (La Cock et al.
+ 1984, this study) compared to those recovered from breeding penguins at higher
+ latitudes (Croxall and Prince 1980a, Jablonski 1985, Volkman et al. 1980). Evalua-
+ tion of the magnitude of this difference is complicated by the unknown ratio of
+ breeders to non-breeders sampled at Marion Island. However, the difference ap-
+ pears real and may reflect reduced food availability compared to more southerly
+ sites. This view is supported by the small total breeding population (Adams and
+ Wilson 1987), low breeding success and long growth period (Williams 1980) of
+ Gentoo Penguins at Marion Island and suggests that the population is food limited
+ (La Cock et al. 1982). However, in contrast to the southern populations which breed
+ in summer (Croxall and Prince 1980b),
+ Gentoo Penguins at Marion Island begin breeding in the austral winter (Williams
+ 1980). The infrequent feeding of King penguin chicks (Cherel et al. 1987, Pers.
+ obs.) and dispersal of Eudyptes penguins away from the island during winter
+ suggest food availability is low. Consequently, having excluded direct competi-
+ tion with crested penguins for crustacean prey (Williams 1981), the reason for winter
+ breeding by Gentoo Penguins remains unclear.[PAGE 8]
+ Duhamel, G. 1981. Characteristiques biologiques des principales espeches de poissons du plateau conti-
+ nental des iles Kerguelen. Cybium 3e serie 5:
+ Duhamel, G., Hureau, J. C. and Ozouf-Costaz, C.
+ 1983. Ecological survey of notothenioid fishes in the Southern Ocean from Bouvet to Kerguelen
+ Islands. Memoirs of the National Institute of Polar
+ Research Special Issue 27: 176-182.
+ Duhamel, G. and Ozouf-Costaz, C. 1985. Age, growth and reproductive biology of Notothenia squamifrons
+ Gunther 1880 from the Indian sector of the
+ Southern Ocean. Polar Biology 4: 143-153.
+ Ealey, E. H. M. 1954. Analysis of stomach contents of some Heard Island birds. Emu 54: 204-210.
+ Grindley, J. R. and Lane, S. B. 1979. Zooplankton around Marion and Prince Edward Islands.
+ Comite National Francais des Rescherches Antartiques 44: 111-126.
+ Hecht, T. 1987. A guide to the otoliths of Southern
+ Ocean fishes. South African Journal of Antarctica
+ Research 17: 1-87.
+ Hecht, T. and Cooper, J. 1986. Length/mass relationships, energetic content and otoliths of Antarctic
+ cod Paranotothenia magellanica (Nototheniidae:
+ Pisces) at sub-Antarctic Marion Island. South African Journal of Zoology 21: 294-296.
+ Jablonski, B. 1985. The diet of penguins on King
+ George Island, South Shetland Islands. Acta
+ Zoologica Cracoviensia 29: 117-186.
+ Jackson, S., Duffy, D. C. and Jenkins, J. F. G. 1987.
+ Gastric digestion in marine vertebrate predators:
+ in vitro standards. Functional Ecology 1: 287-291.
+ Kirkwood, J. M. 1982. A guide to the Euphausiacea of the Southern Ocean. ANARE Research Notes
+ Kirkwood, J. M. 1984. A guide to the Decap'da of the Southern Ocean. ANARE Research Notes 11:
+ Kock, K. H., Duhamel, G. and Hureau, J. C. 1985.
+ Biology and status of exploited Antarctic fish stocks: a review. BIOMASS Scientific Series 6:
+ La Cock, G. D., Hecht, T. and Klages, N. 1984.The winter diet of Gentoo Penguins at Marion Island.
+ Ostrich 55: 188-191.
+ Volkman, N. J., Presler, P. and Trivelpiece, W. 1980.
+ Diets of pygoscelid penguins at King George Island, Antarctica. Condor 82: 373-378.
+ Williams, A. J. 1980. Aspects of the breeding biology of the Gentoo Penguin Pygoscelis papua. Gerfaut
+ Williams, A. J. 1981. Factors affecting the time of breeding of Gentoo Penguins at Marion Island. In
+ Cooper J. (ed.) Proceedings of the symposium on birds of the sea and shore, 1979. 451-459. Cape
+ Town: African Seabird Group.
+ Wilson, R. P. 1984. An improved stomach pump for penguins and other seabirds. Journal of Field Or-
+ nithology 55: 109-112.
+This content downloaded from
+97.113.13.157 on Tue, 29 Mar 2022 18:03:12 UTC

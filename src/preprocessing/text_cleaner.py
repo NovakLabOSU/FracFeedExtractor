@@ -30,13 +30,19 @@ import sys
 from pathlib import Path
 from typing import List
 
+# Optional numeric section prefix shared with llm_text.py patterns.
+# Matches e.g. "1.", "2.1.", "3.2.1 " so that "1. References" is also caught.
+_NUM_PREFIX = r"(?:\d{1,2}(?:\.\d{1,2})*\.?\s+)?"
+
 # ---------------------------------------------------------------------------
 # Section-level drop patterns
 # When a line matches one of these, the entire remainder of that page/section
 # block is discarded (until the next [PAGE N] marker or end of text).
 # ---------------------------------------------------------------------------
 _SECTION_DROP_HEADERS: re.Pattern = re.compile(
-    r"(?i)^\s*("
+    r"(?i)^\s*"
+    + _NUM_PREFIX
+    + r"("
     r"acknowledge?ments?"
     r"|literature\s+cited"
     r"|references?\s+cited"
@@ -132,8 +138,9 @@ _SECTION_HEADER_WHITELIST: re.Pattern = re.compile(
     r"|findings?"
     r"|discussion"
     r"|conclusions?"
+    r"|conclusions?\s+and\s+discussion"
+    r"|discussion\s+and\s+conclusions?"
     r"|summary\s+and\s+discussion"
-    r"|acknowledge?ments?"
     r")\s*[:\.\-]?\s*$"
 )
 
