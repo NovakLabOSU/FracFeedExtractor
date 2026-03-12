@@ -71,6 +71,7 @@ def run_txt_pipeline(
     max_chars: int,
     num_ctx: int,
     single_file: Path = None,
+    useful_stems: set = None,
 ) -> None:
     """Process every .txt file in *input_dir* through clean → filter → trim → extract.
 
@@ -87,6 +88,8 @@ def run_txt_pipeline(
         txt_paths = [single_file]
     else:
         txt_paths = sorted(input_dir.glob("*.txt"))
+        if useful_stems is not None:
+            txt_paths = [p for p in txt_paths if p.stem in useful_stems]
         if not txt_paths:
             print(f"[ERROR] No .txt files found in: {input_dir}", file=sys.stderr)
             sys.exit(1)
@@ -335,8 +338,27 @@ Examples:
         default=8192,
         help="Ollama context window size (default: 8192).",
     )
+    parser.add_argument(
+        "--labels",
+        type=str,
+        default=None,
+        help="Path to labels.json. When provided, only files labelled 'useful' are processed.",
+    )
 
     args = parser.parse_args()
+
+    # ── Load label filter ───────────────────────────────────────────────
+    useful_stems = None
+    if args.labels:
+        import json
+        labels_path = Path(args.labels)
+        if not labels_path.exists():
+            print(f"[ERROR] Labels file not found: {labels_path}", file=sys.stderr)
+            sys.exit(1)
+        with open(labels_path, encoding="utf-8") as f:
+            labels = json.load(f)
+        useful_stems = {k for k, v in labels.items() if v == "useful"}
+        print(f"[INFO] Labels filter: {len(useful_stems)} useful papers", file=sys.stderr)
 
     single_file = None
     if args.file:
@@ -364,6 +386,7 @@ Examples:
         max_chars=args.max_chars,
         num_ctx=args.num_ctx,
         single_file=single_file,
+        useful_stems=useful_stems,
     )
 
 
