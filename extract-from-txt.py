@@ -351,6 +351,7 @@ Examples:
     useful_stems = None
     if args.labels:
         import json
+
         labels_path = Path(args.labels)
         if not labels_path.exists():
             print(f"[ERROR] Labels file not found: {labels_path}", file=sys.stderr)

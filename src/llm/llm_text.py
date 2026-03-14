@@ -124,25 +124,12 @@ _FIELD_PATTERNS: List[Tuple[re.Pattern, int]] = [
     ),
     # frequency of occurrence — standard diet-study metric
     (
-        re.compile(
-            r"(?i)(frequency\s+of\s+occurrence"
-            r"|occurrence\s+frequency"
-            r"|%\s*fo\b"
-            r"|\bfo\s*=\s*\d"
-            r"|index\s+of\s+relative\s+importance"
-            r"|\biri\b)"
-        ),
+        re.compile(r"(?i)(frequency\s+of\s+occurrence" r"|occurrence\s+frequency" r"|%\s*fo\b" r"|\bfo\s*=\s*\d" r"|index\s+of\s+relative\s+importance" r"|\biri\b)"),
         3,
     ),
     # stomach content / diet composition — general relevance signal
     (
-        re.compile(
-            r"(?i)(stomach\s+content"
-            r"|gut\s+content"
-            r"|diet\s+composition"
-            r"|food\s+habits?"
-            r"|dietary\s+(analysis|study|data))"
-        ),
+        re.compile(r"(?i)(stomach\s+content" r"|gut\s+content" r"|diet\s+composition" r"|food\s+habits?" r"|dietary\s+(analysis|study|data))"),
         2,
     ),
     # general percentage / fraction near gut/stomach context
@@ -326,9 +313,7 @@ def extract_key_sections(text: str, max_chars: int) -> str:
     # ── Phase 1 result: pin the abstract/preamble ──────────────────────────
     # Sections whose content is always pinned (counted against _ABSTRACT_CAP):
     # the implicit preamble and any explicitly-named Abstract/Summary section.
-    _ABSTRACT_HEADING_RE = re.compile(
-        r"(?i)^\s*" + _NUM_PREFIX + r"(abstract|summary)\s*[:\.]?\s*$"
-    )
+    _ABSTRACT_HEADING_RE = re.compile(r"(?i)^\s*" + _NUM_PREFIX + r"(abstract|summary)\s*[:\.]?\s*$")
 
     preamble_parts: List[str] = []
     body_sections: List[Tuple[int, str, str]] = []  # (start, heading, content)

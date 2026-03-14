@@ -222,8 +222,13 @@ def run_pipeline(
         for idx, pdf_path in enumerate(pdf_paths, start=1):
             print(f"\n[{idx}/{len(pdf_paths)}] Processing: {pdf_path.name}", file=sys.stderr)
             row = _process_single_pdf(
-                pdf_path, model_dir, llm_model, output_dir,
-                confidence_threshold, max_chars, num_ctx,
+                pdf_path,
+                model_dir,
+                llm_model,
+                output_dir,
+                confidence_threshold,
+                max_chars,
+                num_ctx,
             )
             summary_rows.append(row)
 

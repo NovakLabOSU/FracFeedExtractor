@@ -40,9 +40,7 @@ _NUM_PREFIX = r"(?:\d{1,2}(?:\.\d{1,2})*\.?\s+)?"
 # block is discarded (until the next [PAGE N] marker or end of text).
 # ---------------------------------------------------------------------------
 _SECTION_DROP_HEADERS: re.Pattern = re.compile(
-    r"(?i)^\s*"
-    + _NUM_PREFIX
-    + r"("
+    r"(?i)^\s*" + _NUM_PREFIX + r"("
     r"acknowledge?ments?"
     r"|literature\s+cited"
     r"|references?\s+cited"
