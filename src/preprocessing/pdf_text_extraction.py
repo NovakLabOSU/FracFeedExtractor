@@ -14,6 +14,7 @@ import pytesseract
 from PIL import Image
 import io
 import argparse
+import logging
 from pathlib import Path
 import sys
 import json
@@ -22,6 +23,10 @@ import camelot
 import cv2
 import numpy as np
 from spellchecker import SpellChecker
+
+from src.utils.logger import setup_logging
+
+log = logging.getLogger(__name__)
 
 Image.MAX_IMAGE_PIXELS = None
 fitz.TOOLS.mupdf_display_errors(False)
@@ -53,28 +58,21 @@ def extract_tables_with_camelot(pdf_path: str) -> List[Dict]:
     Returns:
         List of dictionaries containing table data and metadata
     """
-
     tables_data = []
 
     try:
         # Try stream method first with edge detection (better for tables without borders)
-        tables = camelot.read_pdf(
-            str(pdf_path), pages='all', flavor='stream', edge_tol=500, row_tol=10, column_tol=5  # Tolerance for detecting table edges  # Ttolerance for row detection  # Tolerance for column detection
-        )
+        tables = camelot.read_pdf(str(pdf_path), pages='all', flavor='stream', edge_tol=500, row_tol=10, column_tol=5)
 
         # If still no tables, try lattice method (for bordered tables)
         if len(tables) == 0:
             tables = camelot.read_pdf(str(pdf_path), pages='all', flavor='lattice', line_scale=40)
 
         for idx, table in enumerate(tables, start=1):
-            # Convert to list of lists
             table_cells = table.df.values.tolist()
-
-            # Add header row (pandas columns)
             header = table.df.columns.tolist()
             table_cells.insert(0, header)
 
-            # Skip tables with very few cells (likely detection errors)
             if len(table_cells) < 3 or (len(table_cells[0]) if table_cells else 0) < 2:
                 continue
 
@@ -94,11 +92,11 @@ def extract_tables_with_camelot(pdf_path: str) -> List[Dict]:
                 "accuracy": float(table.accuracy) if hasattr(table, 'accuracy') else 0.0,
                 "extraction_method": "camelot",
             }
-
             tables_data.append(table_info)
 
     except Exception as e:
         print(f"[ERROR] Camelot extraction failed: {e}", file=sys.stderr)
+        log.error("Camelot extraction failed for %s: %s", pdf_path, e)
 
     return tables_data
 
@@ -114,7 +112,6 @@ def extract_tables_from_pdf(pdf_path: str) -> List[Dict]:
     """
     tables_data = []
 
-    # Try PyMuPDF first
     try:
         with fitz.open(pdf_path) as doc:
             for page_num, page in enumerate(doc, start=1):
@@ -131,7 +128,6 @@ def extract_tables_from_pdf(pdf_path: str) -> List[Dict]:
                             continue
 
                         bbox = tab.bbox
-
                         table_info = {
                             "table_id": f"Table_P{page_num}_T{table_idx}",
                             "page_number": page_num,
@@ -142,14 +138,23 @@ def extract_tables_from_pdf(pdf_path: str) -> List[Dict]:
                             "cells": table_cells,
                             "extraction_method": "pymupdf",
                         }
-
                         tables_data.append(table_info)
 
                     except Exception as e:
-                        tables_data.append({"table_id": f"Table_P{page_num}_T{table_idx}", "page_number": page_num, "table_index": table_idx, "error": str(e), "extraction_method": "pymupdf"})
+                        log.warning("Failed to extract table P%d T%d from %s: %s", page_num, table_idx, pdf_path, e)
+                        tables_data.append(
+                            {
+                                "table_id": f"Table_P{page_num}_T{table_idx}",
+                                "page_number": page_num,
+                                "table_index": table_idx,
+                                "error": str(e),
+                                "extraction_method": "pymupdf",
+                            }
+                        )
 
     except Exception as e:
         print(f"[ERROR] PyMuPDF table extraction failed: {e}", file=sys.stderr)
+        log.error("PyMuPDF table extraction failed for %s: %s", pdf_path, e)
 
     # If PyMuPDF found no tables, try camelot
     if len(tables_data) == 0:
@@ -182,21 +187,24 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     try:
         with fitz.open(pdf_path) as doc:
             for page_num, page in enumerate(doc, start=1):
-                text.append(parse_page_embedded(page, page_num))  # updated
+                text.append(parse_page_embedded(page, page_num))
             text = "\n".join(text)
     except Exception as e:
         print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
+        log.error("Failed to extract text from %s: %s", pdf_path, e)
         return ""
 
     if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+        log.warning("High spelling error rate in %s — falling back to OCR extraction.", pdf_path)
         text = []
         try:
             with fitz.open(pdf_path) as doc:
                 for page_num, page in enumerate(doc, start=1):
-                    text.append(parse_page_ocr(page, page_num))  # updated
+                    text.append(parse_page_ocr(page, page_num))
                 text = "\n".join(text)
         except Exception as e:
             print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
+            log.error("OCR extraction also failed for %s: %s", pdf_path, e)
             return ""
     return text
 
@@ -207,21 +215,24 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
     try:
         with fitz.open(stream=data, filetype="pdf") as doc:
             for page_num, page in enumerate(doc, start=1):
-                text.append(parse_page_embedded(page, page_num))  # updated
+                text.append(parse_page_embedded(page, page_num))
             text = "\n".join(text)
     except Exception as e:
         print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
+        log.error("Failed to extract text from PDF bytes: %s", e)
         return ""
 
     if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+        log.warning("High spelling error rate in in-memory PDF — falling back to OCR extraction.")
         text = []
         try:
             with fitz.open(stream=data, filetype="pdf") as doc:
                 for page_num, page in enumerate(doc, start=1):
-                    text.append(parse_page_ocr(page, page_num))  # updated
+                    text.append(parse_page_ocr(page, page_num))
                 text = "\n".join(text)
         except Exception as e:
             print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
+            log.error("OCR extraction also failed for in-memory PDF: %s", e)
             return ""
     return text
 
@@ -233,6 +244,7 @@ def save_to_file(text: str, output_path: str):
             f.write(text)
     except Exception as e:
         print(f"[ERROR] Could not save text to {output_path}: {e}", file=sys.stderr)
+        log.error("Could not save text to %s: %s", output_path, e)
 
 
 def main():
@@ -242,9 +254,12 @@ def main():
 
     args = parser.parse_args()
 
+    setup_logging()
+
     pdf_path = Path(args.pdf)
     if not pdf_path.exists():
         print(f"[ERROR] File not found: {pdf_path}", file=sys.stderr)
+        log.error("File not found: %s", pdf_path)
         sys.exit(1)
 
     # Extract text
@@ -255,11 +270,8 @@ def main():
 
     # If tables were found, save JSON
     if tables_data:
-
-        # Save tables JSON
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-
         tables_json_path = output_dir / (pdf_path.stem + "_tables.json")
         with open(tables_json_path, "w", encoding="utf-8") as f:
             json.dump(tables_data, f, indent=2)

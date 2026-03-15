@@ -5,16 +5,18 @@ prioritizing the most informative content when text must be truncated to fit
 within LLM context windows.
 """
 
+import logging
 import re
 import sys
 from pathlib import Path
 from typing import List, Tuple
 
-# Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
+
+log = logging.getLogger(__name__)
 
 # Section headers commonly found in scientific diet / stomach-content papers.
 # Order matters: earlier entries are higher priority when budget is tight.
@@ -43,7 +45,6 @@ def split_into_pages(text: str) -> List[Tuple[int, str]]:
         List of (page_number, page_text) tuples
     """
     parts = re.split(r"\[PAGE\s+(\d+)\]", text)
-    # parts: [before_first_marker, page_num, page_text, page_num, page_text, ...]
     pages: List[Tuple[int, str]] = []
     if parts[0].strip():
         pages.append((0, parts[0]))
@@ -71,8 +72,6 @@ def classify_page(page_text: str) -> Tuple[bool, int]:
     for idx, pat in enumerate(SECTION_PATTERNS):
         if pat.search(page_text):
             return True, idx
-    # No recognised header — still potentially useful (e.g. tables without
-    # a "Table" header, continuation of Results, etc.)
     return True, len(SECTION_PATTERNS)
 
 
@@ -100,13 +99,12 @@ def extract_key_sections(text: str, max_chars: int) -> str:
         return text
 
     pages = split_into_pages(text)
-    scored: List[Tuple[int, int, str]] = []  # (priority, page_num, page_text)
+    scored: List[Tuple[int, int, str]] = []
     for page_num, page_text in pages:
         useful, priority = classify_page(page_text)
         if useful:
             scored.append((priority, page_num, page_text))
 
-    # Sort by priority (ascending = most important first)
     scored.sort(key=lambda t: t[0])
 
     selected: List[Tuple[int, str]] = []
@@ -117,12 +115,10 @@ def extract_key_sections(text: str, max_chars: int) -> str:
             selected.append((page_num, page_with_marker))
             budget -= len(page_with_marker)
         elif budget > 200:
-            # Partially include the page up to the remaining budget
             selected.append((page_num, page_with_marker[:budget]))
             budget = 0
             break
 
-    # Re-sort by page number so the LLM sees content in reading order
     selected.sort(key=lambda t: t[0])
     return "\n".join(chunk for _, chunk in selected)
 
@@ -150,6 +146,8 @@ def load_document(file_path: Path) -> str:
             with open(file_path, "r", encoding="utf-8") as f:
                 return f.read()
         except UnicodeDecodeError as e:
+            log.error("Text file encoding error for %s: %s", file_path, e)
             raise RuntimeError(f"Text file encoding error: {e}")
     else:
+        log.error("Unsupported file type attempted: %s", file_path.suffix)
         raise RuntimeError(f"Unsupported file type: {suffix}. Use .pdf or .txt files.")
