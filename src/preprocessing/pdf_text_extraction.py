@@ -24,6 +24,7 @@ import cv2
 import numpy as np
 from spellchecker import SpellChecker
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.utils.logger import setup_logging
 
 log = logging.getLogger(__name__)
