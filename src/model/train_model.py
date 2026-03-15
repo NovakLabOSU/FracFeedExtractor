@@ -93,7 +93,19 @@ def train_pdf_classifier(texts, labels, output_dir="src/model/models"):
     dtrain = xgb.DMatrix(X_train_vec, label=y_train)
     dtest = xgb.DMatrix(X_test_vec, label=y_test)
 
+    # Use GPU if available (e.g. HPC gpu nodes), fall back to CPU
+    try:
+        _probe = xgb.DMatrix(X_train_vec[:1], label=y_train[:1])
+        xgb.train({"device": "cuda", "tree_method": "hist"}, _probe, num_boost_round=1)
+        device, tree_method = "cuda", "hist"
+        print("[INFO] GPU detected — training with CUDA.")
+    except xgb.core.XGBoostError:
+        device, tree_method = "cpu", "hist"
+        print("[INFO] No GPU available — training on CPU.")
+
     params = {
+        "device": device,
+        "tree_method": tree_method,
         "objective": "binary:logistic",
         "eval_metric": "logloss",
         "eta": 0.05,

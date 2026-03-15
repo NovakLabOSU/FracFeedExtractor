@@ -35,6 +35,9 @@ fitz.TOOLS.mupdf_display_errors(False)
 # Maximum allowed ratio of misspelled words to total words in a pdf
 MAX_SPELLING_ERROR_RATE = 0.05
 
+# Module-level singleton — avoids reloading the dictionary for every PDF
+_spell_checker = SpellChecker()
+
 
 def check_spelling(text: str) -> float:
     """
@@ -42,11 +45,10 @@ def check_spelling(text: str) -> float:
 
     Returns 1 if no words detected in input string
     """
-    spellChecker = SpellChecker()
-    words = spellChecker.split_words(text)
+    words = _spell_checker.split_words(text)
     if len(words) == 0:
         return 1
-    misspelled = spellChecker.unknown(words)
+    misspelled = _spell_checker.unknown(words)
     return len(misspelled) / len(words)
 
 
@@ -183,7 +185,7 @@ def parse_page_embedded(page: fitz.Page, page_num: int) -> str:
     return f"[PAGE {page_num}]\n{page_text}"
 
 
-def extract_text_from_pdf(pdf_path: str) -> str:
+def extract_text_from_pdf(pdf_path: str, skip_ocr: bool = False) -> str:
     text = []
     try:
         with fitz.open(pdf_path) as doc:
@@ -195,7 +197,8 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         log.error("Failed to extract text from %s: %s", pdf_path, e)
         return ""
 
-    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+    if not skip_ocr and check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+        print(f"[INFO] High misspelling rate in {Path(pdf_path).name} — falling back to OCR", file=sys.stderr)
         log.warning("High spelling error rate in %s — falling back to OCR extraction.", pdf_path)
         text = []
         try:
@@ -210,7 +213,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     return text
 
 
-def extract_text_from_pdf_bytes(data: bytes) -> str:
+def extract_text_from_pdf_bytes(data: bytes, skip_ocr: bool = False) -> str:
     """Extract text from an in-memory PDF without writing the PDF to disk."""
     text = []
     try:
@@ -223,7 +226,8 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
         log.error("Failed to extract text from PDF bytes: %s", e)
         return ""
 
-    if check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+    if not skip_ocr and check_spelling(text) > MAX_SPELLING_ERROR_RATE:
+        print(f"[INFO] High misspelling rate — falling back to OCR", file=sys.stderr)
         log.warning("High spelling error rate in in-memory PDF — falling back to OCR extraction.")
         text = []
         try:
