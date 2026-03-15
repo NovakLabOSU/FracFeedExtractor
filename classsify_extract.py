@@ -28,7 +28,9 @@ Output:
 
 import argparse
 import csv
+import logging
 import sys
+from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -36,6 +38,9 @@ from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
 from src.model.pdf_classifier import load_classifier, classify_text
 from src.llm.llm_text import extract_key_sections
 from src.llm.llm_client import extract_metrics_from_text, save_extraction_result
+from src.utils.logger import setup_logging
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -51,47 +56,89 @@ def _process_single_pdf(
     confidence_threshold: float,
     max_chars: int,
     num_ctx: int,
-) -> dict:
-    """Process a single PDF: classify and optionally extract metrics.
+):
+    """Run classify → extract pipeline on one or more PDFs.
 
-    Designed to run inside a worker process. All heavy resources (classifier,
-    LLM client) are created per-call so that the function is safe for
-    multiprocessing.
+    For each PDF:
+      1. Extract text via PyMuPDF / OCR (pdf_text_extraction.py)
+      2. Classify with XGBoost (pdf_classifier.py)
+      3. If 'useful': trim text to budget (llm_text.py), run LLM extraction
+         (llm_client.py), and save result JSON (llm_client.py)
+      4. Append a row to the summary CSV regardless of classification outcome
 
-    Returns:
-        A summary-row dict for the CSV.
+    Args:
+        input_path: Path to a single PDF or a directory of PDFs.
+        model_dir: Directory containing classifier model artifacts.
+        llm_model: Ollama model name for extraction.
+        output_dir: Where to write JSON results and the summary CSV.
+        confidence_threshold: Classifier probability threshold for 'useful'.
+        max_chars: Max characters to send to the LLM.
+        num_ctx: Context window size for Ollama.
     """
-    row = {
-        "filename": pdf_path.name,
-        "classification": "",
-        "confidence": "",
-        "pred_prob": "",
-        "extraction_status": "",
-        "species_name": "",
-        "study_location": "",
-        "study_date": "",
-        "sample_size": "",
-        "num_empty_stomachs": "",
-        "num_nonempty_stomachs": "",
-        "fraction_feeding": "",
-    }
+    # ── Collect PDF paths ─────────────────────────────────────────────────
+    if pdf_path.is_dir():
+        pdf_paths = sorted(pdf_path.glob("*.pdf"))
+        if not pdf_paths:
+            print(f"[ERROR] No PDF files found in directory: {pdf_path}", file=sys.stderr)
+            log.error("No PDF files found in directory: %s", pdf_path)
+            sys.exit(1)
+        print(f"[INFO] Found {len(pdf_paths)} PDF(s) in {pdf_path}", file=sys.stderr)
+    elif pdf_path.is_file() and pdf_path.suffix.lower() == ".pdf":
+        pdf_paths = [pdf_path]
+    else:
+        print(f"[ERROR] pdf must be a .pdf file or a directory of PDFs: {pdf_path}", file=sys.stderr)
+        log.error("pdf must be a .pdf file or a directory of PDFs: %s", pdf_path)
+        sys.exit(1)
 
-    # ── Step 1: Extract text ─────────────────
+    # ── Load classifier once (avoid re-reading model artifacts per file) ──
+    print("[INFO] Loading classifier...", file=sys.stderr)
+    try:
+        clf_model, vectorizer, encoder = load_classifier(model_dir)
+    except FileNotFoundError as e:
+        print(f"[ERROR] {e}", file=sys.stderr)
+        log.critical("Classifier artifacts not found: %s", e)
+        sys.exit(1)
+    print("[INFO] Classifier loaded.", file=sys.stderr)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary_rows = []
+
+    for idx, pdf_path in enumerate(pdf_paths, start=1):
+        print(f"\n[{idx}/{len(pdf_paths)}] Processing: {pdf_path.name}", file=sys.stderr)
+
+        row = {
+            "filename": pdf_path.name,
+            "classification": "",
+            "confidence": "",
+            "pred_prob": "",
+            "extraction_status": "",
+            "species_name": "",
+            "study_location": "",
+            "study_date": "",
+            "sample_size": "",
+            "num_empty_stomachs": "",
+            "num_nonempty_stomachs": "",
+            "fraction_feeding": "",
+        }
+
+    # ── Step 1: Extract text ──────────────────────────────────────────
     try:
         original_text = extract_text_from_pdf(str(pdf_path))
     except Exception as e:
         print(f"  [ERROR] Text extraction failed ({pdf_path.name}): {e}", file=sys.stderr)
+        log.error("Text extraction failed for %s: %s", pdf_path.name, e)
         row["extraction_status"] = "text_extraction_failed"
         return row
 
     if not original_text.strip():
         print(f"  [WARN] No text extracted from {pdf_path.name}. Skipping.", file=sys.stderr)
+        log.warning("No text extracted from %s — skipping.", pdf_path.name)
         row["extraction_status"] = "empty_text"
         return row
 
     print(f"  [INFO] {pdf_path.name}: {len(original_text)} chars", file=sys.stderr)
 
-    # ── Step 2: Classify ──────────────────────────
+    # ── Step 2: Classify ──────────────────────────────────────────────
     clf_model, vectorizer, encoder = load_classifier(model_dir)
     label, confidence, pred_prob = classify_text(
         text=original_text,
@@ -106,7 +153,7 @@ def _process_single_pdf(
     row["confidence"] = f"{confidence:.4f}"
     row["pred_prob"] = f"{pred_prob:.4f}"
 
-    # ── Step 3: Extract ─────────────────
+    # ── Step 3: Extract ───────────────────────────────────────────────
     if label == "useful":
         print(f"  [INFO] {pdf_path.name}: Running LLM extraction...", file=sys.stderr)
 
@@ -140,6 +187,7 @@ def _process_single_pdf(
 
         except Exception as e:
             print(f"  [ERROR] LLM extraction failed ({pdf_path.name}): {e}", file=sys.stderr)
+            log.error("LLM extraction failed for %s: %s", pdf_path.name, e)
             row["extraction_status"] = "extraction_failed"
 
     else:
@@ -277,6 +325,9 @@ def run_pipeline(
     print(f"  Summary CSV           : {summary_path}", file=sys.stderr)
     print("=" * 50, file=sys.stderr)
 
+    if error_count > 0:
+        log.warning("Pipeline finished with %d error(s). See logs/fracfeed.log for details.", error_count)
+
 
 # ---------------------------------------------------------------------------
 # CLI entry point
@@ -353,9 +404,13 @@ Examples:
 
     args = parser.parse_args()
 
+    # Configure persistent logging for this process — one call covers all modules
+    setup_logging()
+
     input_path = Path(args.input)
     if not input_path.exists():
         print(f"[ERROR] Input path not found: {input_path}", file=sys.stderr)
+        log.error("Input path not found: %s", input_path)
         sys.exit(1)
 
     run_pipeline(

@@ -12,6 +12,7 @@ Usage (standalone):
 """
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 from typing import Tuple
@@ -21,14 +22,18 @@ import xgboost as xgb
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
+from src.utils.logger import setup_logging
+
+import warnings
+from sklearn.exceptions import InconsistentVersionWarning
+
+warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+
+log = logging.getLogger(__name__)
 
 
 def load_classifier(model_dir: str = "src/model/models") -> Tuple:
     """Load the trained classifier artifacts from disk.
-
-    Loads the XGBoost model, TF-IDF vectorizer, and label encoder from
-    ``model_dir``. Call this once and reuse the returned objects across
-    multiple calls to :func:`classify_text` to avoid repeated disk I/O.
 
     Args:
         model_dir: Directory containing:
@@ -66,22 +71,15 @@ def classify_text(
 ) -> Tuple[str, float, float]:
     """Classify already-extracted text as 'useful' or 'not useful'.
 
-    This function performs no file I/O — pass the artifacts returned by
-    :func:`load_classifier` and the text returned by ``extract_text_from_pdf``.
-
     Args:
         text: Full text extracted from a PDF.
         model: Loaded XGBoost Booster (from :func:`load_classifier`).
         vectorizer: Fitted TF-IDF vectorizer (from :func:`load_classifier`).
         encoder: Fitted LabelEncoder (from :func:`load_classifier`).
         threshold: Probability threshold above which the PDF is 'useful'.
-            Defaults to 0.70.
 
     Returns:
-        Tuple of ``(label, confidence, pred_prob)`` where:
-            - ``label`` is the decoded class name (e.g. ``'useful'``).
-            - ``confidence`` is the probability of the *predicted* class (0–1).
-            - ``pred_prob`` is the raw model probability for class 1 (0–1).
+        Tuple of ``(label, confidence, pred_prob)``.
     """
     X_vec = vectorizer.transform([text])
     dtest = xgb.DMatrix(X_vec)
@@ -97,37 +95,22 @@ def classify_pdf(
     model_dir: str = "src/model/models",
     threshold: float = 0.70,
 ) -> Tuple[str, float, float]:
-    """Convenience wrapper: extract text from a PDF and classify it.
-
-    Loads the classifier artifacts, extracts text from the PDF, classifies
-    it, prints a human-readable result, and returns the classification details.
-
-    Args:
-        pdf_path: Path to the PDF file to classify.
-        model_dir: Directory containing the trained model artifacts.
-        threshold: Probability threshold for the 'useful' class.
-
-    Returns:
-        Tuple of ``(label, confidence, pred_prob)``, or
-        ``(None, None, None)`` if text extraction or model loading fails.
-    """
-    # Load model artifacts
+    """Convenience wrapper: extract text from a PDF and classify it."""
     try:
         model, vectorizer, encoder = load_classifier(model_dir)
     except FileNotFoundError as e:
         print(f"[ERROR] {e}", file=sys.stderr)
+        log.error("Could not load classifier: %s", e)
         return None, None, None
 
-    # Extract text from PDF
     text = extract_text_from_pdf(pdf_path)
     if not text.strip():
         print(f"[ERROR] No text extracted from {pdf_path}. Skipping classification.", file=sys.stderr)
+        log.error("No text extracted from %s — skipping classification.", pdf_path)
         return None, None, None
 
-    # Classify
     label, confidence, pred_prob = classify_text(text, model, vectorizer, encoder, threshold)
 
-    # Print result
     print("\n=== PDF Classification Result ===")
     print(f" File      : {Path(pdf_path).name}")
     print(f" Prediction: {label} ({confidence:.2%} confidence)")
@@ -144,4 +127,5 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", type=float, default=0.70, help="Probability threshold for the 'useful' class (default: 0.70).")
     args = parser.parse_args()
 
+    setup_logging()
     classify_pdf(args.pdf_path, model_dir=args.model_dir, threshold=args.threshold)

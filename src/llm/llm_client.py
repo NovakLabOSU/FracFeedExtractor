@@ -9,19 +9,14 @@ Usage (standalone):
     python llm_client.py path/to/file.txt
     python llm_client.py path/to/file.pdf --model llama3.1:8b
     python llm_client.py path/to/file.txt --output-dir results/
-
-This script uses Ollama to extract structured data from predator diet surveys.
-It can read PDFs directly (with automatic OCR for scanned pages) or preprocessed
-text files. Extracted data includes species name, study date, location, and
-stomach content metrics.
 """
 
 import argparse
 import json
-import sys
+import logging
 import re
+import sys
 from pathlib import Path
-from typing import Optional
 
 from ollama import chat
 
@@ -30,6 +25,9 @@ sys.path.insert(0, str(project_root))
 
 from src.llm.models import PredatorDietMetrics
 from src.llm.llm_text import extract_key_sections, load_document
+from src.utils.logger import setup_logging
+
+log = logging.getLogger(__name__)
 
 
 def extract_metrics_from_text(
@@ -214,26 +212,17 @@ def save_extraction_result(
 ) -> dict:
     """Resolve source page numbers and save extraction results to JSON.
 
-    Looks for each extracted field value in ``original_text`` and records which
-    PDF page(s) the values were found on (using ``[PAGE N]`` markers). The
-    result dict and the JSON file both include a ``source_pages`` list.
-
     Args:
-        metrics: Populated PredatorDietMetrics object returned by
-            :func:`extract_metrics_from_text`.
-        source_file: Original PDF/text path — used to name the output file
-            and to populate the ``source_file`` field in the JSON.
-        original_text: Full, un-truncated extracted text (with ``[PAGE N]``
-            markers) used for page-number resolution.
+        metrics: Populated PredatorDietMetrics object.
+        source_file: Original PDF/text path.
+        original_text: Full un-truncated extracted text (with [PAGE N] markers).
         output_dir: Directory where the JSON result file will be written.
 
     Returns:
-        The complete result dict that was written to disk, including
-        ``source_file``, ``file_type``, and ``metrics`` (with ``source_pages``).
+        The complete result dict written to disk.
     """
     metrics_dict = metrics.model_dump()
 
-    # Resolve which page(s) each extracted value came from
     _skip_fields = {"fraction_feeding", "source_pages"}
     source_pages: set[int] = set()
     for field_name, value in metrics_dict.items():
@@ -274,9 +263,12 @@ def main():
 
     args = parser.parse_args()
 
+    setup_logging()
+
     input_path = Path(args.input_file)
     if not input_path.exists():
         print(f"[ERROR] File not found: {input_path}", file=sys.stderr)
+        log.error("File not found: %s", input_path)
         sys.exit(1)
 
     print(f"Processing {input_path.name}...", file=sys.stderr)
@@ -284,11 +276,11 @@ def main():
         original_text = load_document(input_path)
     except Exception as e:
         print(f"[ERROR] Failed to load file: {e}", file=sys.stderr)
+        log.error("Failed to load file %s: %s", input_path, e)
         sys.exit(1)
 
     print(f"[INFO] Text size: {len(original_text)} chars", file=sys.stderr)
 
-    # Trim to budget if needed
     text = original_text
     if len(text) > args.max_chars:
         text = extract_key_sections(text, args.max_chars)
@@ -299,6 +291,7 @@ def main():
         metrics = extract_metrics_from_text(text, model=args.model, num_ctx=args.num_ctx)
     except Exception as e:
         print(f"[ERROR] Extraction failed: {e}", file=sys.stderr)
+        log.error("Metric extraction failed for %s: %s", input_path.name, e)
         sys.exit(1)
 
     result = save_extraction_result(
