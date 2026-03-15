@@ -8,6 +8,7 @@ to determine whether a PDF is useful for predator diet data analysis.
 
 import logging
 import sys
+from pathlib import Path
 from collections import Counter
 from pathlib import Path
 
@@ -18,6 +19,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.utils.logger import setup_logging
 
