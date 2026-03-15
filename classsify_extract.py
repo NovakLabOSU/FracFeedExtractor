@@ -28,13 +28,18 @@ Output:
 
 import argparse
 import csv
+import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
 from src.model.pdf_classifier import load_classifier, classify_text
 from src.llm.llm_text import extract_key_sections
 from src.llm.llm_client import extract_metrics_from_text, save_extraction_result
+from src.utils.logger import setup_logging
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -73,12 +78,14 @@ def run_pipeline(
         pdf_paths = sorted(input_path.glob("*.pdf"))
         if not pdf_paths:
             print(f"[ERROR] No PDF files found in directory: {input_path}", file=sys.stderr)
+            log.error("No PDF files found in directory: %s", input_path)
             sys.exit(1)
         print(f"[INFO] Found {len(pdf_paths)} PDF(s) in {input_path}", file=sys.stderr)
     elif input_path.is_file() and input_path.suffix.lower() == ".pdf":
         pdf_paths = [input_path]
     else:
         print(f"[ERROR] Input must be a .pdf file or a directory of PDFs: {input_path}", file=sys.stderr)
+        log.error("Input must be a .pdf file or a directory of PDFs: %s", input_path)
         sys.exit(1)
 
     # ── Load classifier once (avoid re-reading model artifacts per file) ──
@@ -87,6 +94,7 @@ def run_pipeline(
         clf_model, vectorizer, encoder = load_classifier(model_dir)
     except FileNotFoundError as e:
         print(f"[ERROR] {e}", file=sys.stderr)
+        log.critical("Classifier artifacts not found: %s", e)
         sys.exit(1)
     print("[INFO] Classifier loaded.", file=sys.stderr)
 
@@ -111,24 +119,26 @@ def run_pipeline(
             "fraction_feeding": "",
         }
 
-        # ── Step 1: Extract text ─────────────────
+        # ── Step 1: Extract text ──────────────────────────────────────────
         try:
             original_text = extract_text_from_pdf(str(pdf_path))
         except Exception as e:
             print(f"  [ERROR] Text extraction failed: {e}", file=sys.stderr)
+            log.error("Text extraction failed for %s: %s", pdf_path.name, e)
             row["extraction_status"] = "text_extraction_failed"
             summary_rows.append(row)
             continue
 
         if not original_text.strip():
             print(f"  [WARN] No text extracted from {pdf_path.name}. Skipping.", file=sys.stderr)
+            log.warning("No text extracted from %s — skipping.", pdf_path.name)
             row["extraction_status"] = "empty_text"
             summary_rows.append(row)
             continue
 
         print(f"  [INFO] Text size: {len(original_text)} chars", file=sys.stderr)
 
-        # ── Step 2: Classify ──────────────────────────
+        # ── Step 2: Classify ──────────────────────────────────────────────
         label, confidence, pred_prob = classify_text(
             text=original_text,
             model=clf_model,
@@ -142,25 +152,21 @@ def run_pipeline(
         row["confidence"] = f"{confidence:.4f}"
         row["pred_prob"] = f"{pred_prob:.4f}"
 
-        # ── Step 3: Extract ─────────────────
+        # ── Step 3: Extract ───────────────────────────────────────────────
         if label == "useful":
             print(f"  [INFO] Running LLM extraction...", file=sys.stderr)
 
-            # Trim text to budget using section-priority logic (llm_text.py)
             text_for_llm = original_text
             if len(text_for_llm) > max_chars:
                 text_for_llm = extract_key_sections(text_for_llm, max_chars)
                 print(f"  [INFO] Text trimmed to {len(text_for_llm)} chars (budget {max_chars})", file=sys.stderr)
 
             try:
-                # LLM call (llm_client.py)
                 metrics = extract_metrics_from_text(
                     text=text_for_llm,
                     model=llm_model,
                     num_ctx=num_ctx,
                 )
-
-                # Resolve source pages + save JSON (llm_client.py)
                 result = save_extraction_result(
                     metrics=metrics,
                     source_file=pdf_path,
@@ -180,6 +186,7 @@ def run_pipeline(
 
             except Exception as e:
                 print(f"  [ERROR] LLM extraction failed: {e}", file=sys.stderr)
+                log.error("LLM extraction failed for %s: %s", pdf_path.name, e)
                 row["extraction_status"] = "extraction_failed"
 
         else:
@@ -189,12 +196,11 @@ def run_pipeline(
         summary_rows.append(row)
 
     # ── Write summary CSV ─────────────────────────────────────────────────
-    from datetime import datetime
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     summaries_dir = output_dir / "summaries"
     summaries_dir.mkdir(parents=True, exist_ok=True)
     summary_path = summaries_dir / f"pipeline_summary_{timestamp}.csv"
-    
+
     fieldnames = [
         "filename", "classification", "confidence", "pred_prob",
         "extraction_status", "species_name", "study_location", "study_date",
@@ -222,6 +228,9 @@ def run_pipeline(
     print(f"  Errors                : {error_count}", file=sys.stderr)
     print(f"  Summary CSV           : {summary_path}", file=sys.stderr)
     print("=" * 50, file=sys.stderr)
+
+    if error_count > 0:
+        log.warning("Pipeline finished with %d error(s). See logs/fracfeed.log for details.", error_count)
 
 
 # ---------------------------------------------------------------------------
@@ -295,9 +304,13 @@ Examples:
 
     args = parser.parse_args()
 
+    # Configure persistent logging for this process — one call covers all modules
+    setup_logging()
+
     input_path = Path(args.input)
     if not input_path.exists():
         print(f"[ERROR] Input path not found: {input_path}", file=sys.stderr)
+        log.error("Input path not found: %s", input_path)
         sys.exit(1)
 
     run_pipeline(
