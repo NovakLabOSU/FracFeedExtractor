@@ -1,0 +1,12 @@
+{
+  "source_file": "Ferreira_1999.txt",
+  "metrics": {
+    "species_name": null,
+    "study_location": null,
+    "study_date": null,
+    "num_empty_stomachs": null,
+    "num_nonempty_stomachs": null,
+    "sample_size": null,
+    "fraction_feeding": null
+  }
+}
