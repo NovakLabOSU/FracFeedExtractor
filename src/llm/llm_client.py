@@ -147,7 +147,6 @@ TEXT
 
     if not _retry and missing:
         print(
-            f"  [INFO] Retry: {', '.join(missing)} came back null — re-prompting",
             file=sys.stderr,
         )
 
