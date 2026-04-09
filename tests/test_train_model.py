@@ -91,5 +91,3 @@ def test_train_pdf_classifier_too_few_per_class(capsys):
     captured = capsys.readouterr()
     assert result is None
     assert "Each class needs at least 2 samples" in captured.out
-
-
