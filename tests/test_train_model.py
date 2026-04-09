@@ -61,6 +61,7 @@ def test_train_pdf_classifier_creates_model_and_vectorizer(sample_data, tmp_path
 
     assert result is not None
     assert "accuracy" in result
+    assert 0.0 <= result["accuracy"] <= 1.0
 
     assert (output_dir / "pdf_classifier.json").exists()
     assert (output_dir / "tfidf_vectorizer.pkl").exists()
@@ -92,12 +93,3 @@ def test_train_pdf_classifier_too_few_per_class(capsys):
     assert "Each class needs at least 2 samples" in captured.out
 
 
-def test_train_pdf_classifier_output_accuracy_range(sample_data, tmp_path):
-    data_dir, labels_file = sample_data
-    texts, labels, _ = load_labeled_data(data_dir, labels_file)
-
-    output_dir = tmp_path / "models"
-    result = train_pdf_classifier(texts, labels, output_dir)
-
-    assert result is not None
-    assert 0.0 <= result["accuracy"] <= 1.0
