@@ -1,7 +1,7 @@
 """Pydantic models for predator diet data extraction."""
 
 from typing import Annotated, Optional
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, computed_field, constr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, computed_field, model_validator
 
 
 class PredatorDietMetrics(BaseModel):
@@ -20,13 +20,11 @@ class PredatorDietMetrics(BaseModel):
         frozen=False,
     )
 
-    species_name: Optional[
-        Annotated[
-            str,
-            constr(min_length=3, max_length=200, pattern=r"^[A-Z][a-z]+(\s[a-z]+)*$"),
-        ]
-    ] = Field(
+    species_name: Optional[str] = Field(
         default=None,
+        min_length=3,
+        max_length=200,
+        pattern=r"^[A-Z][a-z]+(\s[a-z]+)*$",
         description=(
             "Binomial scientific name of the PRIMARY PREDATOR species studied "
             "(the animal whose stomachs were examined, not its prey). "
@@ -37,8 +35,10 @@ class PredatorDietMetrics(BaseModel):
         examples=["Canis lupus", "Vulpes vulpes", "Pygoscelis papua", "Ursus arctos"],
     )
 
-    study_location: Optional[Annotated[str, constr(min_length=1, max_length=500)]] = Field(
+    study_location: Optional[str] = Field(
         default=None,
+        min_length=1,
+        max_length=500,
         description=(
             "Geographic area where predator specimens were collected. "
             "Include site, region, and country if available. "
@@ -48,17 +48,11 @@ class PredatorDietMetrics(BaseModel):
         examples=["Yellowstone National Park, Wyoming, USA", "Marion Island, sub-Antarctic", "Bristol, UK"],
     )
 
-    study_date: Optional[
-        Annotated[
-            str,
-            constr(
-                min_length=4,
-                max_length=30,
-                pattern=r"^\d{4}([\-—]\d{4})?$",
-            ),
-        ]
-    ] = Field(
+    study_date: Optional[str] = Field(
         default=None,
+        min_length=4,
+        max_length=30,
+        pattern=r"^\d{4}([\-—]\d{4})?$",
         description=(
             "Year or year-range when specimens were COLLECTED (not publication year). "
             "Format: 'YYYY' for single year or 'YYYY-YYYY' for range (e.g., '2019' or '2019-2021'). "

@@ -10,7 +10,6 @@ import logging
 import sys
 from pathlib import Path
 from collections import Counter
-from pathlib import Path
 
 import joblib
 import json

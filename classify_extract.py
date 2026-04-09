@@ -139,7 +139,6 @@ def _process_single_pdf(
     print(f"  [INFO] {pdf_path.name}: {len(original_text)} chars", file=sys.stderr)
 
     # ── Step 2: Classify ──────────────────────────────────────────────
-    clf_model, vectorizer, encoder = load_classifier(model_dir)
     label, confidence, pred_prob = classify_text(
         text=original_text,
         model=clf_model,
