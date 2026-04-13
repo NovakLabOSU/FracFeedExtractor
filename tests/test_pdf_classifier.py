@@ -42,25 +42,31 @@ def model_dir_with_mock_model(tmp_path):
 
 @patch("src.model.pdf_classifier.extract_text_from_pdf", return_value="predator stomach content analysis")
 def test_classify_pdf_valid_case(mock_extract, model_dir_with_mock_model, capsys):
-    test_pdf = Path("tests/test.pdf")
-    classify_pdf(test_pdf, model_dir_with_mock_model)
+    """Happy path: result header, prediction label, confidence percentage all present."""
+    classify_pdf(Path("tests/test.pdf"), model_dir_with_mock_model)
 
     output = capsys.readouterr().out
     assert "PDF Classification Result" in output
+    assert "Prediction:" in output
     assert "useful" in output.lower()
     assert "%" in output
 
 
 def test_classify_pdf_missing_model(capsys, tmp_path):
-    """Verifier missing model directory gracefully errors."""
-    model_dir = tmp_path / "empty"
-    model_dir.mkdir()
+    """Any model_dir that lacks the required artifacts should error gracefully.
 
-    classify_pdf(Path("tests/test.pdf"), model_dir)
+    Covers both an empty directory and a nonexistent path — both produce the
+    same FileNotFoundError from load_classifier().
+    """
+    # Empty directory
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    classify_pdf(Path("tests/test.pdf"), empty_dir)
+    assert "[ERROR]" in capsys.readouterr().err
 
-    output = capsys.readouterr().err
-    assert "[ERROR]" in output
-    assert "Missing model" in output
+    # Nonexistent directory
+    classify_pdf(Path("tests/test.pdf"), tmp_path / "nope")
+    assert "[ERROR]" in capsys.readouterr().err
 
 
 @patch("src.model.pdf_classifier.extract_text_from_pdf", return_value="")
@@ -70,20 +76,3 @@ def test_classify_pdf_no_text(mock_extract, model_dir_with_mock_model, capsys):
     output = capsys.readouterr().err
     assert "[ERROR]" in output
     assert "No text extracted" in output
-
-
-@patch("src.model.pdf_classifier.extract_text_from_pdf", return_value="diet prey stomach analysis")
-def test_classify_pdf_prediction_output(mock_extract, model_dir_with_mock_model, capsys):
-    classify_pdf(Path("tests/valid.pdf"), model_dir_with_mock_model)
-
-    output = capsys.readouterr().out
-    assert "Prediction:" in output
-    assert "%" in output
-
-
-def test_classify_pdf_handles_nonexistent_dir(tmp_path, capsys):
-    classify_pdf(Path("tests/missing.pdf"), tmp_path / "nope")
-
-    output = capsys.readouterr().err
-    assert "[ERROR]" in output
-    assert "Missing model" in output

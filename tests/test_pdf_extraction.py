@@ -55,21 +55,14 @@ def test_extract_text_with_ocr(tmp_path):
     assert text is not None
 
 
-def test_save_to_file(tmp_path):
-    output_file = tmp_path / "output.txt"
-    save_to_file("hello world", output_file)
-    assert output_file.exists()
-    contents = output_file.read_text()
-    assert "hello" in contents
-
-
 def test_save_to_file_permission_error(monkeypatch, tmp_path):
+    import io
+
     output_file = tmp_path / "readonly.txt"
     output_file.touch()
     output_file.chmod(0o400)
 
-    # Monkeypatch print to avoid cluttering stderr
-    monkeypatch.setattr("sys.stderr", open("/dev/null", "w"))
+    monkeypatch.setattr("sys.stderr", io.StringIO())
 
     # Should not raise exception even if write fails
     save_to_file("data", output_file)

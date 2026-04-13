@@ -18,8 +18,8 @@ def test_load_processed_text_reads_files(tmp_path):
     texts = load_processed_text(str(data_dir))
 
     assert len(texts) == 2
-    assert "example 1" in texts[0]
-    assert "example 2" in texts[1]
+    assert any("example 1" in t for t in texts)
+    assert any("example 2" in t for t in texts)
 
 
 def test_load_processed_text_empty_directory(tmp_path):

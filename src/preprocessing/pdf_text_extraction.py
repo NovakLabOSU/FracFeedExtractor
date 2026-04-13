@@ -227,7 +227,7 @@ def extract_text_from_pdf_bytes(data: bytes, skip_ocr: bool = False) -> str:
         return ""
 
     if not skip_ocr and check_spelling(text) > MAX_SPELLING_ERROR_RATE:
-        print(f"[INFO] High misspelling rate — falling back to OCR", file=sys.stderr)
+        print("[INFO] High misspelling rate — falling back to OCR", file=sys.stderr)
         log.warning("High spelling error rate in in-memory PDF — falling back to OCR extraction.")
         text = []
         try:

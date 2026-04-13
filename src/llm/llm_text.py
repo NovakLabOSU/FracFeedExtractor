@@ -411,12 +411,12 @@ def load_document(file_path: Path) -> str:
     suffix = file_path.suffix.lower()
 
     if suffix == '.pdf':
-        print(f"[INFO] Reading PDF file...", file=sys.stderr)
+        print("[INFO] Reading PDF file...", file=sys.stderr)
         from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
 
         return extract_text_from_pdf(str(file_path))
     elif suffix in ['.txt', '.text']:
-        print(f"[INFO] Reading text file...", file=sys.stderr)
+        print("[INFO] Reading text file...", file=sys.stderr)
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 return f.read()
