@@ -57,6 +57,7 @@ from src.preprocessing.text_cleaner import clean_text
 from src.preprocessing.section_filter import filter_relevant_sections
 from src.llm.llm_text import extract_key_sections
 from src.llm.llm_client import extract_metrics_from_text, save_extraction_result
+from src.llm.chunked_extraction import extract_with_chunking
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +73,11 @@ def run_txt_pipeline(
     num_ctx: int,
     single_file: Path = None,
     useful_stems: set = None,
+    chunked: bool = False,
+    top_chunks: int = 3,
+    chunk_size: int = 4000,
+    chunk_overlap: int = 500,
+    model_dir: str = "src/model/models",
 ) -> None:
     """Process every .txt file in *input_dir* through clean → filter → trim → extract.
 
@@ -174,55 +180,94 @@ def run_txt_pipeline(
         except Exception as exc:
             print(f"  [WARN] Could not save filter text: {exc}", file=sys.stderr)
 
-        # ── Step 5: Trim to LLM budget ──────────────────────────────────────
-        if len(filtered) > max_chars:
-            trimmed = extract_key_sections(filtered, max_chars)
-            print(
-                f"  [INFO] After trim : {len(trimmed):,} chars " f"(budget {max_chars:,})",
-                file=sys.stderr,
-            )
+        # ── Step 5+6+7: Extract (chunked or single-pass) ────────────────────
+        if chunked:
+            print(f"  [INFO] Chunked extraction (top {top_chunks} chunks)…", file=sys.stderr)
+            row["trimmed_chars"] = ""
+            try:
+                merged = extract_with_chunking(
+                    text=filtered,
+                    model_dir=model_dir,
+                    llm_model=llm_model,
+                    num_ctx=num_ctx,
+                    top_n=top_chunks,
+                    chunk_size=chunk_size,
+                    overlap=chunk_overlap,
+                )
+            except Exception as exc:
+                print(f"  [ERROR] Chunked extraction failed: {exc}", file=sys.stderr)
+                row["extraction_status"] = "extraction_failed"
+                summary_rows.append(row)
+                continue
+
+            # save JSON
+            import json as _json
+
+            metrics_dir = output_dir / "metrics"
+            metrics_dir.mkdir(parents=True, exist_ok=True)
+            out_path = metrics_dir / (txt_path.stem + "_results.json")
+            result_obj = {
+                "source_file": txt_path.name,
+                "file_type": txt_path.suffix.lower(),
+                "extraction_mode": "chunked",
+                "metrics": merged,
+            }
+            with open(out_path, "w", encoding="utf-8") as _f:
+                _json.dump(result_obj, _f, indent=2)
+            print(f"[SUCCESS] Results saved to {out_path}", file=sys.stderr)
+
+            m = merged
         else:
-            trimmed = filtered
+            # ── Step 5: Trim to LLM budget ──────────────────────────────────
+            if len(filtered) > max_chars:
+                trimmed = extract_key_sections(filtered, max_chars)
+                print(
+                    f"  [INFO] After trim : {len(trimmed):,} chars " f"(budget {max_chars:,})",
+                    file=sys.stderr,
+                )
+            else:
+                trimmed = filtered
 
-        row["trimmed_chars"] = len(trimmed)
+            row["trimmed_chars"] = len(trimmed)
 
-        # ── Step 5b: Save llm_text output ──────────────────────────────────
-        llm_path = llm_text_dir / f"{txt_path.stem}_{ts}.txt"
-        try:
-            llm_path.write_text(trimmed, encoding="utf-8")
-            print(f"  [INFO] LLM text     : {llm_path.name}", file=sys.stderr)
-        except Exception as exc:
-            print(f"  [WARN] Could not save LLM text: {exc}", file=sys.stderr)
+            # ── Step 5b: Save llm_text output ───────────────────────────────
+            llm_path = llm_text_dir / f"{txt_path.stem}_{ts}.txt"
+            try:
+                llm_path.write_text(trimmed, encoding="utf-8")
+                print(f"  [INFO] LLM text     : {llm_path.name}", file=sys.stderr)
+            except Exception as exc:
+                print(f"  [WARN] Could not save LLM text: {exc}", file=sys.stderr)
 
-        # ── Step 6: LLM extraction ──────────────────────────────────────────
-        print(f"  [INFO] Calling Ollama ({llm_model})…", file=sys.stderr)
-        try:
-            metrics = extract_metrics_from_text(
-                text=trimmed,
-                model=llm_model,
-                num_ctx=num_ctx,
-            )
-        except Exception as exc:
-            print(f"  [ERROR] Ollama extraction failed: {exc}", file=sys.stderr)
-            row["extraction_status"] = "extraction_failed"
-            summary_rows.append(row)
-            continue
+            # ── Step 6: LLM extraction ──────────────────────────────────────
+            print(f"  [INFO] Calling Ollama ({llm_model})…", file=sys.stderr)
+            try:
+                metrics = extract_metrics_from_text(
+                    text=trimmed,
+                    model=llm_model,
+                    num_ctx=num_ctx,
+                )
+            except Exception as exc:
+                print(f"  [ERROR] Ollama extraction failed: {exc}", file=sys.stderr)
+                row["extraction_status"] = "extraction_failed"
+                summary_rows.append(row)
+                continue
 
-        # ── Step 7: Save JSON ───────────────────────────────────────────────
-        try:
-            result = save_extraction_result(
-                metrics=metrics,
-                source_file=txt_path,
-                original_text=raw_text,  # keep full text for page resolution
-                output_dir=output_dir,
-            )
-        except Exception as exc:
-            print(f"  [ERROR] Could not save result: {exc}", file=sys.stderr)
-            row["extraction_status"] = "save_failed"
-            summary_rows.append(row)
-            continue
+            # ── Step 7: Save JSON ───────────────────────────────────────────
+            try:
+                result = save_extraction_result(
+                    metrics=metrics,
+                    source_file=txt_path,
+                    original_text=raw_text,
+                    output_dir=output_dir,
+                )
+            except Exception as exc:
+                print(f"  [ERROR] Could not save result: {exc}", file=sys.stderr)
+                row["extraction_status"] = "save_failed"
+                summary_rows.append(row)
+                continue
 
-        m = result["metrics"]
+            m = result["metrics"]
+
         row["extraction_status"] = "success"
         row["species_name"] = m.get("species_name") or ""
         row["study_location"] = m.get("study_location") or ""
@@ -344,6 +389,36 @@ Examples:
         default=None,
         help="Path to labels.json. When provided, only files labelled 'useful' are processed.",
     )
+    parser.add_argument(
+        "--chunked",
+        action="store_true",
+        default=False,
+        help="Use chunked extraction: split text, score chunks with XGBoost, " "extract from top-N chunks, merge via majority voting.",
+    )
+    parser.add_argument(
+        "--top-chunks",
+        type=int,
+        default=3,
+        help="Number of top-scoring chunks to extract from (default: 3). Only used with --chunked.",
+    )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=4000,
+        help="Character size per chunk (default: 4000). Only used with --chunked.",
+    )
+    parser.add_argument(
+        "--chunk-overlap",
+        type=int,
+        default=500,
+        help="Overlap between consecutive chunks (default: 500). Only used with --chunked.",
+    )
+    parser.add_argument(
+        "--model-dir",
+        type=str,
+        default="src/model/models",
+        help="Directory containing XGBoost model artifacts (default: src/model/models). Only used with --chunked.",
+    )
 
     args = parser.parse_args()
 
@@ -388,6 +463,11 @@ Examples:
         num_ctx=args.num_ctx,
         single_file=single_file,
         useful_stems=useful_stems,
+        chunked=args.chunked,
+        top_chunks=args.top_chunks,
+        chunk_size=args.chunk_size,
+        chunk_overlap=args.chunk_overlap,
+        model_dir=args.model_dir,
     )
 
 
