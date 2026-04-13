@@ -15,6 +15,9 @@ import sys
 from collections import Counter
 from typing import Dict, List, Optional, Tuple
 
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 import xgboost as xgb
 
 from src.llm.llm_client import extract_metrics_from_text
@@ -168,8 +171,7 @@ def extract_with_chunking(
             result = metrics.model_dump()
             results.append(result)
             print(
-                f"    Got: species={result.get('species_name')}, "
-                f"n={result.get('sample_size')}",
+                f"    Got: species={result.get('species_name')}, " f"n={result.get('sample_size')}",
                 file=sys.stderr,
             )
         except Exception as e:
