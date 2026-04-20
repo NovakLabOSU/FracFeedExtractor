@@ -35,27 +35,28 @@ _OLLAMA_TIMEOUT = 120  # seconds
 _MAX_RETRIES = 3
 _BACKOFF_BASE = 2  # seconds
 
+
 def _call_ollama_with_retry(model, messages, format, options):
     """Call Ollama with timeout and exponential backoff on transient failures."""
     transient_errors = (ConnectionError, OSError, TimeoutError, FuturesTimeoutError)
-    
+
     for attempt in range(_MAX_RETRIES):
         try:
             with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(chat, messages=messages, model=model,
-                                         format=format, options=options)
+                future = executor.submit(chat, messages=messages, model=model, format=format, options=options)
                 return future.result(timeout=_OLLAMA_TIMEOUT)
         except FuturesTimeoutError:
             log.warning("Ollama call timed out (attempt %d/%d)", attempt + 1, _MAX_RETRIES)
         except transient_errors as e:
             log.warning("Transient Ollama error (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES, e)
-        
+
         if attempt < _MAX_RETRIES - 1:
-            wait = _BACKOFF_BASE ** attempt
+            wait = _BACKOFF_BASE**attempt
             log.info("Retrying in %ds...", wait)
             time.sleep(wait)
-    
+
     raise RuntimeError(f"Ollama call failed after {_MAX_RETRIES} attempts")
+
 
 def extract_metrics_from_text(
     text: str,
