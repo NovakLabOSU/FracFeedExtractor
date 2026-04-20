@@ -3,7 +3,6 @@
 import sys
 import gc
 import json
-import joblib
 import xgboost as xgb
 from pathlib import Path
 from collections import Counter
@@ -13,21 +12,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.llm.llm_client import extract_metrics_from_text
-
-
-def load_classifier(model_dir="src/model/models"):
-    """Load XGBoost classifier and TF-IDF vectorizer."""
-    model_path = Path(model_dir) / "pdf_classifier.json"
-    vectorizer_path = Path(model_dir) / "tfidf_vectorizer.pkl"
-
-    if not model_path.exists():
-        raise FileNotFoundError(f"Model not found: {model_path}")
-
-    model = xgb.Booster()
-    model.load_model(str(model_path))
-    vectorizer = joblib.load(vectorizer_path)
-
-    return model, vectorizer
+from src.model.pdf_classifier import load_classifier
 
 
 def chunk_text(text, chunk_size=3000, overlap=300):
@@ -100,7 +85,7 @@ def extract_with_chunking(
     text,
     model_dir="src/model/models",
     llm_model="qwen2.5:7b",  # Changed from biomistral
-    num_ctx=2048,
+    num_ctx=8192,
     top_n=3,
     chunk_size=3000,
     overlap=300,
@@ -108,7 +93,7 @@ def extract_with_chunking(
     """Main extraction with chunking pipeline."""
 
     print(f"  [CHUNK] Loading classifier...", file=sys.stderr)
-    model, vectorizer = load_classifier(model_dir)
+    model, vectorizer, _encoder = load_classifier(model_dir)
 
     chunks = chunk_text(text, chunk_size, overlap)
     print(f"  [CHUNK] Split into {len(chunks)} chunks", file=sys.stderr)
@@ -139,7 +124,7 @@ def extract_with_chunking(
 
         try:
             metrics = extract_metrics_from_text(
-                text=chunk[:2500],
+                text=chunk,
                 model=llm_model,
                 num_ctx=num_ctx,
             )
