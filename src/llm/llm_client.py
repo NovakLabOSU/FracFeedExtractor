@@ -16,6 +16,8 @@ import json
 import logging
 import re
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
 
 from ollama import chat
@@ -28,6 +30,32 @@ from src.llm.llm_text import extract_key_sections, load_document
 from src.utils.logger import setup_logging
 
 log = logging.getLogger(__name__)
+
+_OLLAMA_TIMEOUT = 120  # seconds
+_MAX_RETRIES = 3
+_BACKOFF_BASE = 2  # seconds
+
+
+def _call_ollama_with_retry(model, messages, format, options):
+    """Call Ollama with timeout and exponential backoff on transient failures."""
+    transient_errors = (ConnectionError, OSError, TimeoutError, FuturesTimeoutError)
+
+    for attempt in range(_MAX_RETRIES):
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(chat, messages=messages, model=model, format=format, options=options)
+                return future.result(timeout=_OLLAMA_TIMEOUT)
+        except FuturesTimeoutError:
+            log.warning("Ollama call timed out (attempt %d/%d)", attempt + 1, _MAX_RETRIES)
+        except transient_errors as e:
+            log.warning("Transient Ollama error (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES, e)
+
+        if attempt < _MAX_RETRIES - 1:
+            wait = _BACKOFF_BASE**attempt
+            log.info("Retrying in %ds...", wait)
+            time.sleep(wait)
+
+    raise RuntimeError(f"Ollama call failed after {_MAX_RETRIES} attempts")
 
 
 def extract_metrics_from_text(
@@ -125,9 +153,9 @@ EXAMPLES
 TEXT
 {text}
 """
-    response = chat(
-        messages=[{"role": "user", "content": prompt}],
+    response = _call_ollama_with_retry(
         model=model,
+        messages=[{"role": "user", "content": prompt}],
         format=PredatorDietMetrics.model_json_schema(),
         options={"num_ctx": num_ctx},
     )
@@ -184,9 +212,9 @@ TEXT
             retry_prompt += _hints.get(field, "")
         retry_prompt += f"\nTEXT\n{text}"
 
-        retry_response = chat(
-            messages=[{"role": "user", "content": retry_prompt}],
+        retry_response = _call_ollama_with_retry(
             model=model,
+            messages=[{"role": "user", "content": retry_prompt}],
             format=PredatorDietMetrics.model_json_schema(),
             options={"num_ctx": num_ctx},
         )
