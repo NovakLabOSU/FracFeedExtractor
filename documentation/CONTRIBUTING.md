@@ -104,14 +104,6 @@ All contributors must follow the Oregon State University Student Code of Conduct
     }
   }
   ```
-  A timestamped summary CSV is written to `data/results/summaries/pipeline_summary_<timestamp>.csv`
-  with one row per PDF:
-
-  | filename | classification | confidence | pred_prob | extraction_status | species_name | study_location | study_date | sample_size | num_empty_stomachs | num_nonempty_stomachs | fraction_feeding |
-  |----------|----------------|------------|-----------|-------------------|--------------|----------------|------------|-------------|--------------------|-----------------------|------------------|
-  | Smith_2002.pdf | useful | 0.9231 | 0.9231 | success | Esox lucius | Lake Windermere, UK | 1998-2000 | 200 | 42 | 158 | 0.79 |
-  | Jones_1999.pdf | not useful | 0.1204 | 0.1204 | skipped_not_useful | | | | | | | |
-
 * ### Environment Variables
     * Sensitive information such as API keys will be stored in a local .env file which will be excluded by .gitignore.
     * Never hardcode secrets
