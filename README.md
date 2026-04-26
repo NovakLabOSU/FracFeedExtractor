@@ -1,6 +1,6 @@
 # FracFeedExtractor - LLMs for the fraction of feeding predators
 
-FracFeedExtractor automatically identifies predator diet studies in scientific literature and extracts key structured data using machine learning and LLMs.
+Using machine learning and LLMs to automatically identify predator diet studies in ecological literature and extract key data on predator feeding rates at scale.
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)
@@ -74,13 +74,13 @@ The project trained large language models for two tasks: 1) classifying scientif
 
 ## Team
 
-| Name | Role | GitHub |
-|------|------|--------|
-| Mark Novak | Project Owner/Lead | [@marknovak](https://github.com/marknovak) |
-| Sean Clayton | Contributor | [@SeanClay10](https://github.com/SeanClay10) |
-| Zahra Alsulaimawi | Contributor | [@QuiteRocks](https://github.com/QuiteRocks) |
-| Raymond Cen | Contributor | [@raymondcen](https://github.com/raymondcen) |
-| Bradley Rule | Contributor | [@bradleyrule](https://github.com/bradleyrule) |
+| Name              | Role               | GitHub                                         |
+| ----------------- | ------------------ | ---------------------------------------------- |
+| Mark Novak        | Project Owner/Lead | [@marknovak](https://github.com/marknovak)     |
+| Sean Clayton      | Contributor        | [@SeanClay10](https://github.com/SeanClay10)   |
+| Zahra Alsulaimawi | Contributor        | [@QuiteRocks](https://github.com/QuiteRocks)   |
+| Raymond Cen       | Contributor        | [@raymondcen](https://github.com/raymondcen)   |
+| Bradley Rule      | Contributor        | [@bradleyrule](https://github.com/bradleyrule) |
 
 We also thank all previous contributors - see the full list on the [GitHub Contributors page](https://github.com/NovakLabOSU/FracFeedExtractor/graphs/contributors).
 
