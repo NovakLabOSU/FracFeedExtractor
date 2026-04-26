@@ -1,76 +1,156 @@
-# FracFeedExtractor - LLMs for the fraction of feeding predators
+# FracFeedExtractor — LLMs for the Fraction of Feeding Predators
 
-Using machine learning and LLMs to automatically identify predator diet studies in ecological literature and extract key data on predator feeding rates at scale.
+**An automated pipeline that reads ecological literature and extracts predator feeding-rate data — turning hundreds of PDFs into a structured, analysis-ready database.**
 
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)
 ![License](https://img.shields.io/badge/license-pending-lightgrey?style=flat-square)
-![GitHub Issues](https://img.shields.io/github/issues/NovakLabOSU/FracFeedExtractor?style=flat-square)
+[![GitHub Issues](https://img.shields.io/github/issues/NovakLabOSU/FracFeedExtractor?style=flat-square)](https://github.com/NovakLabOSU/FracFeedExtractor/issues)
+
+*2025–2026 Oregon State University Senior Capstone Project, in collaboration with [Mark Novak's lab at OSU](https://github.com/NovakLabOSU).*
+
+---
 
 ## Project Description
-This project contributes to validating a novel metric of predator-prey interactions to inform ecosystem-based resource management and ecological theory. It does so by using a global database of predator diet surveys to train an XGBoost classifier that identifies relevant publications and a pre-trained LLM running locally via Ollama that extracts key data to overcome the limitations that have hindered the empirical validation of the new metric thus far.
+
+This project contributes to validating a novel metric of predator-prey interaction strength — the **fraction of feeding individuals** — that has the potential to inform ecosystem-based resource management and ecological theory at scale. Given a folder of PDFs from the ecological literature, our pipeline screens each paper with a trained XGBoost classifier, routes relevant papers to a locally-run LLM for structured data extraction, and exports a covariate-rich database with classification confidence and extraction provenance attached to every record — overcoming the data-harvesting bottleneck that has hindered empirical validation of this metric.
+
+---
+
+## What is the Fraction of Feeding Individuals?
+
+The **fraction of feeding individuals** is defined as the proportion of predators found to have non-empty stomachs at the time of sampling — a quantity that can be obtained directly from routine predator diet surveys. Research from [Mark Novak's lab at Oregon State University](https://github.com/NovakLabOSU) has established that this metric is analytically linked to a species' metabolic demand, body size, temperature, mortality rate, extinction susceptibility, biological control effectiveness, and population resilience to perturbation — making it a powerful and underutilized parameter for ecosystem-based resource management.
+
+Despite its potential, the metric is rarely used in practice. The underlying data exists across more than a century of published predator diet surveys, but harvesting it by hand from the primary literature is prohibitively slow at the scale required for meaningful cross-species analysis. FracFeedExtractor was built to solve that bottleneck: given a collection of PDFs, it automatically identifies which papers contain usable diet survey data and extracts the key numbers and covariates needed to compute the fraction of feeding individuals.
+
+---
 
 ## Key Features
-- **PDF Classification** - An XGBoost classifier identifies which scientific publications contain useful predator diet survey data, filtering out irrelevant papers before they reach the LLM.
-- **Structured Data Extraction** - Automatically parses empty and non-empty stomach counts and key covariates (predator identity, survey location, survey year, and more) from tabular and narrative text.
-- **Batch Processing** - Accepts a single PDF or an entire folder of PDFs in one command.
-- **Provenance & Uncertainty Reporting** - Every result includes descriptors of classification confidence and extraction provenance.
-- **Reproducible Pipeline** - A clean training and evaluation pipeline with PDF preprocessing and model evaluation metrics is fully documented in this repository.
+
+- **PDF Classification** — A trained XGBoost classifier identifies which scientific publications contain useful predator diet survey data, filtering out irrelevant papers before they reach the LLM.
+- **Structured Data Extraction** — Automatically parses empty and non-empty stomach counts and key covariates (predator identity, survey location, survey year, and more) from tabular and narrative text.
+- **Batch Processing** — Accepts a single PDF or an entire folder of PDFs in one command.
+- **Provenance & Uncertainty Reporting** — Every result includes the classifier confidence score and an extraction provenance descriptor identifying the source sentence or table for each field, making downstream QA straightforward.
+- **Locally-Run LLM** — The extraction model runs entirely on-device via [Ollama](https://ollama.com). Unpublished manuscripts and proprietary datasets never leave the researcher's environment.
+
+---
+
+## Motivation
+
+Predator-prey interactions are central to ecosystem stability, yet predator feeding rates are rarely used in practice because the data required to estimate them are difficult to obtain at scale. To validate the fraction of feeding individuals metric for mainstream resource management and ecological theory, a scalable method is needed to harvest the untapped data that already exists in the vast ecological literature — accumulated over more than a century of field surveys conducted across the globe.
+
+We trained an XGBoost classifier on the [FracFeed global database](https://github.com/marknovak/FracFeed_DB) — a hand-annotated collection of predator diet surveys spanning 135 years and multiple continents — to recognize relevant publications so the LLM only processes papers likely to yield usable data. A pre-trained LLM running locally via Ollama then extracts the numbers of empty and non-empty stomachs and key covariates from each relevant paper. The resulting pipeline enables the generation of a comprehensive, covariate-rich database for subsequent analyses and applications.
+
+---
+
+## Model Performance
+
+The classifier was evaluated on a held-out test set of 234 papers. It achieves **94% accuracy** across both relevant and irrelevant publications, with strong and balanced precision and recall.
+
+| Class | Precision | Recall | F1-score | Support |
+|---|---|---|---|---|
+| Not useful (0) | 0.96 | 0.91 | 0.93 | 110 |
+| Useful (1) | 0.92 | 0.97 | 0.94 | 124 |
+| **Overall** | **0.94** | **0.94** | **0.94** | **234** |
+
+<p align="center">
+  <img src="assets/training_curve.png" width="540" alt="XGBoost training curve showing train and validation log-loss converging over 585 boosting rounds, with minimum validation loss of 0.193 at the best iteration"/>
+</p>
+
+<p align="center"><em>XGBoost classifier training curve. Log-loss for train (blue) and validation (dashed orange) sets across 600 boosting rounds. Early stopping selected round 585 as the best iteration (min val loss: 0.193).</em></p>
+
+---
+
+## Pipeline Architecture
+
+Our two-stage pipeline combines a lightweight classifier with a locally-run LLM to minimize cost and runtime at scale. The classifier acts as a gate — only papers it scores as useful proceed to the more expensive extraction step.
+
+<p align="center">
+  <img src="documentation/architecture.png" width="700" alt="Architecture diagram showing the two-stage FracFeedExtractor pipeline: XGBoost classifier stage followed by Ollama LLM extraction stage"/>
+</p>
+
+The pipeline consists of the following components:
+
+1. **PDF Text Extraction** — PyMuPDF parses each PDF; Tesseract OCR handles scanned documents.
+2. **Text Cleaning & Section Filtering** — References, captions, and irrelevant paragraphs are stripped to reduce noise before classification.
+3. **XGBoost Classifier** — TF-IDF features feed a trained XGBoost model that scores each paper as useful or not useful with a confidence score.
+4. **LLM Extraction** — Relevant papers are passed to a locally-run LLM (via Ollama) with a structured prompt, returning a `PredatorDietMetrics` JSON object containing stomach counts, predator identity, survey location, and survey year.
+5. **Output** — Per-paper JSON files and a pipeline summary CSV are written to `data/results/`.
+
+---
+
+## Pipeline Demo
+
+Below is a condensed view of a typical pipeline run on a folder of PDFs. The classifier scores each paper and routes it; relevant papers proceed to LLM extraction.
+
+```
+$ python classify_extract.py data/demo/
+
+[1/4] Bakaloudis_2012.pdf  →  useful  (confidence: 0.91)
+      Extracted: Buteo buteo | Greece | 2001–2006 | 143 stomachs (88 non-empty)
+
+[2/4] Hales_2008.pdf       →  useful  (confidence: 0.87)
+      Extracted: Gadus morhua | North Sea | 2005–2007 | 312 stomachs (201 non-empty)
+
+[3/4] GenericReview.pdf    →  not useful  (confidence: 0.78)
+      Skipped — no stomach count data detected.
+
+[4/4] Insley_2021.pdf      →  useful  (confidence: 0.95)
+      Extracted: Enhydra lutris | Alaska | 2018–2020 | 97 stomachs (82 non-empty)
+
+Results written to:
+  data/results/metrics/       ← per-paper JSON
+  data/results/summaries/     ← pipeline_summary.csv
+```
+
+---
 
 ## Get Started
 
 ### Prerequisites
-- **Python 3.10+**
-- **[Ollama](https://ollama.com)** installed and running locally (minimum 8 GB RAM; 16 GB recommended)
-- Pull the required model before running the pipeline:
-  ```bash
-  ollama pull qwen2.5:7b   # default extraction model (~5 GB)
-  ```
-  Verify Ollama is running: `ollama list`
+
+| Dependency | Notes |
+|---|---|
+| Python 3.10+ | Tested on 3.10–3.12 |
+| [Ollama](https://ollama.com) | Must be running locally; 8 GB RAM minimum, 16 GB recommended |
+| Tesseract OCR | System-level install required for scanned PDFs — see [Contributing Guide](documentation/CONTRIBUTING.md) for platform-specific instructions |
+
+Pull the default extraction model before running:
+
+```bash
+ollama pull qwen2.5:7b   # ~5 GB
+ollama list              # confirm it's available
+```
 
 ### Installation
+
 ```bash
 git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
 cd FracFeedExtractor
 pip install -r requirements.txt
 ```
 
-> **Note:** Tesseract OCR must be installed separately as a system dependency. See the [Contributing Guide](documentation/CONTRIBUTING.md) for platform-specific instructions.
-
 ### Quick Start
+
 ```bash
-# Classify and extract data from a folder of PDFs
+# Classify and extract from a folder of PDFs
 python classify_extract.py path/to/pdfs/
+
+# Adjust the LLM model or confidence threshold
+python classify_extract.py path/to/pdfs/ --llm-model llama3.1:8b --confidence-threshold 0.70
 ```
 
-For full setup details, virtual environment configuration, available CLI flags, and contribution guidelines, see the [Contributing Guide](documentation/CONTRIBUTING.md).
+Results are written to `data/results/metrics/` (per-paper JSON) and `data/results/summaries/` (pipeline CSV).
 
-## Pipeline Demo
-
-[IMAGE: Terminal screenshot showing the pipeline running on a folder of PDFs, displaying classifier output and extraction results per file]
-
-*Terminal screenshot showing the pipeline running on a folder of PDFs, displaying classifier output and extraction results per file.*
+> For virtual environment setup, full CLI flag reference, and contribution guidelines, see the [Contributing Guide](documentation/CONTRIBUTING.md).
 
 ---
 
-[IMAGE: Side-by-side comparison of a dense academic PDF on the left and the clean extracted JSON output on the right]
+## Data Source
 
-*Side-by-side comparison of a dense academic PDF on the left and the clean extracted JSON output on the right.*
+We trained the classifier on the [FracFeed global database](https://github.com/marknovak/FracFeed_DB) — a hand-annotated collection of predator diet surveys from the primary ecological literature.
 
-## Motivation
-Predator-prey interactions are central to ecosystem stability, yet a key parameter that quantifies predator-prey interaction strength (predator feeding rates) is rarely used in practice because the data required to estimate it are difficult to obtain. Our research has shown that the fraction of feeding individuals, defined as the proportion of predators with non-empty stomachs, can be easily obtained from routine predator diet surveys and is analytically linked to a species' metabolic demand, body size, temperature, mortality rate, extinction susceptibility, biological control effectiveness, and population resilience to perturbations. To validate this metric for mainstream resource management and ecological theory, a scalable method is needed to harvest the untapped data that exists in the vast ecological literature.  
-
-The project trained an XGBoost classifier to identify which publications contain useful predator diet survey information. A pre-trained LLM running locally via Ollama then extracts the numbers of empty and non-empty stomachs counted and key covariates (predator identity, survey location, survey year, etc.).  The classifier was trained on a large database of hand-annotated publications containing diet surveys conducted across the globe over the last 135 years, learning to recognize relevant publications so the LLM only processes papers likely to contain useful data. The resulting pipeline enables the generation of a comprehensive, covariate-rich database for subsequent analyses and applications.
-
-
-## Objectives/Deliverables
-1. A trained XGBoost classifier paired with a pre-trained LLM that together ingest a publication's PDF and return a classification and the extracted data with descriptors of classification confidence and extraction provenance. 
-2. A Python pipeline that accepts a single pdf or a folder of pdfs, parses the text of each, queries the model for each, and exports the classification and data extraction results with clear provenance and uncertainty.  
-3. A clean, reproducible training and evaluation pipeline (including pdf preprocessing and model evaluation metrics) documented in a GitHub repository. 
-4. A documented GitHub repository detailing the classifier architecture, training procedure and guidance for future extensions.
-
-## Data sources
-[FracFeed: Global database of the fraction of feeding predators](https://github.com/marknovak/FracFeed_DB)
+---
 
 ## Team
 
@@ -78,49 +158,57 @@ The project trained an XGBoost classifier to identify which publications contain
   <tr>
     <td align="center">
       <a href="https://github.com/marknovak">
-        <img src="https://github.com/marknovak.png" width="80px" alt="Mark Novak"/><br/>
+        <img src="https://github.com/marknovak.png" width="80px" alt="GitHub avatar for Mark Novak"/><br/>
         <b>Mark Novak</b><br/>
-        <sub>Project Owner/Lead</sub>
+        <sub>Project Lead</sub>
       </a>
     </td>
     <td align="center">
       <a href="https://github.com/SeanClay10">
-        <img src="https://github.com/SeanClay10.png" width="80px" alt="Sean Clayton"/><br/>
+        <img src="https://github.com/SeanClay10.png" width="80px" alt="GitHub avatar for Sean Clayton"/><br/>
         <b>Sean Clayton</b><br/>
-        <sub>Contributor</sub>
+        <sub>ML Pipeline &amp; Backend</sub><br/>
+        <sub><a href="mailto:claytose@oregonstate.edu">claytose@oregonstate.edu</a></sub>
       </a>
     </td>
     <td align="center">
       <a href="https://github.com/QuiteRocks">
-        <img src="https://github.com/QuiteRocks.png" width="80px" alt="Zahra Alsulaimawi"/><br/>
+        <img src="https://github.com/QuiteRocks.png" width="80px" alt="GitHub avatar for Zahra Alsulaimawi"/><br/>
         <b>Zahra Alsulaimawi</b><br/>
-        <sub>Contributor</sub>
+        <sub>LLM Integration &amp; Evaluation</sub><br/>
+        <sub><a href="mailto:alsulaza@oregonstate.edu">alsulaza@oregonstate.edu</a></sub>
       </a>
     </td>
     <td align="center">
       <a href="https://github.com/raymondcen">
-        <img src="https://github.com/raymondcen.png" width="80px" alt="Raymond Cen"/><br/>
+        <img src="https://github.com/raymondcen.png" width="80px" alt="GitHub avatar for Raymond Cen"/><br/>
         <b>Raymond Cen</b><br/>
-        <sub>Contributor</sub>
+        <sub>Data Processing &amp; Testing</sub><br/>
+        <sub><a href="mailto:cenra@oregonstate.edu">cenra@oregonstate.edu</a></sub>
       </a>
     </td>
     <td align="center">
       <a href="https://github.com/bradleyrule">
-        <img src="https://github.com/bradleyrule.png" width="80px" alt="Bradley Rule"/><br/>
+        <img src="https://github.com/bradleyrule.png" width="80px" alt="GitHub avatar for Bradley Rule"/><br/>
         <b>Bradley Rule</b><br/>
-        <sub>Contributor</sub>
+        <sub>PDF Extraction &amp; OCR</sub><br/>
+        <sub><a href="mailto:ruleb@oregonstate.edu">ruleb@oregonstate.edu</a></sub>
       </a>
     </td>
   </tr>
 </table>
 
+---
+
+## Questions and Feedback
+
+Found a bug or have a question? [Open an issue on GitHub](https://github.com/NovakLabOSU/FracFeedExtractor/issues) — it's the fastest way to reach the team.
 
 ---
 
-Found a bug or have a question? [Open an issue on GitHub Issues](https://github.com/NovakLabOSU/FracFeedExtractor/issues).
-
 ## Documentation
-- [Contributing Guide](documentation/CONTRIBUTING.md)
+
+- [Contributing Guide](documentation/CONTRIBUTING.md) — setup, CLI reference, and contribution workflow
 - [Pipeline Architecture Diagram](documentation/architecture.png)
 
-LICENSE: Pending partner confirmation
+*License: Pending partner confirmation.*
