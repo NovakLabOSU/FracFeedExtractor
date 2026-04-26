@@ -1,8 +1,59 @@
 # FracFeedExtractor - LLMs for the fraction of feeding predators
 
+This project contributes to validating a novel metric of predator-prey interactions to inform ecosystem-based resource management and ecological theory.
+
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)
+![Python Version](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)
+![License](https://img.shields.io/badge/license-pending-lightgrey?style=flat-square)
+![GitHub Issues](https://img.shields.io/github/issues/NovakLabOSU/FracFeedExtractor?style=flat-square)
+
 ## Project Description
 This project contributes to validating a novel metric of predator-prey interactions to inform ecosystem-based resource management and ecological theory.  It does so by using a global database of predator diet surveys to train large language models for the purpose of identifying additional publications and extracting key data to overcome the limitations that have hindered the empirical validation of the new metric thus far.
 
+## Key Features
+- **PDF Classification** - Fine-tuned LLMs identify which scientific publications contain useful predator diet survey data.
+- **Structured Data Extraction** - Automatically parses empty and non-empty stomach counts and key covariates (predator identity, survey location, survey year, and more) from tabular and narrative text.
+- **Batch Processing** - Accepts a single PDF or an entire folder of PDFs in one command.
+- **Provenance & Uncertainty Reporting** - Every result includes descriptors of classification confidence and extraction provenance.
+- **Reproducible Pipeline** - A clean training and evaluation pipeline with PDF preprocessing and model evaluation metrics is fully documented in this repository.
+
+## Get Started
+
+### Prerequisites
+- **Python 3.10+**
+- **[Ollama](https://ollama.com)** installed and running locally (minimum 8 GB RAM; 16 GB recommended)
+- Pull the required model before running the pipeline:
+  ```bash
+  ollama pull llama3.1:8b   # default extraction model (~5 GB)
+  ```
+  Verify Ollama is running: `ollama list`
+
+### Installation
+```bash
+git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
+cd FracFeedExtractor
+pip install -r requirements.txt
+```
+
+### Quick Start
+```bash
+# Classify and extract data from a folder of PDFs
+python classify_extract.py path/to/pdfs/
+```
+
+For full setup details, virtual environment configuration, available CLI flags, and contribution guidelines, see the [Contributing Guide](documentation/CONTRIBUTING.md).
+
+## Pipeline Demo
+
+[IMAGE: Terminal screenshot showing the pipeline running on a folder of PDFs, displaying classifier output and extraction results per file]
+
+*Terminal screenshot showing the pipeline running on a folder of PDFs, displaying classifier output and extraction results per file.*
+
+---
+
+[IMAGE: Side-by-side comparison of a dense academic PDF on the left and the clean extracted JSON output on the right]
+
+*Side-by-side comparison of a dense academic PDF on the left and the clean extracted JSON output on the right.*
 
 ## Motivation
 Predator-prey interactions are central to ecosystem stability, yet a key parameter that quantifies predator-prey interaction strength (predator feeding rates) is rarely used in practice because the data required to estimate it are difficult to obtain. Our research has shown that the fraction of feeding individuals, defined as the proportion of predators with non-empty stomachs, can be easily obtained from routine predator diet surveys and is analytically linked to a species' metabolic demand, body size, temperature, mortality rate, extinction susceptibility, biological control effectiveness, and population resilience to perturbations. To validate this metric for mainstream resource management and ecological theory, a scalable method is needed to harvest the untapped data that exists in the vast ecological literature.  
@@ -26,8 +77,24 @@ The project trained large language models for two tasks: 1) classifying scientif
 - Raymond Cen – Contributor  
 - Bradley Rule – Contributor
 
-License: Pending partner confirmation
+## Team
+
+| Name | Role | GitHub |
+|------|------|--------|
+| Mark Novak | Project Owner/Lead | [@marknovak](https://github.com/marknovak) |
+| Sean Clayton | Contributor | [@SeanClas10](https://github.com/SeanClas10) |
+| Zahra Alsulaimawi | Contributor | [@QuiteRocks](https://github.com/QuiteRocks) |
+| Raymond Cen | Contributor | [@raymondcen](https://github.com/raymondcen) |
+| Bradley Rule | Contributor | [@bradleyrule](https://github.com/bradleyrule) |
+
+We also thank all previous contributors - see the full list on the [GitHub Contributors page](https://github.com/NovakLabOSU/FracFeedExtractor/graphs/contributors).
+
+---
+
+Found a bug or have a question? [Open an issue on GitHub Issues](https://github.com/NovakLabOSU/FracFeedExtractor/issues).
 
 ## Documentation
 - [Contributing Guide](documentation/CONTRIBUTING.md)
 - [Pipeline Architecture Diagram](documentation/architecture.png)
+
+LICENSE: Pending partner confirmation
