@@ -1,6 +1,6 @@
 # FracFeedExtractor - LLMs for the fraction of feeding predators
 
-This project contributes to validating a novel metric of predator-prey interactions to inform ecosystem-based resource management and ecological theory.
+FracFeedExtractor automatically identifies predator diet studies in scientific literature and extracts key structured data using machine learning and LLMs.
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)
@@ -11,7 +11,7 @@ This project contributes to validating a novel metric of predator-prey interacti
 This project contributes to validating a novel metric of predator-prey interactions to inform ecosystem-based resource management and ecological theory.  It does so by using a global database of predator diet surveys to train large language models for the purpose of identifying additional publications and extracting key data to overcome the limitations that have hindered the empirical validation of the new metric thus far.
 
 ## Key Features
-- **PDF Classification** - Fine-tuned LLMs identify which scientific publications contain useful predator diet survey data.
+- **PDF Classification** - An XGBoost classifier identifies which scientific publications contain useful predator diet survey data, filtering out irrelevant papers before they reach the LLM.
 - **Structured Data Extraction** - Automatically parses empty and non-empty stomach counts and key covariates (predator identity, survey location, survey year, and more) from tabular and narrative text.
 - **Batch Processing** - Accepts a single PDF or an entire folder of PDFs in one command.
 - **Provenance & Uncertainty Reporting** - Every result includes descriptors of classification confidence and extraction provenance.
@@ -24,7 +24,7 @@ This project contributes to validating a novel metric of predator-prey interacti
 - **[Ollama](https://ollama.com)** installed and running locally (minimum 8 GB RAM; 16 GB recommended)
 - Pull the required model before running the pipeline:
   ```bash
-  ollama pull llama3.1:8b   # default extraction model (~5 GB)
+  ollama pull qwen2.5:7b   # default extraction model (~5 GB)
   ```
   Verify Ollama is running: `ollama list`
 
@@ -34,6 +34,8 @@ git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
 cd FracFeedExtractor
 pip install -r requirements.txt
 ```
+
+> **Note:** Tesseract OCR must be installed separately as a system dependency. See the [Contributing Guide](documentation/CONTRIBUTING.md) for platform-specific instructions.
 
 ### Quick Start
 ```bash
@@ -70,19 +72,12 @@ The project trained large language models for two tasks: 1) classifying scientif
 ## Data sources
 [FracFeed: Global database of the fraction of feeding predators](https://github.com/marknovak/FracFeed_DB)
 
-## Team Members
-- Mark Novak – Project Owner/Lead  
-- Sean Clayton – Contributor  
-- Zahra Zahir Ahmed Alsulaimawi – Contributor  
-- Raymond Cen – Contributor  
-- Bradley Rule – Contributor
-
 ## Team
 
 | Name | Role | GitHub |
 |------|------|--------|
 | Mark Novak | Project Owner/Lead | [@marknovak](https://github.com/marknovak) |
-| Sean Clayton | Contributor | [@SeanClas10](https://github.com/SeanClas10) |
+| Sean Clayton | Contributor | [@SeanClay10](https://github.com/SeanClay10) |
 | Zahra Alsulaimawi | Contributor | [@QuiteRocks](https://github.com/QuiteRocks) |
 | Raymond Cen | Contributor | [@raymondcen](https://github.com/raymondcen) |
 | Bradley Rule | Contributor | [@bradleyrule](https://github.com/bradleyrule) |
