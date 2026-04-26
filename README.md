@@ -74,9 +74,46 @@ The project trained an XGBoost classifier to identify which publications contain
 
 ## Team
 
-<a href="https://github.com/NovakLabOSU/FracFeedExtractor/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=NovakLabOSU/FracFeedExtractor" alt="Project contributors" />
-</a>
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/marknovak">
+        <img src="https://github.com/marknovak.png" width="80px" alt="Mark Novak"/><br/>
+        <b>Mark Novak</b><br/>
+        <sub>Project Owner/Lead</sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/SeanClay10">
+        <img src="https://github.com/SeanClay10.png" width="80px" alt="Sean Clayton"/><br/>
+        <b>Sean Clayton</b><br/>
+        <sub>Contributor</sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/QuiteRocks">
+        <img src="https://github.com/QuiteRocks.png" width="80px" alt="Zahra Alsulaimawi"/><br/>
+        <b>Zahra Alsulaimawi</b><br/>
+        <sub>Contributor</sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/raymondcen">
+        <img src="https://github.com/raymondcen.png" width="80px" alt="Raymond Cen"/><br/>
+        <b>Raymond Cen</b><br/>
+        <sub>Contributor</sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/bradleyrule">
+        <img src="https://github.com/bradleyrule.png" width="80px" alt="Bradley Rule"/><br/>
+        <b>Bradley Rule</b><br/>
+        <sub>Contributor</sub>
+      </a>
+    </td>
+  </tr>
+</table>
+
 
 ---
 
