@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/license-pending-lightgrey?style=flat-square)
 [![GitHub Issues](https://img.shields.io/github/issues/NovakLabOSU/FracFeedExtractor?style=flat-square)](https://github.com/NovakLabOSU/FracFeedExtractor/issues)
 
-*2025–2026 Oregon State University Senior Capstone Project, in collaboration with [Mark Novak's lab at OSU](https://github.com/NovakLabOSU).*
+*2025–2026 Oregon State University Senior Capstone Project, in collaboration with Mark Novak.*
 
 ---
 
@@ -66,7 +66,7 @@ The classifier was evaluated on a held-out test set of 234 papers. It achieves *
 Our two-stage pipeline combines a lightweight classifier with a locally-run LLM to minimize cost and runtime at scale. The classifier acts as a gate — only papers it scores as useful proceed to the more expensive extraction step.
 
 <p align="center">
-  <img src="documentation/architecture.png" width="700" alt="Architecture diagram showing the two-stage FracFeedExtractor pipeline: XGBoost classifier stage followed by Ollama LLM extraction stage"/>
+  <img src="assets/architecture.svg" width="100%" alt="Architecture diagram showing the FracFeedExtractor pipeline: PDF input flows through text extraction, cleaning, XGBoost classification, and LLM extraction to produce structured JSON and CSV output"/>
 </p>
 
 The pipeline consists of the following components:
@@ -158,42 +158,43 @@ We trained the classifier on the [FracFeed global database](https://github.com/m
   <tr>
     <td align="center">
       <a href="https://github.com/marknovak">
-        <img src="https://github.com/marknovak.png" width="80px" alt="GitHub avatar for Mark Novak"/><br/>
-        <b>Mark Novak</b><br/>
-        <sub>Project Lead</sub>
-      </a>
+        <img src="https://github.com/marknovak.png" width="80px" alt="GitHub avatar for Mark Novak"/>
+      </a><br/>
+      <b>Mark Novak</b><br/>
+      <sub>Project Lead</sub><br/>
+      <sub><a href="mailto:Mark.Novak@oregonstate.edu">Mark.Novak@oregonstate.edu</a></sub>
     </td>
     <td align="center">
       <a href="https://github.com/SeanClay10">
-        <img src="https://github.com/SeanClay10.png" width="80px" alt="GitHub avatar for Sean Clayton"/><br/>
-        <b>Sean Clayton</b><br/>
-        <sub>ML Pipeline &amp; Backend</sub><br/>
-        <sub><a href="mailto:claytose@oregonstate.edu">claytose@oregonstate.edu</a></sub>
-      </a>
+        <img src="https://github.com/SeanClay10.png" width="80px" alt="GitHub avatar for Sean Clayton"/>
+      </a><br/>
+      <b>Sean Clayton</b><br/>
+      <sub>ML Pipeline &amp; Backend</sub><br/>
+      <sub><a href="mailto:claytose@oregonstate.edu">claytose@oregonstate.edu</a></sub>
     </td>
     <td align="center">
       <a href="https://github.com/QuiteRocks">
-        <img src="https://github.com/QuiteRocks.png" width="80px" alt="GitHub avatar for Zahra Alsulaimawi"/><br/>
-        <b>Zahra Alsulaimawi</b><br/>
-        <sub>LLM Integration &amp; Evaluation</sub><br/>
-        <sub><a href="mailto:alsulaza@oregonstate.edu">alsulaza@oregonstate.edu</a></sub>
-      </a>
+        <img src="https://github.com/QuiteRocks.png" width="80px" alt="GitHub avatar for Zahra Alsulaimawi"/>
+      </a><br/>
+      <b>Zahra Alsulaimawi</b><br/>
+      <sub>LLM Integration &amp; Evaluation</sub><br/>
+      <sub><a href="mailto:alsulaza@oregonstate.edu">alsulaza@oregonstate.edu</a></sub>
     </td>
     <td align="center">
       <a href="https://github.com/raymondcen">
-        <img src="https://github.com/raymondcen.png" width="80px" alt="GitHub avatar for Raymond Cen"/><br/>
-        <b>Raymond Cen</b><br/>
-        <sub>Data Processing &amp; Testing</sub><br/>
-        <sub><a href="mailto:cenra@oregonstate.edu">cenra@oregonstate.edu</a></sub>
-      </a>
+        <img src="https://github.com/raymondcen.png" width="80px" alt="GitHub avatar for Raymond Cen"/>
+      </a><br/>
+      <b>Raymond Cen</b><br/>
+      <sub>Data Processing &amp; Testing</sub><br/>
+      <sub><a href="mailto:cenra@oregonstate.edu">cenra@oregonstate.edu</a></sub>
     </td>
     <td align="center">
       <a href="https://github.com/bradleyrule">
-        <img src="https://github.com/bradleyrule.png" width="80px" alt="GitHub avatar for Bradley Rule"/><br/>
-        <b>Bradley Rule</b><br/>
-        <sub>PDF Extraction &amp; OCR</sub><br/>
-        <sub><a href="mailto:ruleb@oregonstate.edu">ruleb@oregonstate.edu</a></sub>
-      </a>
+        <img src="https://github.com/bradleyrule.png" width="80px" alt="GitHub avatar for Bradley Rule"/>
+      </a><br/>
+      <b>Bradley Rule</b><br/>
+      <sub>PDF Extraction &amp; OCR</sub><br/>
+      <sub><a href="mailto:ruleb@oregonstate.edu">ruleb@oregonstate.edu</a></sub>
     </td>
   </tr>
 </table>
@@ -202,13 +203,13 @@ We trained the classifier on the [FracFeed global database](https://github.com/m
 
 ## Questions and Feedback
 
-Found a bug or have a question? [Open an issue on GitHub](https://github.com/NovakLabOSU/FracFeedExtractor/issues) — it's the fastest way to reach the team.
+Found a bug or have a question? [Open an issue on GitHub](https://github.com/NovakLabOSU/FracFeedExtractor/issues).
 
 ---
 
 ## Documentation
 
 - [Contributing Guide](documentation/CONTRIBUTING.md) — setup, CLI reference, and contribution workflow
-- [Pipeline Architecture Diagram](documentation/architecture.png)
+- [Pipeline Architecture Diagram](assets/architecture.svg)
 
 *License: Pending partner confirmation.*
