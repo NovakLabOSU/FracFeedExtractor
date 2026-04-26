@@ -74,15 +74,9 @@ The project trained an XGBoost classifier to identify which publications contain
 
 ## Team
 
-| Name              | Role               | GitHub                                         |
-| ----------------- | ------------------ | ---------------------------------------------- |
-| Mark Novak        | Project Owner/Lead | [@marknovak](https://github.com/marknovak)     |
-| Sean Clayton      | Contributor        | [@SeanClay10](https://github.com/SeanClay10)   |
-| Zahra Alsulaimawi | Contributor        | [@QuiteRocks](https://github.com/QuiteRocks)   |
-| Raymond Cen       | Contributor        | [@raymondcen](https://github.com/raymondcen)   |
-| Bradley Rule      | Contributor        | [@bradleyrule](https://github.com/bradleyrule) |
-
-We also thank all previous contributors - see the full list on the [GitHub Contributors page](https://github.com/NovakLabOSU/FracFeedExtractor/graphs/contributors).
+<a href="https://github.com/NovakLabOSU/FracFeedExtractor/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=NovakLabOSU/FracFeedExtractor" alt="Project contributors" />
+</a>
 
 ---
 
