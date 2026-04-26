@@ -8,7 +8,7 @@ Using machine learning and LLMs to automatically identify predator diet studies 
 ![GitHub Issues](https://img.shields.io/github/issues/NovakLabOSU/FracFeedExtractor?style=flat-square)
 
 ## Project Description
-This project contributes to validating a novel metric of predator-prey interactions to inform ecosystem-based resource management and ecological theory.  It does so by using a global database of predator diet surveys to train large language models for the purpose of identifying additional publications and extracting key data to overcome the limitations that have hindered the empirical validation of the new metric thus far.
+This project contributes to validating a novel metric of predator-prey interactions to inform ecosystem-based resource management and ecological theory. It does so by using a global database of predator diet surveys to train an XGBoost classifier that identifies relevant publications and a pre-trained LLM running locally via Ollama that extracts key data to overcome the limitations that have hindered the empirical validation of the new metric thus far.
 
 ## Key Features
 - **PDF Classification** - An XGBoost classifier identifies which scientific publications contain useful predator diet survey data, filtering out irrelevant papers before they reach the LLM.
