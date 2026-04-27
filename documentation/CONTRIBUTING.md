@@ -3,23 +3,33 @@ How to set up, code, test, review, and release so contributions meet our Definit
 of Done.
 ## Code of Conduct
 All contributors must follow the Oregon State University Student Code of Conduct and the team’s charter agreement.
-* Treat all collaborators with respect and proffessionalism.
+* Treat all collaborators with respect and professionalism.
 * Provide decent participation during meetings and reviews.
 * Raise the issue privately with the team first.
 * Issues of academic or ethical concern should be reported directly to the instructor.
 * Report any inappropriate or unprofessional behavior to the TA, instructor or project manager.
   
 **Owner**: Bradley Rule 
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 ## Getting Started
+> **Pipeline diagram**: [`documentation/architecture.png`](architecture.png) - visual overview of the full extraction pipeline.
+
 * ### Prerequisites
   * Python 3.10 +
   * pip installed
   * Access to GitHub repository
+  * [Ollama](https://ollama.com) installed and running locally
+    * Minimum hardware: 8 GB RAM (16 GB recommended for `llama3.1:8b`)
+    * Pull the required models before running the classify/extract pipeline:
+      ```bash
+      ollama pull llama3.1:8b   # default extraction model (~5 GB)
+      ollama pull qwen2.5:7b    # alternative model (~5 GB)
+      ```
+    * Verify Ollama is running: `ollama list`
 * ### Setup Instructions
 ```
-    git clone https://github.com/marknovak/FracFeedExtractor.git
+    git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
     cd FracFeedExtractor
     python -m venv venv
     source venv/bin/activate   
@@ -46,12 +56,60 @@ All contributors must follow the Oregon State University Student Code of Conduct
     python scripts/full_pipeline.py --api
     ```
     * Note: You will need access to the .env file
-* ### Enviorment Variables
+* ### Running the classify/extract pipeline
+  Use `classify_extract.py` to classify PDFs and extract structured diet data in a single step.
+  Requires trained model artifacts in `src/model/models/` (run the full pipeline first,
+  or see [Retraining the Classifier](#retraining-the-classifier-and-extending-extraction) below).
+  ```bash
+  # Single PDF
+  python classify_extract.py path/to/file.pdf
+
+  # Folder of PDFs (sequential)
+  python classify_extract.py path/to/pdfs/
+
+  # All options
+  python classify_extract.py path/to/pdfs/ \
+      --model-dir src/model/models \
+      --llm-model llama3.1:8b \
+      --output-dir data/results \
+      --confidence-threshold 0.70 \
+      --max-chars 12000 \
+      --num-ctx 4096 \
+      --workers 4
+  ```
+  | Flag | Default | Description |
+  |------|---------|-------------|
+  | `--model-dir` | `src/model/models` | Directory containing classifier artifacts |
+  | `--llm-model` | `llama3.1:8b` | Ollama model for extraction |
+  | `--output-dir` | `data/results` | Destination for JSON results and summary CSV |
+  | `--confidence-threshold` | `0.70` | Probability threshold for "useful" classification |
+  | `--max-chars` | `12000` | Maximum characters sent to the LLM |
+  | `--num-ctx` | `4096` | Ollama context window size (tokens) |
+  | `--workers` | `1` | Parallel worker processes (`1` = sequential) |
+
+* ### Sample Output
+  Each PDF classified as "useful" produces a JSON file in `data/results/metrics/`:
+  ```json
+  {
+    "source_file": "Smith_2002.pdf",
+    "extracted_at": "2026-04-24T14:32:00",
+    "metrics": {
+      "species_name": "Esox lucius",
+      "study_location": "Lake Windermere, UK",
+      "study_date": "1998-2000",
+      "num_empty_stomachs": 42,
+      "num_nonempty_stomachs": 158,
+      "sample_size": 200,
+      "fraction_feeding": 0.79
+    }
+  }
+  ```
+* ### Environment Variables
     * Sensitive information such as API keys will be stored in a local .env file which will be excluded by .gitignore.
     * Never hardcode secrets
   
 **Owner**: Raymond Cen
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 ## Branching & Workflow
 We will use the feature-branch workflow with all merges handled through PRs.
@@ -62,7 +120,7 @@ We will use the feature-branch workflow with all merges handled through PRs.
 * Rebase your working branch with main, and often, before submitting a PR (simpler conflict resolution)
   
 **Owner**: Zahra Zahir Ahmed Alsulaimawi
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 ## Issues & Planning
 Issue titles should start with the following tags to designate intent:
@@ -88,7 +146,7 @@ Feature Description:
 ```
 
 **Owner**: Zahra Zahir Ahmed Alsulaimawi
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 ## Commit Messages
 We will use the [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) format for clarity and traceability
@@ -106,7 +164,7 @@ fix(ci): update pytest command in workflow [#42]
 docs(readme): add setup section
 ```
 **Owner**: Raymond Cen
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 ## Code Style, Linting & Formatting
 We use Black for automatic code formatting and Flake8 for linting to maintain consistent style and prevent common Python errors.
@@ -123,7 +181,7 @@ We use Black for automatic code formatting and Flake8 for linting to maintain co
   black src tests
   ```
 
-* ### Formatter: Black
+* ### Linter: Flake8
   - Config file: `pyproject.toml`
   - Install `pip install flake8`
   - Local usage:
@@ -133,7 +191,7 @@ We use Black for automatic code formatting and Flake8 for linting to maintain co
   - Configured to ignore line length violations (E501) and other minor style differences.
 
 **Owner**: Sean Clayton
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 
 ## Testing
@@ -151,7 +209,7 @@ We use Black for automatic code formatting and Flake8 for linting to maintain co
   coverage html
   ```
 **Owner**: Sean Clayton
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 * ### Expectations
     - New features must include unit or integration tests.
@@ -174,7 +232,7 @@ We use Black for automatic code formatting and Flake8 for linting to maintain co
   - PRs should be rebased on the latest `main` branch before merge if there are conflicts.
 
 **Owner**: Bradley Rule
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 ## CI/CD
 Continuous integration ensures all contributions meet quality standards automatically.
@@ -198,7 +256,7 @@ Continuous integration ensures all contributions meet quality standards automati
   - Artifacts (e.g., coverage reports) are uploaded automatically and can be reviewed.
 
 **Owner**: Sean Clayton
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 ## Security & Secrets
 State how to report vulnerabilities, prohibited patterns (hard-coded secrets),
@@ -211,7 +269,7 @@ dependency update policy, and scanning tools.
 * Security issues or potential breaches should be reported privately to the Project Manager and TA.
 
 **Owner**: Raymond Cen
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 ## Documentation Expectations
 
@@ -223,7 +281,7 @@ dependency update policy, and scanning tools.
   - Inline comments should be reserved for places where the function of code is difficult to understand or infer.
 
 **Owner**: Zahra Zahir Ahmed Alsulaimawi
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
 
 ## Release Process
 ### Versioning Scheme
@@ -278,12 +336,61 @@ Example entry:
   4) Notify the team and project partner of the rollback.
 
 **Owner**: Bradley Rule 
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26
+
+## Retraining the Classifier and Extending Extraction
+
+### Retraining the XGBoost Classifier
+
+The classifier artifacts are saved in `src/model/models/`. To retrain with new or updated labeled data:
+
+1. **Add labeled text files** to `data/processed-text/` and update `data/labels.json`
+   with `"filename.txt": "useful"` or `"filename.txt": "not useful"` entries.
+
+2. **Run the trainer directly:**
+   ```bash
+   python src/model/train_model.py
+   ```
+   This reads from `data/processed-text/` and `data/labels.json`, trains a TF-IDF +
+   XGBoost model, and saves three artifacts:
+   - `src/model/models/pdf_classifier.json` - XGBoost model
+   - `src/model/models/tfidf_vectorizer.pkl` - TF-IDF vectorizer
+   - `src/model/models/label_encoder.pkl` - LabelEncoder
+
+3. **Or run the full pipeline**, which trains the model as a final step:
+   ```bash
+   python scripts/full_pipeline.py --local <path_to_dataset>
+   ```
+
+Key tunable parameters in `src/model/train_model.py`:
+- `max_features` in `TfidfVectorizer` (default: 10,000)
+- `eta`, `max_depth`, `subsample` in the XGBoost `params` dict
+- `early_stopping_rounds` (default: 20)
+
+### Adding New Extraction Fields to the LLM Extractor
+
+Extraction fields are defined in two places:
+
+1. **`src/llm/models.py`** - the `PredatorDietMetrics` Pydantic model.
+   Add a new optional field with the appropriate type and a `None` default:
+   ```python
+   prey_taxa: Optional[list[str]] = None
+   ```
+
+2. **`src/llm/llm_client.py`** - the system prompt that instructs the LLM.
+   Add a description of the new field and its expected format to the prompt string.
+
+3. **`classify_extract.py`** and **`extract-from-txt.py`** - update the `row` dict
+   and `fieldnames` list in the summary CSV writer to include the new column.
+
+After adding a field, run `pytest tests/test_llm_text.py` to verify that the prompt
+changes do not break existing extraction tests.
+
 ## Support & Contact
-* **Primaty Communciations**: Slack and Teams
+* **Primary Communications**: Slack and Teams
 * **Meetings**: Fridays 1 PM PST
 * **Project Partner**: Mark Novak, Fridays 8:30AM PST (biweekly check-ins) 
 * **TA Meetings**: Thursdays 1:30PM PST
 
 **Owner**: Zahra Zahir Ahmed Alsulaimawi
-**Next Review**:  11/26/25
+**Next Review**:  05/15/26

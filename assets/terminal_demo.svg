@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400"
+     font-family="'SF Mono','Consolas','Monaco','Courier New',monospace">
+
+  <!-- Main background -->
+  <rect width="800" height="400" fill="#1E2127" rx="8"/>
+
+  <!-- Title bar (rounded top, square bottom) -->
+  <rect width="800" height="36" fill="#282C34" rx="8"/>
+  <rect y="8" width="800" height="28" fill="#282C34"/>
+
+  <!-- Window control dots -->
+  <circle cx="22" cy="18" r="6" fill="#E06C75"/>
+  <circle cx="42" cy="18" r="6" fill="#E5C07B"/>
+  <circle cx="62" cy="18" r="6" fill="#98C379"/>
+
+  <!-- Title bar label -->
+  <text x="400" y="23" text-anchor="middle" font-size="12"
+        fill="#5C6370" font-family="system-ui,-apple-system,sans-serif"
+        letter-spacing="0.3">classify_extract.py</text>
+
+  <!-- ── LINE 1: command ── -->
+  <text x="30" y="68" font-size="13">
+    <tspan fill="#98C379">$</tspan>
+    <tspan fill="#61AFEF"> python classify_extract.py data/</tspan>
+  </text>
+
+  <!-- ── LINE 3: [1/4] Bakaloudis ── -->
+  <text x="30" y="106" font-size="13">
+    <tspan fill="#56B6C2">[1/4]</tspan>
+    <tspan fill="#ABB2BF"> Bakaloudis_2012.pdf  →  </tspan>
+    <tspan fill="#98C379">useful</tspan>
+    <tspan fill="#E5C07B">  (confidence: 0.91)</tspan>
+  </text>
+
+  <!-- ── LINE 4: Extracted Buteo ── -->
+  <text x="30" y="125" font-size="13">
+    <tspan fill="#5C6370">      Extracted: </tspan>
+    <tspan fill="#ABB2BF">Buteo buteo | Greece | 2001–2006 | 143 stomachs (88 non-empty)</tspan>
+  </text>
+
+  <!-- ── LINE 6: [2/4] Hales ── -->
+  <text x="30" y="163" font-size="13">
+    <tspan fill="#56B6C2">[2/4]</tspan>
+    <tspan fill="#ABB2BF"> Hales_2008.pdf       →  </tspan>
+    <tspan fill="#98C379">useful</tspan>
+    <tspan fill="#E5C07B">  (confidence: 0.87)</tspan>
+  </text>
+
+  <!-- ── LINE 7: Extracted Gadus ── -->
+  <text x="30" y="182" font-size="13">
+    <tspan fill="#5C6370">      Extracted: </tspan>
+    <tspan fill="#ABB2BF">Gadus morhua | North Sea | 2005–2007 | 312 stomachs (201 non-empty)</tspan>
+  </text>
+
+  <!-- ── LINE 9: [3/4] Barry (not useful) ── -->
+  <text x="30" y="220" font-size="13">
+    <tspan fill="#56B6C2">[3/4]</tspan>
+    <tspan fill="#ABB2BF"> Barry_1996.pdf       →  </tspan>
+    <tspan fill="#E06C75">not useful</tspan>
+    <tspan fill="#E5C07B">  (confidence: 0.38)</tspan>
+  </text>
+
+  <!-- ── LINE 10: Skipped ── -->
+  <text x="30" y="239" font-size="13">
+    <tspan fill="#5C6370">      Skipped — confidence below threshold (0.70).</tspan>
+  </text>
+
+  <!-- ── LINE 12: [4/4] Insley ── -->
+  <text x="30" y="277" font-size="13">
+    <tspan fill="#56B6C2">[4/4]</tspan>
+    <tspan fill="#ABB2BF"> Insley_2021.pdf      →  </tspan>
+    <tspan fill="#98C379">useful</tspan>
+    <tspan fill="#E5C07B">  (confidence: 0.95)</tspan>
+  </text>
+
+  <!-- ── LINE 13: Extracted Enhydra ── -->
+  <text x="30" y="296" font-size="13">
+    <tspan fill="#5C6370">      Extracted: </tspan>
+    <tspan fill="#ABB2BF">Enhydra lutris | Alaska | 2018–2020 | 97 stomachs (82 non-empty)</tspan>
+  </text>
+
+  <!-- ── LINE 15: Results header ── -->
+  <text x="30" y="334" font-size="13" fill="#5C6370">Results written to:</text>
+
+  <!-- ── LINE 16: metrics path ── -->
+  <text x="30" y="353" font-size="13">
+    <tspan fill="#98C379">  data/results/metrics/</tspan>
+    <tspan fill="#5C6370">       ← per-paper JSON</tspan>
+  </text>
+
+  <!-- ── LINE 17: summaries path ── -->
+  <text x="30" y="372" font-size="13">
+    <tspan fill="#98C379">  data/results/summaries/</tspan>
+    <tspan fill="#5C6370">     ← pipeline_summary.csv</tspan>
+  </text>
+
+</svg>
