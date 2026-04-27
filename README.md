@@ -16,6 +16,7 @@
 <p align="center">
   <img src="assets/fraction-feeding-preds.jfif" width="50%" alt="Predator diet surveys form the foundation for estimating the fraction of feeding individuals across species."/>
 </p>
+<p align="center"><em>Predator diet surveys form the foundation for estimating the fraction of feeding individuals across species.</em></p>
 
 ## Project Description
 
@@ -89,9 +90,12 @@ The pipeline consists of the following components:
 
 ## Pipeline Demo
 
-Below is a condensed view of a typical pipeline run on a folder of PDFs. The classifier scores each paper and routes it; relevant papers proceed to LLM extraction.
+Below is a condensed view of a typical pipeline run on a folder of PDFs. The classifier scores each paper and routes it while relevant papers proceed to LLM extraction.
 
-<img src="assets/terminal_demo.svg" width="100%" alt="Terminal output showing FracFeedExtractor classifying four PDFs: three marked useful with extracted species data, one marked not useful and skipped"/>
+<p align="center">
+  <img src="assets/terminal_demo.svg" width="100%" alt="Terminal output showing FracFeedExtractor classifying four PDFs: three marked useful with extracted species data, one marked not useful and skipped"/>
+</p>
+<p align="center"><em>FracFeedExtractor pipeline run on a folder of PDFs.</em></p>
 
 ---
 
