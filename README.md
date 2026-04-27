@@ -11,6 +11,10 @@
 
 ---
 
+<p align="center">
+  <img src="assets/fraction-feeding-preds.jfif" width="100%" alt="Illustration introducing the fraction of feeding predators concept"/>
+</p>
+
 ## Project Description
 
 This project contributes to validating a novel metric of predator-prey interaction strength — the **fraction of feeding individuals** — that has the potential to inform ecosystem-based resource management and ecological theory at scale. Given a folder of PDFs from the ecological literature, our pipeline screens each paper with a trained XGBoost classifier, routes relevant papers to a locally-run LLM for structured data extraction, and exports a covariate-rich database with classification confidence and extraction provenance attached to every record — overcoming the data-harvesting bottleneck that has hindered empirical validation of this metric.
@@ -83,25 +87,7 @@ The pipeline consists of the following components:
 
 Below is a condensed view of a typical pipeline run on a folder of PDFs. The classifier scores each paper and routes it; relevant papers proceed to LLM extraction.
 
-```
-$ python classify_extract.py data/demo/
-
-[1/4] Bakaloudis_2012.pdf  →  useful  (confidence: 0.91)
-      Extracted: Buteo buteo | Greece | 2001–2006 | 143 stomachs (88 non-empty)
-
-[2/4] Hales_2008.pdf       →  useful  (confidence: 0.87)
-      Extracted: Gadus morhua | North Sea | 2005–2007 | 312 stomachs (201 non-empty)
-
-[3/4] GenericReview.pdf    →  not useful  (confidence: 0.78)
-      Skipped — no stomach count data detected.
-
-[4/4] Insley_2021.pdf      →  useful  (confidence: 0.95)
-      Extracted: Enhydra lutris | Alaska | 2018–2020 | 97 stomachs (82 non-empty)
-
-Results written to:
-  data/results/metrics/       ← per-paper JSON
-  data/results/summaries/     ← pipeline_summary.csv
-```
+<img src="assets/terminal_demo.svg" width="100%" alt="Terminal output showing FracFeedExtractor classifying four PDFs: three marked useful with extracted species data, one marked not useful and skipped"/>
 
 ---
 
