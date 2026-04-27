@@ -50,25 +50,8 @@ We trained an XGBoost classifier on the [FracFeed global database](https://githu
 
 ---
 
-## Model Performance
 
-The classifier was evaluated on a held-out test set of 234 papers. It achieves **94% accuracy** across both relevant and irrelevant publications, with strong and balanced precision and recall.
-
-| Class | Precision | Recall | F1-score | Support |
-|---|---|---|---|---|
-| Not useful (0) | 0.96 | 0.91 | 0.93 | 110 |
-| Useful (1) | 0.92 | 0.97 | 0.94 | 124 |
-| **Overall** | **0.94** | **0.94** | **0.94** | **234** |
-
-<p align="center">
-  <img src="assets/training_curve.png" width="625" alt="XGBoost training curve showing train and validation log-loss converging over 585 boosting rounds, with minimum validation loss of 0.193 at the best iteration"/>
-</p>
-
-<p align="center"><em>XGBoost classifier training curve. Log-loss for train (blue) and validation (dashed orange) sets across 600 boosting rounds. Early stopping selected round 585 as the best iteration (min val loss: 0.193).</em></p>
-
----
-
-## Pipeline Architecture
+## System Architecture
 
 Our two-stage pipeline combines a lightweight classifier with a locally-run LLM to minimize cost and runtime at scale. The classifier acts as a gate — only papers it scores as useful proceed to the more expensive extraction step.
 
@@ -96,6 +79,24 @@ Below is a condensed view of a typical pipeline run on a folder of PDFs. The cla
   <img src="assets/terminal_demo.svg" width="100%" alt="Terminal output showing FracFeedExtractor classifying four PDFs: three marked useful with extracted species data, one marked not useful and skipped"/>
 </p>
 <p align="center"><em>FracFeedExtractor pipeline run on a folder of PDFs.</em></p>
+
+---
+
+## Model Performance
+
+The classifier was evaluated on a held-out test set of 234 papers. It achieves **94% accuracy** across both relevant and irrelevant publications, with strong and balanced precision and recall.
+
+| Class | Precision | Recall | F1-score | Support |
+|---|---|---|---|---|
+| Not useful (0) | 0.96 | 0.91 | 0.93 | 110 |
+| Useful (1) | 0.92 | 0.97 | 0.94 | 124 |
+| **Overall** | **0.94** | **0.94** | **0.94** | **234** |
+
+<p align="center">
+  <img src="assets/training_curve.png" width="625" alt="XGBoost training curve showing train and validation log-loss converging over 585 boosting rounds, with minimum validation loss of 0.193 at the best iteration"/>
+</p>
+
+<p align="center"><em>XGBoost classifier training curve. Log-loss for train (blue) and validation (dashed orange) sets across 600 boosting rounds. Early stopping selected round 585 as the best iteration (min val loss: 0.193).</em></p>
 
 ---
 
@@ -217,6 +218,6 @@ Found a bug or have a question?
 ## Documentation
 
 - [Contributing Guide](documentation/CONTRIBUTING.md) — setup, CLI reference, and contribution workflow
-- [Pipeline Architecture Diagram](assets/architecture.svg)
+- [System Architecture Diagram](assets/architecture.svg)
 
 *License: Pending partner confirmation.*
