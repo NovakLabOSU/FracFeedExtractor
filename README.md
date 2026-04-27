@@ -111,8 +111,20 @@ ollama list              # confirm it's available
 ### Installation
 
 ```bash
+# Linux
 git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
 cd FracFeedExtractor
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+```bash
+# Windows PowerShell
+git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
+cd FracFeedExtractor
+py -m venv venv
+./venv/Scripts/activate
 pip install -r requirements.txt
 ```
 
