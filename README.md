@@ -12,7 +12,7 @@
 ---
 
 <p align="center">
-  <img src="assets/fraction-feeding-preds.jfif" width="30%" alt="Predator diet surveys form the foundation for estimating the fraction of feeding individuals across species."/>
+  <img src="assets/fraction-feeding-preds.jfif" width="50%" alt="Predator diet surveys form the foundation for estimating the fraction of feeding individuals across species."/>
 </p>
 
 ## Project Description
@@ -58,7 +58,7 @@ The classifier was evaluated on a held-out test set of 234 papers. It achieves *
 | **Overall** | **0.94** | **0.94** | **0.94** | **234** |
 
 <p align="center">
-  <img src="assets/training_curve.png" width="700" alt="XGBoost training curve showing train and validation log-loss converging over 585 boosting rounds, with minimum validation loss of 0.193 at the best iteration"/>
+  <img src="assets/training_curve.png" width="625" alt="XGBoost training curve showing train and validation log-loss converging over 585 boosting rounds, with minimum validation loss of 0.193 at the best iteration"/>
 </p>
 
 <p align="center"><em>XGBoost classifier training curve. Log-loss for train (blue) and validation (dashed orange) sets across 600 boosting rounds. Early stopping selected round 585 as the best iteration (min val loss: 0.193).</em></p>
