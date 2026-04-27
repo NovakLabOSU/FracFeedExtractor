@@ -9,6 +9,8 @@
 
 *2025–2026 Oregon State University Senior Capstone Project, in collaboration with Mark Novak.*
 
+[**→ Try It Yourself**](#get-started)
+
 ---
 
 <p align="center">
@@ -107,7 +109,7 @@ Pull the default extraction model before running:
 
 ```bash
 ollama pull qwen2.5:7b   # ~5 GB
-ollama list              # confirm it's available
+ollama list
 ```
 
 ### Installation
@@ -204,7 +206,7 @@ We trained the classifier on the [FracFeed global database](https://github.com/m
 ## Questions and Feedback
 
 Found a bug or have a question?  
-[Open an issue on GitHub](https://github.com/NovakLabOSU/FracFeedExtractor/issues).
+[Open an issue on GitHub](https://github.com/NovakLabOSU/FracFeedExtractor/issues)
 
 ---
 
