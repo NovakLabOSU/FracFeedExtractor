@@ -17,13 +17,13 @@
 
 ## Project Description
 
-This project contributes to validating a novel metric of predator-prey interaction strength — the **fraction of feeding individuals** — that has the potential to inform ecosystem-based resource management and ecological theory at scale. Given a folder of PDFs from the ecological literature, our pipeline screens each paper with a trained XGBoost classifier, routes relevant papers to a locally-run LLM for structured data extraction, and exports a covariate-rich database with classification confidence and extraction provenance attached to every record — overcoming the data-harvesting bottleneck that has hindered empirical validation of this metric.
+This project contributes to validating a novel metric of predator-prey interaction, the **fraction of feeding individuals**, that has the potential to inform ecosystem-based resource management and ecological theory at scale. Given a folder of PDFs from the ecological literature, our pipeline screens each paper with a trained XGBoost classifier, routes relevant papers to a locally-run LLM for structured data extraction, and exports a JSON with classification confidence and extraction provenance attached to every record, overcoming the data harvesting bottleneck that has hindered validation of this metric.
 
 ---
 
 ## What is the Fraction of Feeding Individuals?
 
-The **fraction of feeding individuals** is defined as the proportion of predators found to have non-empty stomachs at the time of sampling — a quantity that can be obtained directly from routine predator diet surveys. Research from [Mark Novak's lab at Oregon State University](https://github.com/NovakLabOSU) has established that this metric is analytically linked to a species' metabolic demand, body size, temperature, mortality rate, extinction susceptibility, biological control effectiveness, and population resilience to perturbation — making it a powerful and underutilized parameter for ecosystem-based resource management.
+The **fraction of feeding individuals** is defined as the proportion of predators found to have non-empty stomachs at the time of sampling. This is a quantity that can be obtained directly from routine predator diet surveys. Research from [Mark Novak's lab at Oregon State University](https://github.com/NovakLabOSU) has established that this metric is analytically linked to a species' metabolic demand, body size, temperature, mortality rate, extinction susceptibility, biological control effectiveness, and population resilience to perturbation, making it a powerful and underutilized parameter for ecosystem-based resource management.
 
 Despite its potential, the metric is rarely used in practice. The underlying data exists across more than a century of published predator diet surveys, but harvesting it by hand from the primary literature is prohibitively slow at the scale required for meaningful cross-species analysis. FracFeedExtractor was built to solve that bottleneck: given a collection of PDFs, it automatically identifies which papers contain usable diet survey data and extracts the key numbers and covariates needed to compute the fraction of feeding individuals.
 
@@ -41,9 +41,9 @@ Despite its potential, the metric is rarely used in practice. The underlying dat
 
 ## Motivation
 
-Predator-prey interactions are central to ecosystem stability, yet predator feeding rates are rarely used in practice because the data required to estimate them are difficult to obtain at scale. To validate the fraction of feeding individuals metric for mainstream resource management and ecological theory, a scalable method is needed to harvest the untapped data that already exists in the vast ecological literature — accumulated over more than a century of field surveys conducted across the globe.
+Predator-prey interactions are central to ecosystem stability, yet predator feeding rates are rarely used in practice because the data required to estimate them are difficult to obtain at scale. To validate the fraction of feeding individuals metric for mainstream resource management and ecological theory, a scalable method is needed to harvest the untapped data that already exists in the vast ecological literature, accumulated over more than a century of field surveys conducted across the globe.
 
-We trained an XGBoost classifier on the [FracFeed global database](https://github.com/marknovak/FracFeed_DB) — a hand-annotated collection of predator diet surveys spanning 135 years and multiple continents — to recognize relevant publications so the LLM only processes papers likely to yield usable data. A pre-trained LLM running locally via Ollama then extracts the numbers of empty and non-empty stomachs and key covariates from each relevant paper. The resulting pipeline enables the generation of a comprehensive, covariate-rich database for subsequent analyses and applications.
+We trained an XGBoost classifier on the [FracFeed global database](https://github.com/marknovak/FracFeed_DB), a hand-annotated collection of predator diet surveys spanning 135 years and multiple continents, to recognize relevant publications so the LLM only processes papers likely to yield usable data. An LLM running locally via Ollama then extracts the numbers of empty and non-empty stomachs and key covariates from each relevant paper. The resulting pipeline enables the generation of a comprehensive database for subsequent analyses and applications.
 
 ---
 
@@ -201,7 +201,8 @@ We trained the classifier on the [FracFeed global database](https://github.com/m
 
 ## Questions and Feedback
 
-Found a bug or have a question? [Open an issue on GitHub](https://github.com/NovakLabOSU/FracFeedExtractor/issues).
+Found a bug or have a question?  
+[Open an issue on GitHub](https://github.com/NovakLabOSU/FracFeedExtractor/issues).
 
 ---
 
