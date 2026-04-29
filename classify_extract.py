@@ -50,12 +50,14 @@ log = logging.getLogger(__name__)
 
 def _process_single_pdf(
     pdf_path: Path,
-    model_dir: str,
     llm_model: str,
     output_dir: Path,
     confidence_threshold: float,
     max_chars: int,
     num_ctx: int,
+    clf_model,
+    vectorizer,
+    encoder,
 ):
     """Run classify → extract pipeline on one or more PDFs.
 
@@ -89,16 +91,6 @@ def _process_single_pdf(
         print(f"[ERROR] pdf must be a .pdf file or a directory of PDFs: {pdf_path}", file=sys.stderr)
         log.error("pdf must be a .pdf file or a directory of PDFs: %s", pdf_path)
         sys.exit(1)
-
-    # ── Load classifier once (avoid re-reading model artifacts per file) ──
-    print("[INFO] Loading classifier...", file=sys.stderr)
-    try:
-        clf_model, vectorizer, encoder = load_classifier(model_dir)
-    except FileNotFoundError as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
-        log.critical("Classifier artifacts not found: %s", e)
-        sys.exit(1)
-    print("[INFO] Classifier loaded.", file=sys.stderr)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_rows = []
@@ -239,6 +231,16 @@ def run_pipeline(
         sys.exit(1)
 
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    print("[INFO] Loading classifier...", file=sys.stderr)
+    try:
+        clf_model, vectorizer, encoder = load_classifier(model_dir)
+    except FileNotFoundError as e:
+        print(f"[ERROR] {e}", file=sys.stderr)
+        log.critical("Classifier artifacts not found: %s", e)
+        sys.exit(1)
+    print("[INFO] Classifier loaded.", file=sys.stderr)
+
     summary_rows = []
 
     if workers > 1 and len(pdf_paths) > 1:
@@ -248,12 +250,14 @@ def run_pipeline(
                 executor.submit(
                     _process_single_pdf,
                     pdf_path,
-                    model_dir,
                     llm_model,
                     output_dir,
                     confidence_threshold,
                     max_chars,
                     num_ctx,
+                    clf_model,
+                    vectorizer,
+                    encoder,
                 ): pdf_path
                 for pdf_path in pdf_paths
             }
@@ -270,12 +274,14 @@ def run_pipeline(
             print(f"\n[{idx}/{len(pdf_paths)}] Processing: {pdf_path.name}", file=sys.stderr)
             row = _process_single_pdf(
                 pdf_path,
-                model_dir,
                 llm_model,
                 output_dir,
                 confidence_threshold,
                 max_chars,
                 num_ctx,
+                clf_model,
+                vectorizer,
+                encoder,
             )
             summary_rows.append(row)
 
