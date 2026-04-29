@@ -59,59 +59,23 @@ def _process_single_pdf(
     vectorizer,
     encoder,
 ):
-    """Run classify → extract pipeline on one or more PDFs.
-
-    For each PDF:
-      1. Extract text via PyMuPDF / OCR (pdf_text_extraction.py)
-      2. Classify with XGBoost (pdf_classifier.py)
-      3. If 'useful': trim text to budget (llm_text.py), run LLM extraction
-         (llm_client.py), and save result JSON (llm_client.py)
-      4. Append a row to the summary CSV regardless of classification outcome
-
-    Args:
-        input_path: Path to a single PDF or a directory of PDFs.
-        model_dir: Directory containing classifier model artifacts.
-        llm_model: Ollama model name for extraction.
-        output_dir: Where to write JSON results and the summary CSV.
-        confidence_threshold: Classifier probability threshold for 'useful'.
-        max_chars: Max characters to send to the LLM.
-        num_ctx: Context window size for Ollama.
-    """
-    # ── Collect PDF paths ─────────────────────────────────────────────────
-    if pdf_path.is_dir():
-        pdf_paths = sorted(pdf_path.glob("*.pdf"))
-        if not pdf_paths:
-            print(f"[ERROR] No PDF files found in directory: {pdf_path}", file=sys.stderr)
-            log.error("No PDF files found in directory: %s", pdf_path)
-            sys.exit(1)
-        print(f"[INFO] Found {len(pdf_paths)} PDF(s) in {pdf_path}", file=sys.stderr)
-    elif pdf_path.is_file() and pdf_path.suffix.lower() == ".pdf":
-        pdf_paths = [pdf_path]
-    else:
-        print(f"[ERROR] pdf must be a .pdf file or a directory of PDFs: {pdf_path}", file=sys.stderr)
-        log.error("pdf must be a .pdf file or a directory of PDFs: %s", pdf_path)
-        sys.exit(1)
-
+    """Classify one PDF and return a summary row dict."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    summary_rows = []
 
-    for idx, pdf_path in enumerate(pdf_paths, start=1):
-        print(f"\n[{idx}/{len(pdf_paths)}] Processing: {pdf_path.name}", file=sys.stderr)
-
-        row = {
-            "filename": pdf_path.name,
-            "classification": "",
-            "confidence": "",
-            "pred_prob": "",
-            "extraction_status": "",
-            "species_name": "",
-            "study_location": "",
-            "study_date": "",
-            "sample_size": "",
-            "num_empty_stomachs": "",
-            "num_nonempty_stomachs": "",
-            "fraction_feeding": "",
-        }
+    row = {
+        "filename": pdf_path.name,
+        "classification": "",
+        "confidence": "",
+        "pred_prob": "",
+        "extraction_status": "",
+        "species_name": "",
+        "study_location": "",
+        "study_date": "",
+        "sample_size": "",
+        "num_empty_stomachs": "",
+        "num_nonempty_stomachs": "",
+        "fraction_feeding": "",
+    }
 
     # ── Step 1: Extract text ──────────────────────────────────────────
     try:
