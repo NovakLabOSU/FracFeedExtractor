@@ -92,7 +92,7 @@ def extract_with_chunking(
 ):
     """Main extraction with chunking pipeline."""
 
-    print(f"  [CHUNK] Loading classifier...", file=sys.stderr)
+    print("  [CHUNK] Loading classifier...", file=sys.stderr)
     model, vectorizer, _encoder = load_classifier(model_dir)
 
     chunks = chunk_text(text, chunk_size, overlap)
@@ -120,7 +120,7 @@ def extract_with_chunking(
 
     results = []
     for i, (chunk, score) in enumerate(top_chunks):
-        print(f"  [CHUNK] Extracting chunk {i+1}/{len(top_chunks)}...", file=sys.stderr)
+        print(f"  [CHUNK] Extracting chunk {i + 1}/{len(top_chunks)}...", file=sys.stderr)
 
         try:
             metrics = extract_metrics_from_text(

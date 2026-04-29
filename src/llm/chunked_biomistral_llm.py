@@ -13,6 +13,7 @@ data-rich paragraphs buried in the middle of the document.
 import logging
 import sys
 from collections import Counter
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 project_root = Path(__file__).parent.parent.parent
