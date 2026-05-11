@@ -286,23 +286,6 @@ def extract_key_sections(text: str, max_chars: int) -> str:
     """
     if len(text) <= max_chars:
         return text
-
-    pages = split_into_pages(text)
-    scored: List[Tuple[int, int, str]] = []
-    for page_num, page_text in pages:
-        useful, priority = classify_page(page_text)
-        if useful:
-            scored.append((priority, page_num, page_text))
-
-    scored.sort(key=lambda t: t[0])
-
-    selected: List[Tuple[int, str]] = []
-    budget = max_chars
-    for _priority, page_num, page_text in scored:
-        page_with_marker = f"[PAGE {page_num}]\n{page_text}"
-        if len(page_with_marker) <= budget:
-            selected.append((page_num, page_with_marker))
-            budget -= len(page_with_marker)
     lines = text.split("\n")
 
     # ── Phase 1: Split document into named sections ────────────────────────
