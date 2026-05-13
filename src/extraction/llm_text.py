@@ -412,7 +412,7 @@ def load_document(file_path: Path) -> str:
 
     if suffix == '.pdf':
         print("[INFO] Reading PDF file...", file=sys.stderr)
-        from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
+        from src.io.pdf_text_extraction import extract_text_from_pdf
 
         return extract_text_from_pdf(str(file_path))
     elif suffix in ['.txt', '.text']:

@@ -2,6 +2,39 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "fracfeedextractor"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "pymupdf",
+    "pillow",
+    "pytesseract",
+    "scikit-learn",
+    "python-dotenv",
+    "google-auth",
+    "google-auth-oauthlib",
+    "google-auth-httplib2",
+    "numpy",
+    "google-api-python-client",
+    "ollama",
+    "pydantic",
+    "camelot-py[base]",
+    "opencv-python",
+    "pymupdf_layout",
+    "xgboost",
+    "pyspellchecker",
+    "joblib",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "coverage",
+    "flake8==6.1.0",
+    "black==25.9.0",
+]
+
 [tool.black]
 line-length = 200
 target-version = ["py311"]

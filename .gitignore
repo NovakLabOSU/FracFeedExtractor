@@ -211,6 +211,7 @@ data/needs-check
 data/not-useful
 data/processed-text
 data/useful
-src/model/models/*.pkl
+data/results/
+src/classifier/models/*.pkl
 
 

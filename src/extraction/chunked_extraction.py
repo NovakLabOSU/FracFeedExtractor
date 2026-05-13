@@ -6,18 +6,15 @@ import json
 import xgboost as xgb
 from pathlib import Path
 from collections import Counter
+from typing import Any, Optional
 
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from src.llm.llm_client import extract_metrics_from_text
-from src.model.pdf_classifier import load_classifier
+from src.extraction.llm_client import extract_metrics_from_text
+from src.classifier.pdf_classifier import load_classifier
 
 
-def chunk_text(text, chunk_size=3000, overlap=300):
+def chunk_text(text: str, chunk_size: int = 3000, overlap: int = 300) -> list[str]:
     """Split text into overlapping chunks."""
-    chunks = []
+    chunks: list[str] = []
     start = 0
 
     while start < len(text):
@@ -41,7 +38,7 @@ def chunk_text(text, chunk_size=3000, overlap=300):
     return chunks
 
 
-def score_chunk(chunk, model, vectorizer):
+def score_chunk(chunk: str, model: xgb.Booster, vectorizer: Any) -> float:
     """Score a chunk using XGBoost classifier."""
     X_vec = vectorizer.transform([chunk])
     dtest = xgb.DMatrix(X_vec)
@@ -49,14 +46,14 @@ def score_chunk(chunk, model, vectorizer):
     return float(score)
 
 
-def merge_results(results):
+def merge_results(results: list[Optional[dict[str, Any]]]) -> dict[str, Any]:
     """Merge extraction results from multiple chunks using voting."""
     results = [r for r in results if r is not None]
 
     if not results:
         return {}
 
-    merged = {}
+    merged: dict[str, Any] = {}
     fields = ['species_name', 'study_location', 'study_date', 'num_empty_stomachs', 'num_nonempty_stomachs', 'sample_size']
 
     for field in fields:
@@ -82,14 +79,14 @@ def merge_results(results):
 
 
 def extract_with_chunking(
-    text,
-    model_dir="src/model/models",
-    llm_model="qwen2.5:7b",  # Changed from biomistral
-    num_ctx=8192,
-    top_n=3,
-    chunk_size=3000,
-    overlap=300,
-):
+    text: str,
+    model_dir: str = "src/classifier/models",
+    llm_model: str = "qwen2.5:7b",
+    num_ctx: int = 8192,
+    top_n: int = 3,
+    chunk_size: int = 3000,
+    overlap: int = 300,
+) -> dict[str, Any]:
     """Main extraction with chunking pipeline."""
 
     print("  [CHUNK] Loading classifier...", file=sys.stderr)

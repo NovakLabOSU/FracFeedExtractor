@@ -7,7 +7,7 @@ Exposes three reusable functions for use by other modules:
 
 Usage (standalone):
     python pdf_classifier.py --pdf-path path/to/file.pdf
-    python pdf_classifier.py --pdf-path path/to/file.pdf --model-dir src/model/models
+    python pdf_classifier.py --pdf-path path/to/file.pdf --model-dir src/classifier/models
     python pdf_classifier.py --pdf-path path/to/file.pdf --threshold 0.80
 """
 
@@ -20,8 +20,7 @@ from typing import Tuple
 import joblib
 import xgboost as xgb
 
-sys.path.append(str(Path(__file__).resolve().parents[2]))
-from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
+from src.io.pdf_text_extraction import extract_text_from_pdf
 from src.utils.logger import setup_logging
 
 import warnings
@@ -32,7 +31,7 @@ warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 log = logging.getLogger(__name__)
 
 
-def load_classifier(model_dir: str = "src/model/models") -> Tuple:
+def load_classifier(model_dir: str = "src/classifier/models") -> Tuple:
     """Load the trained classifier artifacts from disk.
 
     Args:
@@ -92,7 +91,7 @@ def classify_text(
 
 def classify_pdf(
     pdf_path: str,
-    model_dir: str = "src/model/models",
+    model_dir: str = "src/classifier/models",
     threshold: float = 0.70,
 ) -> Tuple[str, float, float]:
     """Convenience wrapper: extract text from a PDF and classify it."""
@@ -123,7 +122,7 @@ def classify_pdf(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Classify a PDF as useful or not useful.")
     parser.add_argument("--pdf-path", type=str, required=True, help="Path to the PDF file to classify.")
-    parser.add_argument("--model-dir", type=str, default="src/model/models", help="Directory containing the trained model artifacts (default: src/model/models).")
+    parser.add_argument("--model-dir", type=str, default="src/classifier/models", help="Directory containing the trained model artifacts (default: src/classifier/models).")
     parser.add_argument("--threshold", type=float, default=0.70, help="Probability threshold for the 'useful' class (default: 0.70).")
     args = parser.parse_args()
 

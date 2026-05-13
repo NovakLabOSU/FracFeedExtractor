@@ -6,7 +6,7 @@ import xgboost as xgb
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import LabelEncoder
 from unittest.mock import patch
-from src.model.pdf_classifier import classify_pdf
+from src.classifier.pdf_classifier import classify_pdf
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def model_dir_with_mock_model(tmp_path):
     return model_dir
 
 
-@patch("src.model.pdf_classifier.extract_text_from_pdf", return_value="predator stomach content analysis")
+@patch("src.classifier.pdf_classifier.extract_text_from_pdf", return_value="predator stomach content analysis")
 def test_classify_pdf_valid_case(mock_extract, model_dir_with_mock_model, capsys):
     """Happy path: result header, prediction label, confidence percentage all present."""
     classify_pdf(Path("tests/test.pdf"), model_dir_with_mock_model)
@@ -69,7 +69,7 @@ def test_classify_pdf_missing_model(capsys, tmp_path):
     assert "[ERROR]" in capsys.readouterr().err
 
 
-@patch("src.model.pdf_classifier.extract_text_from_pdf", return_value="")
+@patch("src.classifier.pdf_classifier.extract_text_from_pdf", return_value="")
 def test_classify_pdf_no_text(mock_extract, model_dir_with_mock_model, capsys):
     classify_pdf(Path("tests/empty.pdf"), model_dir_with_mock_model)
 

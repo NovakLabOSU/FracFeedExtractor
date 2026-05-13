@@ -6,15 +6,15 @@ LLM for structured data extraction.
 
 Usage:
     # Single PDF
-    python classify-extract.py path/to/file.pdf
+    python src/pipeline/classify_extract.py path/to/file.pdf
 
     # Folder of PDFs
-    python classify-extract.py path/to/folder/
+    python src/pipeline/classify_extract.py path/to/folder/
 
     # Custom options
-    python classify-extract.py path/to/folder/ \\
-        --model-dir src/model/models \\
-        --llm-model llama3.1:8b \\
+    python src/pipeline/classify_extract.py path/to/folder/ \\
+        --model-dir src/classifier/models \\
+        --llm-model qwen2.5:7b \\
         --output-dir results/ \\
         --confidence-threshold 0.70 \\
         --max-chars 12000 \\
@@ -34,10 +34,10 @@ from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
-from src.preprocessing.pdf_text_extraction import extract_text_from_pdf
-from src.model.pdf_classifier import load_classifier, classify_text
-from src.llm.llm_text import extract_key_sections
-from src.llm.llm_client import extract_metrics_from_text, save_extraction_result
+from src.io.pdf_text_extraction import extract_text_from_pdf
+from src.classifier.pdf_classifier import load_classifier, classify_text
+from src.extraction.llm_text import extract_key_sections
+from src.extraction.llm_client import extract_metrics_from_text, save_extraction_result
 from src.utils.logger import setup_logging
 
 log = logging.getLogger(__name__)
@@ -310,16 +310,16 @@ def main():
         epilog="""
 Examples:
   Single PDF:
-    python classify-extract.py paper.pdf
+    python src/pipeline/classify_extract.py paper.pdf
 
   Folder of PDFs:
-    python classify-extract.py data/pdfs/
+    python src/pipeline/classify_extract.py data/pdfs/
 
   Custom options:
-    python classify-extract.py data/pdfs/ \\
-        --model-dir src/model/models \\
+    python src/pipeline/classify_extract.py data/pdfs/ \\
+        --model-dir src/classifier/models \\
         --output-dir results/ \\
-        --llm-model llama3.1:8b \\
+        --llm-model qwen2.5:7b \\
         --confidence-threshold 0.70
         """,
     )
@@ -331,14 +331,14 @@ Examples:
     parser.add_argument(
         "--model-dir",
         type=str,
-        default="src/model/models",
-        help="Directory containing classifier model artifacts (default: src/model/models).",
+        default="src/classifier/models",
+        help="Directory containing classifier model artifacts (default: src/classifier/models).",
     )
     parser.add_argument(
         "--llm-model",
         type=str,
-        default="llama3.1:8b",
-        help="Ollama model to use for extraction (default: llama3.1:8b).",
+        default="qwen2.5:7b",
+        help="Ollama model to use for extraction (default: qwen2.5:7b).",
     )
     parser.add_argument(
         "--output-dir",

@@ -1,4 +1,4 @@
-"""Unit tests for src/preprocessing/section_filter.py"""
+"""Unit tests for src/io/section_filter.py"""
 
 import sys
 from pathlib import Path
@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.preprocessing.section_filter import (
+from src.io.section_filter import (
     filter_relevant_sections,
     _has_positive_signal,
     _has_negative_signal,

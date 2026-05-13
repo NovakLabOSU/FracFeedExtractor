@@ -1,2 +1,0 @@
-filename,raw_chars,cleaned_chars,trimmed_chars,extraction_status,species_name,study_location,study_date,sample_size,num_empty_stomachs,num_nonempty_stomachs,fraction_feeding
-Adams_1989.txt,27673,22739,4999,success,,"Marion Island, sub-Antarctic",,,,,

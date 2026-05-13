@@ -3,7 +3,7 @@ import subprocess
 import fitz
 from pathlib import Path
 import sys
-from src.preprocessing.pdf_text_extraction import extract_text_from_pdf, save_to_file, main
+from src.io.pdf_text_extraction import extract_text_from_pdf, save_to_file, main
 
 
 def test_extract_text_exists():
@@ -75,7 +75,7 @@ def test_main_cli(tmp_path):
     output_file = output_dir / "test.txt"
 
     result = subprocess.run(
-        ["python", "src/preprocessing/pdf_text_extraction.py", input_pdf],
+        ["python", "src/io/pdf_text_extraction.py", input_pdf],
         capture_output=True,
         text=True,
     )

@@ -1,4 +1,4 @@
-"""Unit tests for src/preprocessing/text_cleaner.py"""
+"""Unit tests for src/io/text_cleaner.py"""
 
 import sys
 from pathlib import Path
@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.preprocessing.text_cleaner import clean_text
+from src.io.text_cleaner import clean_text
 
 
 # ---------------------------------------------------------------------------

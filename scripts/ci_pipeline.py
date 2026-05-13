@@ -33,7 +33,7 @@ from scripts.google_drive.drive_io import (
     download_file_bytes,
     sanitize_filename,
 )
-from src.preprocessing.pdf_text_extraction import extract_text_from_pdf_bytes
+from src.io.pdf_text_extraction import extract_text_from_pdf_bytes
 
 
 def write_labels(labels: Dict[str, str], output_file: Path):
@@ -91,7 +91,7 @@ def main():
 
     # Train model on the CI sample
     print("\nStarting model training on CI sample...")
-    r = subprocess.run([sys.executable, "src/model/train_model.py"], env={**os.environ, "CI_TRAIN": "1"})
+    r = subprocess.run([sys.executable, "-m", "src.classifier.train_model"], env={**os.environ, "CI_TRAIN": "1"})
     if r.returncode != 0:
         print("Model training failed")
         raise SystemExit(r.returncode)
