@@ -60,7 +60,7 @@ def test_load_processed_text_encoding(tmp_path):
 
 
 def test_main_prints_summary(monkeypatch, tmp_path, capsys):
-    from src.preprocessing import data_loader
+    from src.io import data_loader
 
     data_dir = tmp_path / "data" / "processed-text"
     data_dir.mkdir(parents=True)
