@@ -2,7 +2,7 @@ import pytest
 import json
 import subprocess
 from pathlib import Path
-from src.preprocessing.generate_labels import generate_labels
+from src.io.generate_labels import generate_labels
 
 
 def test_generate_labels_creates_json(tmp_path):
@@ -85,7 +85,7 @@ def test_generate_labels_cli(tmp_path):
     shutil.copytree(repo_src, tmp_src)
 
     result = subprocess.run(
-        ["python", "src/preprocessing/generate_labels.py"],
+        ["python", "src/io/generate_labels.py"],
         capture_output=True,
         text=True,
         cwd=tmp_path,

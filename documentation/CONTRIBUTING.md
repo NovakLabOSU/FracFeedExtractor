@@ -34,7 +34,7 @@ All contributors must follow the Oregon State University Student Code of Conduct
     python -m venv venv
     source venv/bin/activate   
     # Windows: venv\Scripts\activate
-    pip install -r requirements.txt
+    pip install -e ".[dev]"
 ```
 * ### Running the application
   * If you do have the [dataset](https://drive.google.com/drive/u/2/folders/1U3_-TmnXnuBPR9vukkyV-3ITsxPr-nfo) downloaded locally on your machine:
@@ -57,19 +57,19 @@ All contributors must follow the Oregon State University Student Code of Conduct
     ```
     * Note: You will need access to the .env file
 * ### Running the classify/extract pipeline
-  Use `classify_extract.py` to classify PDFs and extract structured diet data in a single step.
-  Requires trained model artifacts in `src/model/models/` (run the full pipeline first,
+  Use `src/pipeline/classify_extract.py` to classify PDFs and extract structured diet data in a single step.
+  Requires trained model artifacts in `src/classifier/models/` (run the full pipeline first,
   or see [Retraining the Classifier](#retraining-the-classifier-and-extending-extraction) below).
   ```bash
   # Single PDF
-  python classify_extract.py path/to/file.pdf
+  python src/pipeline/classify_extract.py path/to/file.pdf
 
   # Folder of PDFs (sequential)
-  python classify_extract.py path/to/pdfs/
+  python src/pipeline/classify_extract.py path/to/pdfs/
 
   # All options
-  python classify_extract.py path/to/pdfs/ \
-      --model-dir src/model/models \
+  python src/pipeline/classify_extract.py path/to/pdfs/ \
+      --model-dir src/classifier/models \
       --llm-model llama3.1:8b \
       --output-dir data/results \
       --confidence-threshold 0.70 \
@@ -79,7 +79,7 @@ All contributors must follow the Oregon State University Student Code of Conduct
   ```
   | Flag | Default | Description |
   |------|---------|-------------|
-  | `--model-dir` | `src/model/models` | Directory containing classifier artifacts |
+  | `--model-dir` | `src/classifier/models` | Directory containing classifier artifacts |
   | `--llm-model` | `llama3.1:8b` | Ollama model for extraction |
   | `--output-dir` | `data/results` | Destination for JSON results and summary CSV |
   | `--confidence-threshold` | `0.70` | Probability threshold for "useful" classification |
@@ -264,7 +264,7 @@ dependency update policy, and scanning tools.
 
 * Never commit sensitive credentials, tokens, or API keys.
 * Secrets are stored locally in .env files and excluded via .gitignore.
-* Dependencies are managed in requirements.txt.
+* Dependencies are managed in `pyproject.toml`.
 * Use pip-audit monthly to check for vulnerabilities.
 * Security issues or potential breaches should be reported privately to the Project Manager and TA.
 
@@ -342,27 +342,27 @@ Example entry:
 
 ### Retraining the XGBoost Classifier
 
-The classifier artifacts are saved in `src/model/models/`. To retrain with new or updated labeled data:
+The classifier artifacts are saved in `src/classifier/models/`. To retrain with new or updated labeled data:
 
 1. **Add labeled text files** to `data/processed-text/` and update `data/labels.json`
    with `"filename.txt": "useful"` or `"filename.txt": "not useful"` entries.
 
 2. **Run the trainer directly:**
    ```bash
-   python src/model/train_model.py
+   python src/classifier/train_model.py
    ```
    This reads from `data/processed-text/` and `data/labels.json`, trains a TF-IDF +
    XGBoost model, and saves three artifacts:
-   - `src/model/models/pdf_classifier.json` - XGBoost model
-   - `src/model/models/tfidf_vectorizer.pkl` - TF-IDF vectorizer
-   - `src/model/models/label_encoder.pkl` - LabelEncoder
+   - `src/classifier/models/pdf_classifier.json` - XGBoost model
+   - `src/classifier/models/tfidf_vectorizer.pkl` - TF-IDF vectorizer
+   - `src/classifier/models/label_encoder.pkl` - LabelEncoder
 
 3. **Or run the full pipeline**, which trains the model as a final step:
    ```bash
    python scripts/full_pipeline.py --local <path_to_dataset>
    ```
 
-Key tunable parameters in `src/model/train_model.py`:
+Key tunable parameters in `src/classifier/train_model.py`:
 - `max_features` in `TfidfVectorizer` (default: 10,000)
 - `eta`, `max_depth`, `subsample` in the XGBoost `params` dict
 - `early_stopping_rounds` (default: 20)
@@ -371,20 +371,19 @@ Key tunable parameters in `src/model/train_model.py`:
 
 Extraction fields are defined in two places:
 
-1. **`src/llm/models.py`** - the `PredatorDietMetrics` Pydantic model.
+1. **`src/extraction/models.py`** - the `PredatorDietMetrics` Pydantic model.
    Add a new optional field with the appropriate type and a `None` default:
    ```python
    prey_taxa: Optional[list[str]] = None
    ```
 
-2. **`src/llm/llm_client.py`** - the system prompt that instructs the LLM.
+2. **`src/extraction/llm_client.py`** - the system prompt that instructs the LLM.
    Add a description of the new field and its expected format to the prompt string.
 
-3. **`classify_extract.py`** and **`extract-from-txt.py`** - update the `row` dict
+3. **`src/pipeline/classify_extract.py`** and **`src/pipeline/extract_from_txt.py`** - update the `row` dict
    and `fieldnames` list in the summary CSV writer to include the new column.
 
-After adding a field, run `pytest tests/test_llm_text.py` to verify that the prompt
-changes do not break existing extraction tests.
+After adding a field, run `pytest tests/test_llm_text.py` to verify that the prompt changes do not break existing extraction tests.
 
 ## Support & Contact
 * **Primary Communications**: Slack and Teams

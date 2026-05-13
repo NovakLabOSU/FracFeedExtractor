@@ -17,7 +17,7 @@ Behavior:
  - API mode: Streams every PDF (no local PDF persistence) and writes extracted text to data/processed-text.
  - Local mode: Processes PDFs from specified local directory (expects 'useful' and 'not-useful' subfolders).
  - Generates labels.json based on folder origin.
- - Trains model with src/model/train_model.py.
+ - Trains model with src/classifier/train_model.py.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ from scripts.google_drive.drive_io import (
     download_file_bytes,
     sanitize_filename,
 )
-from src.preprocessing.pdf_text_extraction import extract_text_from_pdf_bytes
+from src.io.pdf_text_extraction import extract_text_from_pdf_bytes
 
 
 # Module-level flag set once per worker process via initializer
@@ -263,7 +263,7 @@ Examples:
         process_api_mode()
 
     print("Beginning model training...")
-    run([sys.executable, "src/model/train_model.py"])
+    run([sys.executable, "src/classifier/train_model.py"])
     print("Training complete.")
 
 

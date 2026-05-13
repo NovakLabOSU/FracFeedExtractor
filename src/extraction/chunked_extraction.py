@@ -7,12 +7,8 @@ import xgboost as xgb
 from pathlib import Path
 from collections import Counter
 
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from src.llm.llm_client import extract_metrics_from_text
-from src.model.pdf_classifier import load_classifier
+from src.extraction.llm_client import extract_metrics_from_text
+from src.classifier.pdf_classifier import load_classifier
 
 
 def chunk_text(text, chunk_size=3000, overlap=300):
@@ -83,7 +79,7 @@ def merge_results(results):
 
 def extract_with_chunking(
     text,
-    model_dir="src/model/models",
+    model_dir="src/classifier/models",
     llm_model="qwen2.5:7b",  # Changed from biomistral
     num_ctx=8192,
     top_n=3,

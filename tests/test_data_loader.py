@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from src.preprocessing.data_loader import load_processed_text
+from src.io.data_loader import load_processed_text
 import subprocess
 import shutil
 
@@ -84,7 +84,7 @@ def test_data_loader_main_executes(tmp_path):
     data_dir.mkdir(parents=True)
     (data_dir / "sample.txt").write_text("Predator diet study data", encoding="utf-8")
 
-    script_path = Path("src/preprocessing/data_loader.py")
+    script_path = Path("src/io/data_loader.py")
     tmp_script_path = tmp_path / "data_loader.py"
     shutil.copy(script_path, tmp_script_path)
 

@@ -5,29 +5,29 @@ filtering, text trimming, and LLM extraction — bypassing the XGBoost
 classifier entirely.
 
 Every .txt file fed to this script is assumed to have already been confirmed
-as useful (e.g. by the classifier in classify-extract.py or by manual review).
+as useful (e.g. by the classifier in src/pipeline/classify_extract.py or by manual review).
 The pipeline:
 
   1. Read raw .txt file
   2. Strip noise (references, acknowledgements, affiliations, captions, …)
-     via src/preprocessing/text_cleaner.py
+     via src/io/text_cleaner.py
   3. Drop irrelevant paragraphs (taxonomy, morphometrics, stats methods, …)
-     via src/preprocessing/section_filter.py
+     via src/io/section_filter.py
   4. Trim to the character budget using section-priority ranking
-     via src/llm/llm_text.py::extract_key_sections()
-  5. Call Ollama for structured extraction via src/llm/llm_client.py
+     via src/extraction/llm_text.py::extract_key_sections()
+  5. Call Ollama for structured extraction via src/extraction/llm_client.py
   6. Save result JSON per file and a summary CSV
 
 Usage::
 
     # Process the default directory (data/processed-text/)
-    python extract-from-txt.py
+    python src/pipeline/extract_from_txt.py
 
     # Custom input directory
-    python extract-from-txt.py --input-dir path/to/txt_files/
+    python src/pipeline/extract_from_txt.py --input-dir path/to/txt_files/
 
     # Full options
-    python extract-from-txt.py \\
+    python src/pipeline/extract_from_txt.py \\
         --input-dir  data/processed-text/ \\
         --output-dir data/results/ \\
         --llm-model  llama3.1:8b \\
@@ -48,16 +48,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Ensure the project root is on sys.path regardless of where this script is
-# invoked from.
-_PROJECT_ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(_PROJECT_ROOT))
-
-from src.preprocessing.text_cleaner import clean_text
-from src.preprocessing.section_filter import filter_relevant_sections
-from src.llm.llm_text import extract_key_sections
-from src.llm.llm_client import extract_metrics_from_text, save_extraction_result
-from src.llm.chunked_extraction import extract_with_chunking
+from src.io.text_cleaner import clean_text
+from src.io.section_filter import filter_relevant_sections
+from src.extraction.llm_text import extract_key_sections
+from src.extraction.llm_client import extract_metrics_from_text, save_extraction_result
+from src.extraction.chunked_extraction import extract_with_chunking
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +72,7 @@ def run_txt_pipeline(
     top_chunks: int = 3,
     chunk_size: int = 4000,
     chunk_overlap: int = 500,
-    model_dir: str = "src/model/models",
+    model_dir: str = "src/classifier/models",
 ) -> None:
     """Process every .txt file in *input_dir* through clean → filter → trim → extract.
 
@@ -337,13 +332,13 @@ def main() -> None:
         epilog="""
 Examples:
   Default (data/processed-text/ → data/results/):
-    python extract-from-txt.py
+    python src/pipeline/extract_from_txt.py
 
   Custom directories:
-    python extract-from-txt.py --input-dir data/useful-txt/ --output-dir out/
+    python src/pipeline/extract_from_txt.py --input-dir data/useful-txt/ --output-dir out/
 
   Different model / tighter budget:
-    python extract-from-txt.py --llm-model mistral:7b --max-chars 4500
+    python src/pipeline/extract_from_txt.py --llm-model mistral:7b --max-chars 4500
         """,
     )
     parser.add_argument(
@@ -416,8 +411,8 @@ Examples:
     parser.add_argument(
         "--model-dir",
         type=str,
-        default="src/model/models",
-        help="Directory containing XGBoost model artifacts (default: src/model/models). Only used with --chunked.",
+        default="src/classifier/models",
+        help="Directory containing XGBoost model artifacts (default: src/classifier/models). Only used with --chunked.",
     )
 
     args = parser.parse_args()

@@ -1,4 +1,4 @@
-"""Unit tests for src/llm/llm_text.py — section extraction and text preprocessing."""
+"""Unit tests for src/extraction/llm_text.py — section extraction and text preprocessing."""
 
 import sys
 import tempfile
@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.llm.llm_text import (
+from src.extraction.llm_text import (
     _section_priority,
     _score_paragraph,
     _truncate_at_sentence,
@@ -331,10 +331,10 @@ class TestLoadDocument:
         pdf_file = tmp_path / "paper.pdf"
         pdf_file.write_bytes(b"%PDF-1.4 fake content")
 
-        import src.llm.llm_text as llm_text_module
+        import src.extraction.llm_text as llm_text_module
 
         monkeypatch.setattr(
-            "src.llm.llm_text.extract_text_from_pdf",
+            "src.extraction.llm_text.extract_text_from_pdf",
             lambda path: f"extracted from {Path(path).name}",
             raising=False,
         )
@@ -342,9 +342,9 @@ class TestLoadDocument:
         import importlib
         import sys as _sys
 
-        fake_module = type(_sys)("src.preprocessing.pdf_text_extraction")
+        fake_module = type(_sys)("src.io.pdf_text_extraction")
         fake_module.extract_text_from_pdf = lambda path: f"extracted from {Path(path).name}"
-        monkeypatch.setitem(_sys.modules, "src.preprocessing.pdf_text_extraction", fake_module)
+        monkeypatch.setitem(_sys.modules, "src.io.pdf_text_extraction", fake_module)
 
         result = load_document(pdf_file)
         assert "extracted from paper.pdf" in result

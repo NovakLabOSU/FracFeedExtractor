@@ -1,4 +1,4 @@
-"""Unit tests for src/llm/models.py — PredatorDietMetrics Pydantic schema."""
+"""Unit tests for src/extraction/models.py — PredatorDietMetrics Pydantic schema."""
 
 import sys
 from pathlib import Path
@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.llm.models import PredatorDietMetrics
+from src.extraction.models import PredatorDietMetrics
 
 
 # ---------------------------------------------------------------------------

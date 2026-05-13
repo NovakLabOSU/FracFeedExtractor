@@ -2,7 +2,7 @@ import pytest
 import json
 import joblib
 from pathlib import Path
-from src.model.train_model import load_labeled_data, train_pdf_classifier
+from src.classifier.train_model import load_labeled_data, train_pdf_classifier
 
 
 @pytest.fixture

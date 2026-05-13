@@ -22,11 +22,8 @@ from pathlib import Path
 
 from ollama import chat
 
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from src.llm.models import PredatorDietMetrics
-from src.llm.llm_text import extract_key_sections, load_document
+from src.extraction.models import PredatorDietMetrics
+from src.extraction.llm_text import extract_key_sections, load_document
 from src.utils.logger import setup_logging
 
 log = logging.getLogger(__name__)

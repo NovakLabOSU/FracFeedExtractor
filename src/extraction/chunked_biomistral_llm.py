@@ -16,14 +16,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
 import xgboost as xgb
 
-from src.llm.llm_client import extract_metrics_from_text
-from src.llm.models import PredatorDietMetrics
-from src.model.pdf_classifier import load_classifier
+from src.extraction.llm_client import extract_metrics_from_text
+from src.extraction.models import PredatorDietMetrics
+from src.classifier.pdf_classifier import load_classifier
 
 log = logging.getLogger(__name__)
 
@@ -76,7 +73,7 @@ def chunk_text(
 
 def score_chunks(
     chunks: List[str],
-    model_dir: str = "src/model/models",
+    model_dir: str = "src/classifier/models",
 ) -> List[Tuple[str, float]]:
     """Score each chunk using the XGBoost classifier.
 
@@ -123,7 +120,7 @@ def merge_results(results: List[dict]) -> dict:
 
 def extract_with_chunking(
     text: str,
-    model_dir: str = "src/model/models",
+    model_dir: str = "src/classifier/models",
     llm_model: str = "qwen2.5:7b",
     num_ctx: int = 8192,
     top_n: int = 3,

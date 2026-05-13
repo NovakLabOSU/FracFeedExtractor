@@ -20,7 +20,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y tesseract-ocr
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install ".[dev]"
       
       # CI pipeline (streams 20 PDFs per class from Drive and trains model)
       - name: CI pipeline (Drive stream)
@@ -36,10 +36,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            src/model/models
+            src/classifier/models
             ~/.joblib
             ~/.sklearn
-          key: ${{ runner.os }}-sklearn-model-${{ hashFiles('src/model/**/*.py') }}
+          key: ${{ runner.os }}-sklearn-model-${{ hashFiles('src/classifier/**/*.py') }}
           restore-keys: |
             ${{ runner.os }}-sklearn-model-
 
@@ -60,17 +60,17 @@ jobs:
       - name: Run PDF extraction script (repo test asset)
         run: |
           INPUT_PDF="tests/test.pdf"
-          python src/preprocessing/pdf_text_extraction.py "$INPUT_PDF"
+          python src/io/pdf_text_extraction.py "$INPUT_PDF"
 
       # - name: Generate labels
       #   run: |
       #     echo "Generating labels for extracted text..."
-      #     python src/preprocessing/generate_labels.py
+      #     python src/io/generate_labels.py
           
       # - name: Load and preprocess data
       #   run: |
       #     echo "Loading and preprocessing dataset..."
-      #     python src/preprocessing/data_loader.py
+      #     python src/io/data_loader.py
       # No full pipeline here; use full_training_pipeline.py on main or a scheduled workflow
 
       - name: Validate preprocessing pipeline
@@ -113,8 +113,9 @@ jobs:
         with:
           name: trained-model
           path: |
-            src/model/models/pdf_classifier_model.pkl
-            src/model/models/tfidf_vectorizer.pkl
+            src/classifier/models/pdf_classifier.json
+            src/classifier/models/tfidf_vectorizer.pkl
+            src/classifier/models/label_encoder.pkl
 
       - name: Show pipeline summary
         run: |
@@ -124,4 +125,4 @@ jobs:
           echo "2. Label Generation Results:"
           ls -l data/labels.json
           echo "3. Model Training Results:"
-          ls -l src/model/models/
+          ls -l src/classifier/models/

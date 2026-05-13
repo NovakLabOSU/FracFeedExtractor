@@ -47,7 +47,7 @@ def load_labeled_data(data_dir="data/processed-text", labels_file="data/labels.j
     return texts, labels, filenames
 
 
-def train_pdf_classifier(texts, labels, output_dir="src/model/models"):
+def train_pdf_classifier(texts, labels, output_dir="src/classifier/models"):
 
     if not texts or not labels:
         print("[ERROR] No training samples found.")
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     setup_logging()
 
     texts, labels, _ = load_labeled_data()
-    result = train_pdf_classifier(texts, labels, "src/model/models")
+    result = train_pdf_classifier(texts, labels, "src/classifier/models")
     if result is None:
         sys.exit(1)
     print(f"Model trained successfully! Accuracy: {result['accuracy']:.2f}")
