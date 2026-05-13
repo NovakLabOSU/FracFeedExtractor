@@ -125,7 +125,7 @@ git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
 cd FracFeedExtractor
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 ```bash
@@ -134,17 +134,17 @@ git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
 cd FracFeedExtractor
 py -m venv venv
 ./venv/Scripts/activate
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 ### Quick Start
 
 ```bash
 # Classify and extract from a folder of PDFs
-python classify_extract.py path/to/pdfs/
+python src/pipeline/classify_extract.py path/to/pdfs/
 
 # Adjust the LLM model or confidence threshold
-python classify_extract.py path/to/pdfs/ --llm-model llama3.1:8b --confidence-threshold 0.70
+python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model llama3.1:8b --confidence-threshold 0.70
 ```
 
 Results are written to `data/results/metrics/` (per-paper JSON) and `data/results/summaries/` (pipeline CSV).
