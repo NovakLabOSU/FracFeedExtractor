@@ -91,7 +91,7 @@ def main():
 
     # Train model on the CI sample
     print("\nStarting model training on CI sample...")
-    r = subprocess.run([sys.executable, "src/classifier/train_model.py"], env={**os.environ, "CI_TRAIN": "1"})
+    r = subprocess.run([sys.executable, "-m", "src.classifier.train_model"], env={**os.environ, "CI_TRAIN": "1"})
     if r.returncode != 0:
         print("Model training failed")
         raise SystemExit(r.returncode)

@@ -263,7 +263,7 @@ Examples:
         process_api_mode()
 
     print("Beginning model training...")
-    run([sys.executable, "src/classifier/train_model.py"])
+    run([sys.executable, "-m", "src.classifier.train_model"])
     print("Training complete.")
 
 

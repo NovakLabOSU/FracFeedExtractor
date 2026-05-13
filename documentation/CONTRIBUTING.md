@@ -348,7 +348,7 @@ The classifier artifacts are saved in `src/classifier/models/`. To retrain with 
 
 2. **Run the trainer directly:**
    ```bash
-   python src/classifier/train_model.py
+   python -m src.classifier.train_model
    ```
    This reads from `data/processed-text/` and `data/labels.json`, trains a TF-IDF +
    XGBoost model, and saves three artifacts:

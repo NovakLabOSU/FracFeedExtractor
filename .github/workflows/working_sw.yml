@@ -60,7 +60,7 @@ jobs:
       - name: Run PDF extraction script (repo test asset)
         run: |
           INPUT_PDF="tests/test.pdf"
-          python src/io/pdf_text_extraction.py "$INPUT_PDF"
+          python -m src.io.pdf_text_extraction "$INPUT_PDF"
 
       # - name: Generate labels
       #   run: |
