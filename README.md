@@ -144,7 +144,7 @@ pip install -e ".[dev]"
 python src/pipeline/classify_extract.py path/to/pdfs/
 
 # Adjust the LLM model or confidence threshold
-python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model llama3.1:8b --confidence-threshold 0.70
+python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model qwen2.5:7b --confidence-threshold 0.70
 ```
 
 Results are written to `data/results/metrics/` (per-paper JSON) and `data/results/summaries/` (pipeline CSV).

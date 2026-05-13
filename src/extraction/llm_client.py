@@ -7,7 +7,7 @@ Exposes two reusable functions for use by other modules:
 Usage (standalone):
     python llm_client.py path/to/file.pdf
     python llm_client.py path/to/file.txt
-    python llm_client.py path/to/file.pdf --model llama3.1:8b
+    python llm_client.py path/to/file.pdf --model qwen2.5:7b
     python llm_client.py path/to/file.txt --output-dir results/
 """
 
@@ -57,7 +57,7 @@ def _call_ollama_with_retry(model, messages, format, options):
 
 def extract_metrics_from_text(
     text: str,
-    # model: str = "llama3.1:8b",
+    # model: str = "qwen2.5:7b",
     model: str = "qwen2.5:7b",
     num_ctx: int = 8192,
     _retry: bool = False,
@@ -280,7 +280,7 @@ def save_extraction_result(
 def main():
     parser = argparse.ArgumentParser(description="Extract predator diet metrics from PDFs or text files using LLM")
     parser.add_argument("input_file", type=str, help="Path to the input file (.pdf or .txt)")
-    # parser.add_argument("--model", type=str, default="llama3.1:8b", help="Ollama model to use (default: llama3.1:8b)")
+    # parser.add_argument("--model", type=str, default="qwen2.5:7b", help="Ollama model to use (default: qwen2.5:7b)")
     parser.add_argument("--model", type=str, default="qwen2.5:7b", help="Ollama model to use (default: qwen2.5:7b)")
     parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory for JSON results (default: data/results/metrics)")
     parser.add_argument("--max-chars", type=int, default=12000, help="Maximum characters of text to send to the model (default: 12000). Reduce if you hit CUDA/OOM errors.")

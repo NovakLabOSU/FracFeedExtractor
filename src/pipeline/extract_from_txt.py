@@ -30,7 +30,7 @@ Usage::
     python src/pipeline/extract_from_txt.py \\
         --input-dir  data/processed-text/ \\
         --output-dir data/results/ \\
-        --llm-model  llama3.1:8b \\
+        --llm-model  qwen2.5:7b \\
         --max-chars  10000 \\
         --num-ctx    8192
 
@@ -80,7 +80,7 @@ def run_txt_pipeline(
         input_dir:   Directory containing pre-classified useful .txt files.
                      Ignored when *single_file* is provided.
         output_dir:  Root output directory for JSON results and summary CSV.
-        llm_model:   Ollama model name (e.g. ``"llama3.1:8b"``).
+        llm_model:   Ollama model name (e.g. ``"qwen2.5:7b"``).
         max_chars:   Character budget for the text sent to Ollama.
         num_ctx:     Context window size requested from Ollama.
         single_file: If set, process only this one .txt file.
@@ -362,7 +362,7 @@ Examples:
     parser.add_argument(
         "--llm-model",
         type=str,
-        # default="llama3.1:8b",
+        # default="qwen2.5:7b",
         default="qwen2.5:7b",
         help="Ollama model name (default: qwen2.5:7b).",
     )

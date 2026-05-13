@@ -14,7 +14,7 @@ Usage:
     # Custom options
     python src/pipeline/classify_extract.py path/to/folder/ \\
         --model-dir src/classifier/models \\
-        --llm-model llama3.1:8b \\
+        --llm-model qwen2.5:7b \\
         --output-dir results/ \\
         --confidence-threshold 0.70 \\
         --max-chars 12000 \\
@@ -319,7 +319,7 @@ Examples:
     python src/pipeline/classify_extract.py data/pdfs/ \\
         --model-dir src/classifier/models \\
         --output-dir results/ \\
-        --llm-model llama3.1:8b \\
+        --llm-model qwen2.5:7b \\
         --confidence-threshold 0.70
         """,
     )
@@ -337,8 +337,8 @@ Examples:
     parser.add_argument(
         "--llm-model",
         type=str,
-        default="llama3.1:8b",
-        help="Ollama model to use for extraction (default: llama3.1:8b).",
+        default="qwen2.5:7b",
+        help="Ollama model to use for extraction (default: qwen2.5:7b).",
     )
     parser.add_argument(
         "--output-dir",

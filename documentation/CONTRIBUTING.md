@@ -20,11 +20,10 @@ All contributors must follow the Oregon State University Student Code of Conduct
   * pip installed
   * Access to GitHub repository
   * [Ollama](https://ollama.com) installed and running locally
-    * Minimum hardware: 8 GB RAM (16 GB recommended for `llama3.1:8b`)
+    * Minimum hardware: 8 GB RAM (16 GB recommended for `qwen2.5:7b`)
     * Pull the required models before running the classify/extract pipeline:
       ```bash
-      ollama pull llama3.1:8b   # default extraction model (~5 GB)
-      ollama pull qwen2.5:7b    # alternative model (~5 GB)
+      ollama pull qwen2.5:7b   # default extraction model (~5 GB)
       ```
     * Verify Ollama is running: `ollama list`
 * ### Setup Instructions
@@ -70,7 +69,7 @@ All contributors must follow the Oregon State University Student Code of Conduct
   # All options
   python src/pipeline/classify_extract.py path/to/pdfs/ \
       --model-dir src/classifier/models \
-      --llm-model llama3.1:8b \
+      --llm-model qwen2.5:7b \
       --output-dir data/results \
       --confidence-threshold 0.70 \
       --max-chars 12000 \
@@ -80,7 +79,7 @@ All contributors must follow the Oregon State University Student Code of Conduct
   | Flag | Default | Description |
   |------|---------|-------------|
   | `--model-dir` | `src/classifier/models` | Directory containing classifier artifacts |
-  | `--llm-model` | `llama3.1:8b` | Ollama model for extraction |
+  | `--llm-model` | `qwen2.5:7b` | Ollama model for extraction |
   | `--output-dir` | `data/results` | Destination for JSON results and summary CSV |
   | `--confidence-threshold` | `0.70` | Probability threshold for "useful" classification |
   | `--max-chars` | `12000` | Maximum characters sent to the LLM |
