@@ -3,7 +3,7 @@
 **An automated pipeline that reads ecological literature and extracts predator feeding-rate data — turning hundreds of PDFs into a structured, analysis-ready database.**
 
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)
+![Build Status](https://github.com/NovakLabOSU/FracFeedExtractor/actions/workflows/working_sw.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-pending-lightgrey?style=flat-square)
 [![GitHub Issues](https://img.shields.io/github/issues/NovakLabOSU/FracFeedExtractor?style=flat-square)](https://github.com/NovakLabOSU/FracFeedExtractor/issues)
 
