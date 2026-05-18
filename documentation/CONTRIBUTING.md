@@ -26,6 +26,16 @@ All contributors must follow the Oregon State University Student Code of Conduct
       ollama pull qwen2.5:7b   # default extraction model (~5 GB)
       ```
     * Verify Ollama is running: `ollama list`
+  * **Tesseract OCR** — required for scanned PDFs
+    * Windows: download and run the installer from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki), or `choco install tesseract`
+    * macOS: `brew install tesseract`
+    * Ubuntu/Debian: `sudo apt install tesseract-ocr`
+    * After install, ensure `tesseract` is on your PATH: `tesseract --version`
+  * **Ghostscript** — optional; improves table extraction on bordered PDFs
+    * The pipeline works without it. Ghostscript is only used by camelot's lattice mode, a last-resort fallback for bordered tables that PyMuPDF and camelot stream mode both missed.
+    * Windows: download from [ghostscript.com](https://www.ghostscript.com/releases/gsdnld.html), or `choco install ghostscript`
+    * macOS: `brew install ghostscript`
+    * Ubuntu/Debian: `sudo apt install ghostscript`
 * ### Setup Instructions
 ```
     git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
