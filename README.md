@@ -128,12 +128,12 @@ source venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-```bash
+```powershell
 # Windows PowerShell
 git clone https://github.com/NovakLabOSU/FracFeedExtractor.git
 cd FracFeedExtractor
 py -m venv venv
-./venv/Scripts/activate
+.\venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 ```
 

@@ -212,6 +212,5 @@ data/not-useful
 data/processed-text
 data/useful
 data/results/
-src/classifier/models/*.pkl
 
 
