@@ -35,9 +35,9 @@ After installing, verify it is on your PATH:
 tesseract --version
 ```
 
-### Ghostscript (required for table extraction)
+### Ghostscript (optional — improves table extraction)
 
-`camelot-py`, the library used for PDF table parsing, requires Ghostscript as a system dependency.
+The pipeline extracts tables using PyMuPDF first, then camelot's stream mode as a fallback — neither requires Ghostscript. Ghostscript is only used by camelot's lattice mode, which is a last-resort fallback for bordered tables that the other two methods missed. The pipeline will run without it.
 
 | OS | Command |
 |---|---|

@@ -31,7 +31,8 @@ All contributors must follow the Oregon State University Student Code of Conduct
     * macOS: `brew install tesseract`
     * Ubuntu/Debian: `sudo apt install tesseract-ocr`
     * After install, ensure `tesseract` is on your PATH: `tesseract --version`
-  * **Ghostscript** — required by `camelot-py` for PDF table extraction
+  * **Ghostscript** — optional; improves table extraction on bordered PDFs
+    * The pipeline works without it. Ghostscript is only used by camelot's lattice mode, a last-resort fallback for bordered tables that PyMuPDF and camelot stream mode both missed.
     * Windows: download from [ghostscript.com](https://www.ghostscript.com/releases/gsdnld.html), or `choco install ghostscript`
     * macOS: `brew install ghostscript`
     * Ubuntu/Debian: `sudo apt install ghostscript`
