@@ -54,7 +54,7 @@ The raw PyMuPDF output for many papers contains a lot of noise that confuses the
 
 Many ecology papers from the 1970s–1990s are only available as scans. PyMuPDF fails silently on these, returning an empty or near-empty string. We added Tesseract as a fallback triggered when the PyMuPDF extraction yields fewer than a threshold number of characters. Later (PR #37, Feb 2026) we added image denoising before the OCR pass to improve quality on low-contrast scans.
 
-**Note for future teams:** OCR caused workers to hang when running parallel PDF processing. We added a `--no-ocr` flag as an escape hatch when batch processing over many workers. If you increase `--workers`, test with and without OCR on a mixed batch.
+**Note for future teams:** OCR caused workers to hang when running parallel PDF processing. A `--no-ocr` flag was planned as an escape hatch but was not implemented in the final pipeline. If workers hang on a batch that includes scanned PDFs, reduce `--workers` to `1` as a workaround.
 
 ### 3c. Section Priority Ranking
 
@@ -121,7 +121,7 @@ The classify-then-extract structure was intentional from the start. Running ever
 ### 7b. Parallel Workers
 
 We added `--workers` to enable parallel PDF processing across CPU cores. The implementation uses Python `multiprocessing`. Two issues we found during testing:
-1. Tesseract's subprocess model doesn't play well with Python's multiprocessor on Windows, so `--no-ocr` is recommended when using multiple workers on Windows.
+1. Tesseract's subprocess model doesn't play well with Python's multiprocessor on Windows. If workers hang, fall back to `--workers 1`.
 2. SpellChecker (used during text cleaning) was being instantiated per-PDF. Moved to a module-level singleton.
 
 ### 7c. LLM Retry Logic
