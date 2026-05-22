@@ -510,7 +510,7 @@ def _run_extraction_on_text(
         raw_text,
         max_chars,
         stem=source_file.stem,
-        save_intermediates=save_intermediates and not chunked,
+        save_intermediates=save_intermediates,
         cleaner_dir=cleaner_dir,
         filter_dir=filter_dir,
         llm_dir=llm_dir if not chunked else None,
@@ -546,7 +546,7 @@ def _run_extraction_on_text(
         return row
 
     row["extraction_status"] = "success"
-    populate_metrics_row(row, metrics)
+    _populate_metrics_row(row, metrics)
     print(
         f"  [OK] species={metrics.get('species_name')}  "
         f"n={metrics.get('sample_size')}  "
