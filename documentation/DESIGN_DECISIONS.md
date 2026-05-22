@@ -152,7 +152,7 @@ The `src/` directory was reorganized once near the end of the project (PR #64, M
 | `src/llm/` | `src/extraction/` |
 | `src/preprocessing/` | `src/io/` |
 | `classify_extract.py` (root) | `src/pipeline/classify_extract.py` |
-| `extract-from-txt.py` (root) | `src/pipeline/extract_from_txt.py` |
+| `extract-from-txt.py` (root) | merged into `src/pipeline/classify_extract.py` (`--skip-classifier`) |
 
 `requirements.txt` was also removed at this point in favor of `pyproject.toml` as the single source of dependency truth.
 

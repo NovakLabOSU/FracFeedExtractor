@@ -143,6 +143,9 @@ pip install -e ".[dev]"
 # Classify and extract from a folder of PDFs
 python src/pipeline/classify_extract.py path/to/pdfs/
 
+# Extract from pre-classified .txt files (skip XGBoost)
+python src/pipeline/classify_extract.py path/to/txts/ --skip-classifier
+
 # Adjust the LLM model or confidence threshold
 python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model qwen2.5:7b --confidence-threshold 0.70
 ```
