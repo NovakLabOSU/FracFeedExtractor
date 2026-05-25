@@ -31,6 +31,21 @@ log = logging.getLogger(__name__)
 _OLLAMA_TIMEOUT = 120  # seconds
 
 
+def _strip_patterns(schema):
+    """Recursively remove 'pattern' keys from a JSON schema before sending to Ollama.
+
+    Pydantic's pattern constraints (regex) crash the llama.cpp GBNF grammar
+    compiler when passed via format=. Stripping them here lets Ollama enforce
+    field names and types via grammar while Pydantic still validates the regex
+    on the Python side when model_validate_json() parses the response.
+    """
+    if isinstance(schema, dict):
+        return {k: _strip_patterns(v) for k, v in schema.items() if k != "pattern"}
+    if isinstance(schema, list):
+        return [_strip_patterns(item) for item in schema]
+    return schema
+
+
 _MAX_RETRIES = 3
 _BACKOFF_BASE = 2  # seconds
 
@@ -155,7 +170,7 @@ TEXT
     response = _call_ollama_with_retry(
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        format=PredatorDietMetrics.model_json_schema(),
+        format=_strip_patterns(PredatorDietMetrics.model_json_schema()),
         options={"num_ctx": num_ctx},
     )
 
@@ -214,7 +229,7 @@ TEXT
         retry_response = _call_ollama_with_retry(
             model=model,
             messages=[{"role": "user", "content": retry_prompt}],
-            format=PredatorDietMetrics.model_json_schema(),
+            format=_strip_patterns(PredatorDietMetrics.model_json_schema()),
             options={"num_ctx": num_ctx},
         )
         retry_metrics = PredatorDietMetrics.model_validate_json(retry_response.message.content)
