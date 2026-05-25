@@ -24,7 +24,6 @@ class PredatorDietMetrics(BaseModel):
         default=None,
         min_length=3,
         max_length=200,
-        pattern=r"^[A-Z][a-z]+(\s[a-z]+)*$",
         description=(
             "Binomial scientific name of the PRIMARY PREDATOR species studied "
             "(the animal whose stomachs were examined, not its prey). "
@@ -52,7 +51,6 @@ class PredatorDietMetrics(BaseModel):
         default=None,
         min_length=4,
         max_length=30,
-        pattern=r"^\d{4}([\-—]\d{4})?$",
         description=(
             "Year or year-range when specimens were COLLECTED (not publication year). "
             "Format: 'YYYY' for single year or 'YYYY-YYYY' for range (e.g., '2019' or '2019-2021'). "

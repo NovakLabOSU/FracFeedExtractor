@@ -361,7 +361,7 @@ Examples:
     parser.add_argument(
         "--num-ctx",
         type=int,
-        default=4096,
+        default=8192,
         help="Context window size for Ollama (default: 4096).",
     )
     parser.add_argument(

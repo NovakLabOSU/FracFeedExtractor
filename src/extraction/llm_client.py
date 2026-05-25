@@ -29,6 +29,8 @@ from src.utils.logger import setup_logging
 log = logging.getLogger(__name__)
 
 _OLLAMA_TIMEOUT = 120  # seconds
+
+
 _MAX_RETRIES = 3
 _BACKOFF_BASE = 2  # seconds
 
