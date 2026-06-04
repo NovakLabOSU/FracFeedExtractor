@@ -548,9 +548,7 @@ def _run_extraction_on_text(
     row["extraction_status"] = "success"
     _populate_metrics_row(row, metrics)
     print(
-        f"  [OK] species={metrics.get('species_name')}  "
-        f"n={metrics.get('sample_size')}  "
-        f"date={metrics.get('study_date')}",
+        f"  [OK] species={metrics.get('species_name')}  " f"n={metrics.get('sample_size')}  " f"date={metrics.get('study_date')}",
         file=sys.stderr,
     )
     return row
@@ -631,9 +629,7 @@ def run_pdf_pipeline(
                     row = future.result()
                 except Exception as exc:
                     print(f"  [ERROR] Worker failed for {pdf_path.name}: {exc}", file=sys.stderr)
-                    row = _new_summary_row(
-                        pdf_path.name, include_classifier=True, include_preprocess=False
-                    )
+                    row = _new_summary_row(pdf_path.name, include_classifier=True, include_preprocess=False)
                     row["extraction_status"] = "worker_failed"
                 summary_rows.append(row)
     else:
@@ -732,10 +728,7 @@ def run_txt_pipeline(
 
 def main():
     parser = argparse.ArgumentParser(
-        description=(
-            "Classify PDFs as useful/not-useful and extract structured diet metrics, "
-            "or extract from pre-classified .txt files with --skip-classifier."
-        ),
+        description=("Classify PDFs as useful/not-useful and extract structured diet metrics, " "or extract from pre-classified .txt files with --skip-classifier."),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -814,10 +807,7 @@ Examples:
         "--chunked",
         action="store_true",
         default=False,
-        help=(
-            "Chunked extraction: split text, score chunks with XGBoost, "
-            "extract from top-N chunks, merge via majority voting."
-        ),
+        help=("Chunked extraction: split text, score chunks with XGBoost, " "extract from top-N chunks, merge via majority voting."),
     )
     parser.add_argument(
         "--top-chunks",
@@ -870,8 +860,7 @@ Examples:
     else:
         if input_path.suffix.lower() == ".txt":
             print(
-                "[ERROR] .txt input requires --skip-classifier. "
-                "Use: python src/pipeline/classify_extract.py <path> --skip-classifier",
+                "[ERROR] .txt input requires --skip-classifier. " "Use: python src/pipeline/classify_extract.py <path> --skip-classifier",
                 file=sys.stderr,
             )
             sys.exit(1)
