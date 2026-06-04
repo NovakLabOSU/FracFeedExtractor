@@ -75,7 +75,7 @@ def test_main_cli(tmp_path):
     output_file = output_dir / "test.txt"
 
     result = subprocess.run(
-        ["python", "src/io/pdf_text_extraction.py", input_pdf],
+        [sys.executable, "src/io/pdf_text_extraction.py", input_pdf],
         capture_output=True,
         text=True,
     )
