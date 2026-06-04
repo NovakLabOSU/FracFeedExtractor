@@ -96,6 +96,25 @@ All contributors must follow the Oregon State University Student Code of Conduct
   | `--num-ctx` | `4096` | Ollama context window size (tokens) |
   | `--workers` | `1` | Parallel worker processes (`1` = sequential) |
 
+* ### Extracting from pre-classified .txt files
+  When PDFs have already been classified (or labels come from `labels.json`), skip
+  XGBoost and run clean → filter → extract on `.txt` files:
+  ```bash
+  python src/pipeline/classify_extract.py path/to/txts/ --skip-classifier
+
+  # Optional: same flags as the former extract_from_txt.py
+  python src/pipeline/classify_extract.py path/to/txts/ --skip-classifier --chunked
+  python src/pipeline/classify_extract.py path/to/txts/ --skip-classifier --labels labels.json
+  ```
+  | Flag | Default | Description |
+  |------|---------|-------------|
+  | `--skip-classifier` | off | Process `.txt` files without classification |
+  | `--labels` | — | `labels.json` path; only stems labelled `useful` are processed |
+  | `--chunked` | off | Chunked extraction with per-chunk scoring and majority-vote merge |
+  | `--top-chunks` | `3` | Top chunks to extract (with `--chunked`) |
+  | `--chunk-size` | `4000` | Chunk size in characters (with `--chunked`) |
+  | `--chunk-overlap` | `500` | Overlap between chunks (with `--chunked`) |
+
 * ### Sample Output
   Each PDF classified as "useful" produces a JSON file in `data/results/metrics/`:
   ```json
@@ -389,8 +408,8 @@ Extraction fields are defined in two places:
 2. **`src/extraction/llm_client.py`** - the system prompt that instructs the LLM.
    Add a description of the new field and its expected format to the prompt string.
 
-3. **`src/pipeline/classify_extract.py`** and **`src/pipeline/extract_from_txt.py`** - update the `row` dict
-   and `fieldnames` list in the summary CSV writer to include the new column.
+3. **`src/pipeline/classify_extract.py`** - update the summary `row` dict and `fieldnames` list
+   in the summary CSV writer to include the new column.
 
 After adding a field, run `pytest tests/test_llm_text.py` to verify that the prompt changes do not break existing extraction tests.
 
