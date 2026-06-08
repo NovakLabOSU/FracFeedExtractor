@@ -24,6 +24,7 @@ from ollama import chat
 
 from src.extraction.models import PredatorDietMetrics
 from src.extraction.llm_text import extract_key_sections, load_document
+from src.io.summary_csv import metrics_to_row, write_summary_csv
 from src.utils.logger import setup_logging
 
 log = logging.getLogger(__name__)
@@ -342,6 +343,21 @@ def main():
         original_text=original_text,
         output_dir=Path(args.output_dir),
     )
+
+    # Also emit a one-row summary CSV so the single-file path produces the
+    # same tabular output as the batch pipeline (same columns; classifier
+    # columns are left blank since this path has no classification step).
+    csv_row = metrics_to_row(
+        filename=input_path.name,
+        metrics=result["metrics"],
+        extraction_status="success",
+    )
+    csv_path = write_summary_csv(
+        [csv_row],
+        Path(args.output_dir),
+        filename=input_path.stem + "_results.csv",
+    )
+    print(f"[SUCCESS] Summary CSV saved to {csv_path}", file=sys.stderr)
 
     metrics_dict = result["metrics"]
     print("\n=== Extraction Summary ===", file=sys.stderr)

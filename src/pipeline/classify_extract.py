@@ -27,14 +27,13 @@ Output:
 """
 
 import argparse
-import csv
 import logging
 import sys
-from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from src.io.pdf_text_extraction import extract_text_from_pdf
+from src.io.summary_csv import write_summary_csv
 from src.classifier.pdf_classifier import load_classifier, classify_text
 from src.extraction.llm_text import extract_key_sections
 from src.extraction.llm_client import extract_metrics_from_text, save_extraction_result
@@ -250,31 +249,7 @@ def run_pipeline(
             summary_rows.append(row)
 
     # ── Write summary CSV ─────────────────────────────────────────────────
-    from datetime import datetime
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    summaries_dir = output_dir / "summaries"
-    summaries_dir.mkdir(parents=True, exist_ok=True)
-    summary_path = summaries_dir / f"pipeline_summary_{timestamp}.csv"
-
-    fieldnames = [
-        "filename",
-        "classification",
-        "confidence",
-        "pred_prob",
-        "extraction_status",
-        "species_name",
-        "study_location",
-        "study_date",
-        "sample_size",
-        "num_empty_stomachs",
-        "num_nonempty_stomachs",
-        "fraction_feeding",
-    ]
-    with open(summary_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(summary_rows)
+    summary_path = write_summary_csv(summary_rows, output_dir)
 
     # ── Final summary ─────────────────────────────────────────────────────
     total = len(summary_rows)
