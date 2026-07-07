@@ -14,6 +14,8 @@ from src.classifier.pdf_classifier import load_classifier
 
 def chunk_text(text: str, chunk_size: int = 3000, overlap: int = 300) -> list[str]:
     """Split text into overlapping chunks."""
+    if overlap >= chunk_size:
+        raise ValueError(f"overlap ({overlap}) must be less than chunk_size ({chunk_size})")
     chunks: list[str] = []
     start = 0
 

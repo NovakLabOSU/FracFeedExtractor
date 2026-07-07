@@ -48,6 +48,7 @@ def _strip_patterns(schema):
 
 _MAX_RETRIES = 3
 _BACKOFF_BASE = 2  # seconds
+_STRIPPED_SCHEMA = _strip_patterns(PredatorDietMetrics.model_json_schema())
 
 
 def _call_ollama_with_retry(model, messages, format, options):
@@ -74,7 +75,6 @@ def _call_ollama_with_retry(model, messages, format, options):
 
 def extract_metrics_from_text(
     text: str,
-    # model: str = "qwen2.5:7b",
     model: str = "qwen2.5:7b",
     num_ctx: int = 8192,
     _retry: bool = False,
@@ -170,10 +170,12 @@ TEXT
     response = _call_ollama_with_retry(
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        format=_strip_patterns(PredatorDietMetrics.model_json_schema()),
+        format=_STRIPPED_SCHEMA,
         options={"num_ctx": num_ctx},
     )
 
+    if not response.message.content:
+        raise ValueError("Ollama returned empty content on initial call")
     metrics = PredatorDietMetrics.model_validate_json(response.message.content)
 
     # ── Retry once if any extractable fields are null ───────────────────────
@@ -229,9 +231,11 @@ TEXT
         retry_response = _call_ollama_with_retry(
             model=model,
             messages=[{"role": "user", "content": retry_prompt}],
-            format=_strip_patterns(PredatorDietMetrics.model_json_schema()),
+            format=_STRIPPED_SCHEMA,
             options={"num_ctx": num_ctx},
         )
+        if not retry_response.message.content:
+            raise ValueError("Ollama returned empty content on retry")
         retry_metrics = PredatorDietMetrics.model_validate_json(retry_response.message.content)
 
         # Merge: prefer retry values for fields that were null, keep originals otherwise
@@ -297,7 +301,6 @@ def save_extraction_result(
 def main():
     parser = argparse.ArgumentParser(description="Extract predator diet metrics from PDFs or text files using LLM")
     parser.add_argument("input_file", type=str, help="Path to the input file (.pdf or .txt)")
-    # parser.add_argument("--model", type=str, default="qwen2.5:7b", help="Ollama model to use (default: qwen2.5:7b)")
     parser.add_argument("--model", type=str, default="qwen2.5:7b", help="Ollama model to use (default: qwen2.5:7b)")
     parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory for JSON results (default: data/results/metrics)")
     parser.add_argument("--max-chars", type=int, default=12000, help="Maximum characters of text to send to the model (default: 12000). Reduce if you hit CUDA/OOM errors.")

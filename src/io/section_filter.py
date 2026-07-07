@@ -34,10 +34,13 @@ from typing import List, Tuple
 # ---------------------------------------------------------------------------
 # Positive (keep) patterns — if ANY matches, the paragraph is kept regardless
 # of negative signals.  Mirrors the field patterns in llm_text.py but cast as
-# a binary keep gate rather than a weighted scorer.
+# a binary keep gate rather than a weighted scorer.  NOTE: not all patterns
+# from _FIELD_PATTERNS are included here — the broad binomial-species pattern
+# (weight 1 in the scorer) is omitted because it is too permissive for binary
+# filtering.  Both lists must be updated in sync when new fields are added.
 # ---------------------------------------------------------------------------
 
-_POSITIVE_PATTERNS: List[re.Pattern] = [
+_POSITIVE_PATTERNS = [
     # sample_size — explicit counts of stomachs / specimens / individuals
     re.compile(
         r"(?i)(\bn\s*=\s*\d+"
@@ -75,6 +78,8 @@ _POSITIVE_PATTERNS: List[re.Pattern] = [
         r"|percent\s+(feeding|with\s+food)"
         r"|\d+\s*%\s+of\s+(stomachs?|individuals?|birds?|fish|specimens?))"
     ),
+    # frequency of occurrence / IRI — standard diet-study metrics (mirrors llm_text.py)
+    re.compile(r"(?i)(frequency\s+of\s+occurrence" r"|occurrence\s+frequency" r"|%\s*fo\b" r"|\bfo\s*=\s*\d" r"|index\s+of\s+relative\s+importance" r"|\biri\b)"),
     # percentage / fraction near gut/stomach context
     re.compile(r"(?i)(\d+\.?\d*\s*%|\d+\s+percent" r"|\d+\s+of\s+\d+\s+(were|had|contained)" r"|proportion\s+of\s+\d+)"),
     # study date — collection period
@@ -100,10 +105,10 @@ _POSITIVE_PATTERNS: List[re.Pattern] = [
         r"|feeding\s+(ecology|habits?|behaviour|behavior)"
         r"|gastrointestinal|foregut|hindgut|crop\s+content)"
     ),
-    # predator species name — binomial in a sentence with diet/food/stomach
+    # predator species name — binomial in a sentence with diet/food/stomach context
     re.compile(r"(?i)\b[A-Z][a-z]+\s+[a-z]{3,}\b.{0,80}" r"(stomach|diet|prey|food|feeding|gut|trophic|forag)"),
     # geographic coordinates or explicit lat/lon
-    re.compile(r"(\d{1,3}[°º]\s*\d{0,2}['′]?\s*[NS]" r"|\d{1,3}[°º]\s*\d{0,2}['′]?\s*[EW]" r"|latitude|longitude" r"|\d+\.\d+\s*[°º]?\s*[NS],?\s*\d+\.\d+\s*[°º]?\s*[EW])"),
+    re.compile(r"(\d{1,3}[°º]\s*\d{0,2}[\'′]?\s*[NS]" r"|\d{1,3}[°º]\s*\d{0,2}[\'′]?\s*[EW]" r"|latitude|longitude" r"|\d+\.\d+\s*[°º]?\s*[NS],?\s*\d+\.\d+\s*[°º]?\s*[EW])"),
     # table-like numeric data (rows of numbers separated by whitespace/tabs)
     re.compile(r"(?m)^.*(\d+\s*[\t|]\s*){2,}\d+"),
 ]

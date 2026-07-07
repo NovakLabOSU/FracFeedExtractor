@@ -106,7 +106,7 @@ def process_api_mode():
     out_dir.mkdir(parents=True, exist_ok=True)
     labels: Dict[str, str] = {}
     count = 1
-    for folder_id, label in [(useful_id, "useful"), (not_useful_id, "not-useful")]:
+    for folder_id, label in [(useful_id, "useful"), (not_useful_id, "not useful")]:
         files = list_pdfs_in_folder(service, folder_id, max_files=None)
         print(f"Found {len(files)} PDFs in folder label '{label}'")
         for f in files:
@@ -152,7 +152,7 @@ def process_local_mode(data_path: Path, workers: int = 1, skip_ocr: bool = False
 
     # Build work items: (pdf_path, label)
     work_items = []
-    for folder, label in [(useful_dir, "useful"), (not_useful_dir, "not-useful")]:
+    for folder, label in [(useful_dir, "useful"), (not_useful_dir, "not useful")]:
         pdf_files = list(folder.glob("*.pdf"))
         print(f"Found {len(pdf_files)} PDFs in local folder '{label}'")
         for pdf_path in pdf_files:

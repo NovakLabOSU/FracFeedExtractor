@@ -250,8 +250,6 @@ def run_pipeline(
             summary_rows.append(row)
 
     # ── Write summary CSV ─────────────────────────────────────────────────
-    from datetime import datetime
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     summaries_dir = output_dir / "summaries"
     summaries_dir.mkdir(parents=True, exist_ok=True)

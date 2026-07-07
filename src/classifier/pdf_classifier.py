@@ -12,6 +12,7 @@ Usage (standalone):
 """
 
 import argparse
+import functools
 import logging
 import sys
 from pathlib import Path
@@ -31,6 +32,7 @@ warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 log = logging.getLogger(__name__)
 
 
+@functools.lru_cache(maxsize=None)
 def load_classifier(model_dir: str = "src/classifier/models") -> Tuple:
     """Load the trained classifier artifacts from disk.
 
