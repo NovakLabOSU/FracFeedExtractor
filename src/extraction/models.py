@@ -1,7 +1,8 @@
 """Pydantic models for predator diet data extraction."""
 
+import re
 from typing import Annotated, Optional
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, computed_field, field_validator, model_validator
 
 
 class PredatorDietMetrics(BaseModel):
@@ -93,6 +94,25 @@ class PredatorDietMetrics(BaseModel):
             "sample_size should equal their sum."
         ),
     )
+
+    @field_validator("study_date", mode="before")
+    @classmethod
+    def _normalize_study_date(cls, value):
+        """Coerce free-form date strings into 'YYYY' or 'YYYY-YYYY'.
+
+        The LLM sometimes returns chatty values like
+        '2015, between August and late-' or 'from 1984 to 1985'.  Pull the
+        year(s) out so one messy field does not fail validation for the whole
+        record.  If no 4-digit year is found, fall back to None.
+        """
+        if value is None or not isinstance(value, str):
+            return value
+        years = re.findall(r"\b(\d{4})\b", value)
+        if not years:
+            return None
+        if len(years) >= 2 and years[0] != years[-1]:
+            return f"{years[0]}-{years[-1]}"
+        return years[0]
 
     @model_validator(mode="after")
     def _reconcile_sample_size(self) -> "PredatorDietMetrics":
