@@ -181,10 +181,13 @@ A paper classified as useful produces a JSON file like this in `data/results/met
   "metrics": {
     "species_name": "Esox lucius",
     "study_location": "Lake Windermere, UK",
-    "study_date": "1998-2000",
-    "num_empty_stomachs": 42,
-    "num_nonempty_stomachs": 158,
-    "sample_size": 200,
+    "study_year_range": "1998-2000",
+    "study_year": "1999",
+    "study_month": null,
+    "study_day": null,
+    "num_empty": 42,
+    "num_nonempty": 158,
+    "num_sampled": 200,
     "fraction_feeding": 0.79
   }
 }

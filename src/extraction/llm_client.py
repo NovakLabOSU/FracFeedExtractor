@@ -1,13 +1,13 @@
 """LLM-based metric extraction from scientific publications.
 
 Exposes two reusable functions for use by other modules:
-    extract_metrics_from_text()   – call Ollama and return a PredatorDietMetrics object
+    extract_metrics_from_text()   – call the LLM and return a PredatorDietMetrics object
     save_extraction_result()      – resolve source pages and write results to JSON
 
 Usage (standalone):
     python llm_client.py path/to/file.pdf
     python llm_client.py path/to/file.txt
-    python llm_client.py path/to/file.pdf --model qwen2.5:7b
+    python llm_client.py path/to/file.pdf --model qwen3:30b
     python llm_client.py path/to/file.txt --output-dir results/
 """
 
@@ -20,8 +20,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
 
-from ollama import chat
-
+from src.config import DEFAULT_LLM_MODEL, FIELDS, build_prompt
 from src.extraction.models import PredatorDietMetrics
 from src.extraction.llm_text import extract_key_sections, load_document
 from src.io.summary_csv import metrics_to_row, write_summary_csv
@@ -29,7 +28,7 @@ from src.utils.logger import setup_logging
 
 log = logging.getLogger(__name__)
 
-_OLLAMA_TIMEOUT = 120  # seconds
+_LLM_TIMEOUT = 120  # seconds
 
 
 def _strip_patterns(schema):
@@ -49,38 +48,94 @@ def _strip_patterns(schema):
 
 _MAX_RETRIES = 3
 _BACKOFF_BASE = 2  # seconds
-_STRIPPED_SCHEMA = _strip_patterns(PredatorDietMetrics.model_json_schema())
+_ANTHROPIC_MAX_TOKENS = 512  # JSON extraction output is ~50-100 tokens
+_FULL_SCHEMA = PredatorDietMetrics.model_json_schema()
+_STRIPPED_SCHEMA = _strip_patterns(_FULL_SCHEMA)  # patterns removed for Ollama GBNF compiler
 
 
-def _call_ollama_with_retry(model, messages, format, options):
+# Per-field hints and retryable list derived from FIELDS registry.
+_hints = {spec.name: spec.hint for spec in FIELDS if spec.hint}
+
+
+# ---------------------------------------------------------------------------
+# Provider detection and backend dispatch
+# ---------------------------------------------------------------------------
+
+
+def _detect_provider(model: str) -> str:
+    return "anthropic" if model.startswith("claude-") else "ollama"
+
+
+def _call_ollama(model: str, messages: list, schema: dict, options: dict) -> str:
     """Call Ollama with timeout and exponential backoff on transient failures."""
     transient_errors = (ConnectionError, OSError, TimeoutError, FuturesTimeoutError)
 
+    if "qwen3" in model.lower():
+        options = {**options, "think": False}
+
     for attempt in range(_MAX_RETRIES):
         try:
+            from ollama import chat
             with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(chat, messages=messages, model=model, format=format, options=options)
-                return future.result(timeout=_OLLAMA_TIMEOUT)
+                future = executor.submit(chat, messages=messages, model=model, format=schema, options=options)
+                response = future.result(timeout=_LLM_TIMEOUT)
+                return response.message.content
         except FuturesTimeoutError:
-            log.warning("Ollama call timed out (attempt %d/%d)", attempt + 1, _MAX_RETRIES)
+            log.warning("LLM call timed out (attempt %d/%d)", attempt + 1, _MAX_RETRIES)
         except transient_errors as e:
-            log.warning("Transient Ollama error (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES, e)
+            log.warning("Transient LLM error (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES, e)
 
         if attempt < _MAX_RETRIES - 1:
-            wait = _BACKOFF_BASE**attempt
+            wait = _BACKOFF_BASE ** attempt
             log.info("Retrying in %ds...", wait)
             time.sleep(wait)
 
-    raise RuntimeError(f"Ollama call failed after {_MAX_RETRIES} attempts")
+    raise RuntimeError(f"LLM call failed after {_MAX_RETRIES} attempts")
+
+
+def _call_anthropic(model: str, messages: list, schema: dict) -> str:
+    """Call Anthropic API using tool-use to enforce structured JSON output."""
+    import anthropic
+    client = anthropic.Anthropic()
+    response = client.messages.create(
+        model=model,
+        max_tokens=_ANTHROPIC_MAX_TOKENS,
+        tools=[{
+            "name": "extract_metrics",
+            "description": "Extract predator diet metrics from text.",
+            "input_schema": schema,
+        }],
+        tool_choice={"type": "tool", "name": "extract_metrics"},
+        messages=messages,
+    )
+    if response.stop_reason != "tool_use" or not response.content:
+        raise ValueError(
+            f"Anthropic did not return structured output "
+            f"(stop_reason={response.stop_reason!r})"
+        )
+    return json.dumps(response.content[0].input)
+
+
+def _call_llm_with_retry(model: str, messages: list, options: dict) -> str:
+    """Dispatch to the correct LLM backend, selecting the appropriate schema per provider."""
+    provider = _detect_provider(model)
+    if provider == "anthropic":
+        return _call_anthropic(model, messages, _FULL_SCHEMA)
+    return _call_ollama(model, messages, _STRIPPED_SCHEMA, options)
+
+
+# ---------------------------------------------------------------------------
+# Core extraction
+# ---------------------------------------------------------------------------
 
 
 def extract_metrics_from_text(
     text: str,
-    model: str = "qwen2.5:7b",
+    model: str = DEFAULT_LLM_MODEL,
     num_ctx: int = 8192,
     _retry: bool = False,
 ) -> PredatorDietMetrics:
-    """Extract structured metrics from text using Ollama.
+    """Extract structured metrics from text using an LLM.
 
     On the first call, if any fields come back null the function automatically
     retries once with a focused follow-up prompt that gives method-specific
@@ -88,106 +143,27 @@ def extract_metrics_from_text(
 
     Args:
         text: Preprocessed text content from a scientific publication.
-        model: Name of the Ollama model to use.
-        num_ctx: Context window size to request from Ollama (lower = less memory).
+        model: Name of the LLM model to use (Ollama or Anthropic).
+        num_ctx: Context window size (passed to Ollama; ignored for Anthropic).
         _retry: Internal flag — True when this is the automatic retry attempt.
 
     Returns:
         PredatorDietMetrics object with extracted data.
     """
-    prompt = f"""You are a scientific data extraction assistant. Your task is to read a predator diet study and return a single flat JSON object with exactly these fields:
+    prompt = build_prompt(text)
 
-  species_name          - string or null
-  study_location        - string or null
-  study_date            - string or null
-  num_empty_stomachs    - integer (>= 0) or null
-  num_nonempty_stomachs - integer (>= 0) or null
-  sample_size           - integer (> 0) or null
-
-Use null ONLY when the value truly cannot be determined from any part of the text.
-
-FIELD DEFINITIONS
-
-species_name: Binomial Latin name (Genus species) of the PRIMARY PREDATOR whose diet is studied. This is the animal being studied, not its prey. Return exactly one species. If multiple predators appear, choose the one with the most samples. Capitalize genus, lowercase epithet (e.g., "Pygoscelis papua").
-
-study_location: Geographic area where specimens were collected. Include site, region, and country if available (e.g., "Marion Island, sub-Antarctic"). Check Methods, Study Area, Study Site, and Abstract.
-
-study_date: Year or year-range of specimen collection, NOT publication year. Format "YYYY" or "YYYY-YYYY".
-  Where to look:
-  - "specimens collected in", "sampling period", "field season", "between [year] and [year]"
-  - "from March 1984 to March 1985" → "1984-1985"
-  - "Received 23 November 2007" in article info suggests collection was ~2005-2007
-  - If the only dates are "Received" or "Accepted" submission dates and no collection dates are stated, estimate the collection period as 1-2 years before submission.
-
-num_empty_stomachs: Number of predators with NO food in their digestive tract. Apply broadly across study methods:
-  - Stomach dissection: "empty", "vacant", "without food", "zero prey items"
-  - Stomach pumping / lavage: "yielded no food", "no contents obtained", "produced no material"
-  - Scat / fecal analysis: "scats with no identifiable prey", "empty scats"
-  - Regurgitation: "failed to regurgitate", "no pellet produced"
-  - Immunoassay / molecular: "tested negative for all prey", "no prey detected"
-  If the study uses stomach pumping and ALL samples contained food, set this to 0.
-
-num_nonempty_stomachs: Number of predators with food in their digestive tract. Same method mapping as above:
-  - "non-empty", "with food", "containing prey", "with contents", "fed"
-  - Stomach pumping: "food samples collected", "samples containing prey"
-  - Scat: "scats with identifiable prey remains"
-  - Immunoassay: "tested positive for prey", "positive reactions"
-  If study says "a total of N food samples was collected" and implies ALL had food, set num_nonempty_stomachs = N.
-
-sample_size: Total number of predator individuals examined. Equals num_empty + num_nonempty when both are known.
-  - "N stomachs examined", "N individuals", "N specimens", "n=N", "a total of N"
-  - "N food samples" when all sampled animals contributed one sample
-  - "two groups of 225" → sample_size = 450
-  - Check Abstract, Methods, and Results.
-
-RULES
-- Do not invent data; use null only if truly ambiguous or missing.
-- Return a single JSON object; do not return arrays.
-- Ignore page markers [PAGE N].
-- Prioritize Abstract, Methods, and Results sections.
-- Carefully distinguish collection dates from publication/submission dates.
-- If ALL samples had food (e.g., stomach pumping where every sample yielded prey), set num_empty_stomachs = 0 and num_nonempty_stomachs = sample_size.
-
-EXAMPLES
-
-1. Traditional stomach dissection:
-{{"species_name": "Canis lupus", "study_location": "Yellowstone National Park, Wyoming, USA", "study_date": "2019", "num_empty_stomachs": 5, "num_nonempty_stomachs": 47, "sample_size": 52}}
-
-2. Stomach pumping (all samples had food):
-{{"species_name": "Pygoscelis papua", "study_location": "Marion Island, sub-Antarctic", "study_date": "1984-1985", "num_empty_stomachs": 0, "num_nonempty_stomachs": 144, "sample_size": 144}}
-
-3. Immunoassay / molecular detection:
-{{"species_name": "Nucella lapillus", "study_location": "Swans Island, Maine, USA", "study_date": "2005-2007", "num_empty_stomachs": null, "num_nonempty_stomachs": null, "sample_size": 450}}
-
-4. Scat / fecal analysis:
-{{"species_name": "Vulpes vulpes", "study_location": "Bristol, UK", "study_date": "2015-2018", "num_empty_stomachs": 12, "num_nonempty_stomachs": 88, "sample_size": 100}}
-
-5. Minimal data:
-{{"species_name": "Ursus arctos", "study_location": null, "study_date": "2020", "num_empty_stomachs": null, "num_nonempty_stomachs": null, "sample_size": 23}}
-
-TEXT
-{text}
-"""
-    response = _call_ollama_with_retry(
+    content = _call_llm_with_retry(
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        format=_STRIPPED_SCHEMA,
         options={"num_ctx": num_ctx},
     )
 
-    if not response.message.content:
-        raise ValueError("Ollama returned empty content on initial call")
-    metrics = PredatorDietMetrics.model_validate_json(response.message.content)
+    if not content:
+        raise ValueError("LLM returned empty content on initial call")
+    metrics = PredatorDietMetrics.model_validate_json(content)
 
     # ── Retry once if any extractable fields are null ───────────────────────
-    _retryable = [
-        "species_name",
-        "study_location",
-        "study_date",
-        "num_empty_stomachs",
-        "num_nonempty_stomachs",
-        "sample_size",
-    ]
+    _retryable = [spec.name for spec in FIELDS if spec.retryable]
     missing = [f for f in _retryable if getattr(metrics, f) is None]
 
     if not _retry and missing:
@@ -195,27 +171,6 @@ TEXT
             f"  [INFO] Retry: {', '.join(missing)} came back null — re-prompting",
             file=sys.stderr,
         )
-
-        # Build targeted hints for each missing field
-        _hints = {
-            "species_name": ("- species_name: Look for the first binomial Latin name (Genus species) " "in the title or abstract. This is the PREDATOR, not its prey.\n"),
-            "study_location": ("- study_location: Check Methods or Study Area sections for place names, " "islands, countries, or coordinates.\n"),
-            "study_date": (
-                "- study_date: Look for phrases like 'collected in', 'sampled during', "
-                "'field season', 'from [month] [year] to [month] [year]'. "
-                "If no collection date is explicit, infer from 'Received [date]' — "
-                "collection is typically 1-2 years before manuscript submission.\n"
-            ),
-            "num_empty_stomachs": (
-                "- num_empty_stomachs: Look for 'empty', 'no food', 'no contents', "
-                "'negative for prey'. If ALL samples had food (e.g., stomach pumping "
-                "where every sample produced material), return 0.\n"
-            ),
-            "num_nonempty_stomachs": (
-                "- num_nonempty_stomachs: Look for 'contained food', 'with prey', " "'non-empty', 'food samples collected'. If ALL samples had food, " "this equals sample_size.\n"
-            ),
-            "sample_size": ("- sample_size: Look for 'N stomachs', 'N specimens', 'a total of N', " "'n=N', 'N individuals examined', 'two groups of N'. Check Abstract, " "Methods, and Results.\n"),
-        }
 
         retry_prompt = (
             "The following fields were returned as null. Please re-read the text "
@@ -229,15 +184,14 @@ TEXT
             retry_prompt += _hints.get(field, "")
         retry_prompt += f"\nTEXT\n{text}"
 
-        retry_response = _call_ollama_with_retry(
+        retry_content = _call_llm_with_retry(
             model=model,
             messages=[{"role": "user", "content": retry_prompt}],
-            format=_STRIPPED_SCHEMA,
             options={"num_ctx": num_ctx},
         )
-        if not retry_response.message.content:
-            raise ValueError("Ollama returned empty content on retry")
-        retry_metrics = PredatorDietMetrics.model_validate_json(retry_response.message.content)
+        if not retry_content:
+            raise ValueError("LLM returned empty content on retry")
+        retry_metrics = PredatorDietMetrics.model_validate_json(retry_content)
 
         # Merge: prefer retry values for fields that were null, keep originals otherwise
         merged = metrics.model_dump()
@@ -300,15 +254,17 @@ def save_extraction_result(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Extract predator diet metrics from PDFs or text files using LLM")
+    parser = argparse.ArgumentParser(description="Extract predator diet metrics from PDFs or text files using an LLM")
     parser.add_argument("input_file", type=str, help="Path to the input file (.pdf or .txt)")
-    parser.add_argument("--model", type=str, default="qwen2.5:7b", help="Ollama model to use (default: qwen2.5:7b)")
+    parser.add_argument("--model", type=str, default=DEFAULT_LLM_MODEL, help=f"LLM model to use (default: {DEFAULT_LLM_MODEL})")
     parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory for JSON results (default: data/results/metrics)")
     parser.add_argument("--max-chars", type=int, default=12000, help="Maximum characters of text to send to the model (default: 12000). Reduce if you hit CUDA/OOM errors.")
-    parser.add_argument("--num-ctx", type=int, default=8192, help="Context window size for the model (default: 8192). Lower values use less memory.")
+    parser.add_argument("--num-ctx", type=int, default=8192, help="Context window size for Ollama (default: 8192). Ignored for Anthropic models.")
 
     args = parser.parse_args()
 
+    from dotenv import load_dotenv
+    load_dotenv()
     setup_logging()
 
     input_path = Path(args.input_file)
@@ -366,10 +322,10 @@ def main():
     print("\n=== Extraction Summary ===", file=sys.stderr)
     print(f"Species         : {metrics_dict.get('species_name', 'N/A')}", file=sys.stderr)
     print(f"Location        : {metrics_dict.get('study_location', 'N/A')}", file=sys.stderr)
-    print(f"Date            : {metrics_dict.get('study_date', 'N/A')}", file=sys.stderr)
-    print(f"Sample size     : {metrics_dict.get('sample_size', 'N/A')}", file=sys.stderr)
-    print(f"Empty stomachs  : {metrics_dict.get('num_empty_stomachs', 'N/A')}", file=sys.stderr)
-    print(f"Non-empty       : {metrics_dict.get('num_nonempty_stomachs', 'N/A')}", file=sys.stderr)
+    print(f"Date            : {metrics_dict.get('study_year', 'N/A')}", file=sys.stderr)
+    print(f"Sample size     : {metrics_dict.get('num_sampled', 'N/A')}", file=sys.stderr)
+    print(f"Empty stomachs  : {metrics_dict.get('num_empty', 'N/A')}", file=sys.stderr)
+    print(f"Non-empty       : {metrics_dict.get('num_nonempty', 'N/A')}", file=sys.stderr)
     print(f"Fraction feeding: {metrics_dict.get('fraction_feeding', 'N/A')}", file=sys.stderr)
     print(f"Source pages    : {metrics_dict.get('source_pages', 'N/A')}", file=sys.stderr)
 

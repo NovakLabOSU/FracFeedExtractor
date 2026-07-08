@@ -105,10 +105,13 @@ All contributors must follow the Oregon State University Student Code of Conduct
     "metrics": {
       "species_name": "Esox lucius",
       "study_location": "Lake Windermere, UK",
-      "study_date": "1998-2000",
-      "num_empty_stomachs": 42,
-      "num_nonempty_stomachs": 158,
-      "sample_size": 200,
+      "study_year_range": "1998-2000",
+      "study_year": "1999",
+      "study_month": null,
+      "study_day": null,
+      "num_empty": 42,
+      "num_nonempty": 158,
+      "num_sampled": 200,
       "fraction_feeding": 0.79
     }
   }
@@ -378,21 +381,33 @@ Key tunable parameters in `src/classifier/train_model.py`:
 
 ### Adding New Extraction Fields to the LLM Extractor
 
-Extraction fields are defined in two places:
+All extraction fields are defined in **one place**: `src/config.py`, as a `FIELDS` list of `FieldSpec` entries. The Pydantic model, LLM prompt, CSV output, retry hints, and merge logic are all derived from `FIELDS` automatically — no other file needs to be touched.
 
-1. **`src/extraction/models.py`** - the `PredatorDietMetrics` Pydantic model.
-   Add a new optional field with the appropriate type and a `None` default:
-   ```python
-   prey_taxa: Optional[list[str]] = None
-   ```
+**Step 1** — append a `FieldSpec` to `FIELDS` in `src/config.py`:
 
-2. **`src/extraction/llm_client.py`** - the system prompt that instructs the LLM.
-   Add a description of the new field and its expected format to the prompt string.
+```python
+FieldSpec(
+    name="latitude",            # snake_case; used as the JSON/CSV key
+    python_type=Optional[float],
+    prompt_type="float or null",
+    description="Decimal latitude of the primary collection site.",
+    csv_label="Latitude",
+    retryable=True,
+    hint="- latitude: Check the Study Area section for coordinates.\n",
+    ge=-90.0,
+    le=90.0,
+),
+```
 
-3. **`src/pipeline/classify_extract.py`** and **`src/pipeline/extract_from_txt.py`** - update the `row` dict
-   and `fieldnames` list in the summary CSV writer to include the new column.
+Required attributes: `name`, `python_type` (one of `Optional[str]`, `Optional[int]`, `Optional[float]`), `prompt_type`, `description`, `csv_label`.
 
-After adding a field, run `pytest tests/test_llm_text.py` to verify that the prompt changes do not break existing extraction tests.
+Optional attributes: `retryable` (default `True`), `hint`, `normalizer` (`"year"`, `"year_range"`, `"month"`, `"day"`, or a callable), `pattern`, `min_length`, `max_length`, `ge`, `le`, `gt`.
+
+**Step 2** — update `_PROMPT_EXAMPLES` in the same file to include the new field in all example JSON objects. Examples are the primary guide the LLM uses to understand expected output; keeping them current is important.
+
+**Step 3** — run `pytest tests/` to confirm the field propagated correctly and existing tests still pass.
+
+**Removing a field** — delete its `FieldSpec` from `FIELDS`. It disappears from the schema, prompt, CSV, and merge logic automatically.
 
 ## Support & Contact
 * **Primary Communications**: Slack and Teams

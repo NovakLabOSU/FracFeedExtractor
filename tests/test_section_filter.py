@@ -72,7 +72,7 @@ class TestStructuralPreservation:
 class TestPositiveSignalKept:
     """Paragraphs with target-metric language must always be retained."""
 
-    def test_keeps_sample_size_paragraph(self):
+    def test_keeps_num_sampled_paragraph(self):
         para = "A total of 144 stomach samples were collected from Canis lupus."
         text = f"Results\n\n{para}"
         result = filter_relevant_sections(text)

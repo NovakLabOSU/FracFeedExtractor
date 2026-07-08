@@ -76,7 +76,7 @@ def _section_priority(heading: str) -> int:
 # Higher-scoring paragraphs are packed into the LLM budget first.
 
 _FIELD_PATTERNS: List[Tuple[re.Pattern, int]] = [
-    # sample_size — explicit counts of stomachs / specimens / individuals
+    # num_sampled — explicit counts of stomachs / specimens / individuals
     (
         re.compile(
             r"(?i)(\bn\s*=\s*\d+"
@@ -93,7 +93,7 @@ _FIELD_PATTERNS: List[Tuple[re.Pattern, int]] = [
         ),
         4,
     ),
-    # num_empty_stomachs — explicit empty-stomach language
+    # num_empty — explicit empty-stomach language
     (
         re.compile(
             r"(?i)(empty\s+stomachs?"
@@ -107,7 +107,7 @@ _FIELD_PATTERNS: List[Tuple[re.Pattern, int]] = [
         ),
         5,
     ),
-    # num_nonempty_stomachs / fraction_feeding
+    # num_nonempty / fraction_feeding
     (
         re.compile(
             r"(?i)(non.?empty"

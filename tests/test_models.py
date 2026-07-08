@@ -18,34 +18,36 @@ from src.extraction.models import PredatorDietMetrics
 # Mimics data extracted from a stomach-content study of Atlantic cod:
 #   - 200 individuals collected, 45 had empty stomachs, 155 had food
 #   - Study site: Grand Banks, Newfoundland
-#   - Collection period: 1998-2000
+#   - Collection period: 1998-2000 (midpoint year: 1999)
 FULL_SURVEY = dict(
     species_name="Gadus morhua",
     study_location="Grand Banks, Newfoundland, Canada",
-    study_date="1998-2000",
-    num_empty_stomachs=45,
-    num_nonempty_stomachs=155,
-    sample_size=200,
+    study_year_range="1998-2000",
+    study_year="1999",
+    num_empty=45,
+    num_nonempty=155,
+    num_sampled=200,
 )
 
 # All-food stomach-pumping study (num_empty always 0)
 PUMP_SURVEY = dict(
     species_name="Pygoscelis papua",
     study_location="Marion Island, sub-Antarctic",
-    study_date="1984-1985",
-    num_empty_stomachs=0,
-    num_nonempty_stomachs=144,
-    sample_size=144,
+    study_year_range="1984-1985",
+    study_year="1985",
+    num_empty=0,
+    num_nonempty=144,
+    num_sampled=144,
 )
 
 # Minimal survey — only species and sample size known
 MINIMAL_SURVEY = dict(
     species_name="Ursus arctos",
     study_location=None,
-    study_date="2020",
-    num_empty_stomachs=None,
-    num_nonempty_stomachs=None,
-    sample_size=23,
+    study_year="2020",
+    num_empty=None,
+    num_nonempty=None,
+    num_sampled=23,
 )
 
 
@@ -59,61 +61,65 @@ class TestBasicConstruction:
         m = PredatorDietMetrics(**FULL_SURVEY)
         assert m.species_name == "Gadus morhua"
         assert m.study_location == "Grand Banks, Newfoundland, Canada"
-        assert m.study_date == "1998-2000"
-        assert m.num_empty_stomachs == 45
-        assert m.num_nonempty_stomachs == 155
-        assert m.sample_size == 200
+        assert m.study_year_range == "1998-2000"
+        assert m.study_year == "1999"
+        assert m.num_empty == 45
+        assert m.num_nonempty == 155
+        assert m.num_sampled == 200
 
     def test_all_null_optional_fields(self):
         m = PredatorDietMetrics()
         assert m.species_name is None
         assert m.study_location is None
-        assert m.study_date is None
-        assert m.num_empty_stomachs is None
-        assert m.num_nonempty_stomachs is None
-        assert m.sample_size is None
+        assert m.study_year_range is None
+        assert m.study_year is None
+        assert m.study_month is None
+        assert m.study_day is None
+        assert m.num_empty is None
+        assert m.num_nonempty is None
+        assert m.num_sampled is None
 
     def test_minimal_survey_constructs(self):
         m = PredatorDietMetrics(**MINIMAL_SURVEY)
         assert m.species_name == "Ursus arctos"
-        assert m.sample_size == 23
-        assert m.num_empty_stomachs is None
-        assert m.num_nonempty_stomachs is None
+        assert m.num_sampled == 23
+        assert m.num_empty is None
+        assert m.num_nonempty is None
 
 
 # ---------------------------------------------------------------------------
-# sample_size auto-reconciliation
+# num_sampled auto-reconciliation
 # ---------------------------------------------------------------------------
 
 
 class TestSampleSizeReconciliation:
-    def test_sample_size_set_from_empty_plus_nonempty(self):
-        m = PredatorDietMetrics(num_empty_stomachs=45, num_nonempty_stomachs=155, sample_size=None)
-        assert m.sample_size == 200
+    def test_num_sampled_set_from_empty_plus_nonempty(self):
+        m = PredatorDietMetrics(num_empty=45, num_nonempty=155, num_sampled=None)
+        assert m.num_sampled == 200
 
-    def test_wrong_sample_size_corrected(self):
-        """Model validator should override an incorrect sample_size."""
-        m = PredatorDietMetrics(num_empty_stomachs=10, num_nonempty_stomachs=90, sample_size=999)
-        assert m.sample_size == 100
+    def test_wrong_num_sampled_corrected(self):
+        """Model validator should override an incorrect num_sampled."""
+        m = PredatorDietMetrics(num_empty=10, num_nonempty=90, num_sampled=999)
+        assert m.num_sampled == 100
 
-    def test_correct_sample_size_unchanged(self):
+    def test_correct_num_sampled_unchanged(self):
         m = PredatorDietMetrics(**FULL_SURVEY)
-        assert m.sample_size == 200
+        assert m.num_sampled == 200
 
     def test_pump_survey_zero_empty(self):
         m = PredatorDietMetrics(**PUMP_SURVEY)
-        assert m.num_empty_stomachs == 0
-        assert m.num_nonempty_stomachs == 144
-        assert m.sample_size == 144
+        assert m.num_empty == 0
+        assert m.num_nonempty == 144
+        assert m.num_sampled == 144
 
     def test_only_empty_provided_no_reconciliation(self):
-        """Cannot reconcile without both counts — sample_size stays None."""
-        m = PredatorDietMetrics(num_empty_stomachs=10, num_nonempty_stomachs=None, sample_size=None)
-        assert m.sample_size is None
+        """Cannot reconcile without both counts — num_sampled stays None."""
+        m = PredatorDietMetrics(num_empty=10, num_nonempty=None, num_sampled=None)
+        assert m.num_sampled is None
 
     def test_only_nonempty_provided_no_reconciliation(self):
-        m = PredatorDietMetrics(num_empty_stomachs=None, num_nonempty_stomachs=90, sample_size=None)
-        assert m.sample_size is None
+        m = PredatorDietMetrics(num_empty=None, num_nonempty=90, num_sampled=None)
+        assert m.num_sampled is None
 
 
 # ---------------------------------------------------------------------------
@@ -131,11 +137,11 @@ class TestFractionFeeding:
         assert m.fraction_feeding == pytest.approx(1.0)
 
     def test_fraction_none_when_nonempty_missing(self):
-        m = PredatorDietMetrics(num_empty_stomachs=5, num_nonempty_stomachs=None, sample_size=50)
+        m = PredatorDietMetrics(num_empty=5, num_nonempty=None, num_sampled=50)
         assert m.fraction_feeding is None
 
-    def test_fraction_none_when_sample_size_missing(self):
-        m = PredatorDietMetrics(num_nonempty_stomachs=30, sample_size=None)
+    def test_fraction_none_when_num_sampled_missing(self):
+        m = PredatorDietMetrics(num_nonempty=30, num_sampled=None)
         assert m.fraction_feeding is None
 
     def test_fraction_none_when_all_null(self):
@@ -143,8 +149,8 @@ class TestFractionFeeding:
         assert m.fraction_feeding is None
 
     def test_fraction_rounded_to_4_decimals(self):
-        # 2 empty + 1 nonempty → sample_size=3, fraction = 1/3 = 0.3333
-        m = PredatorDietMetrics(num_empty_stomachs=2, num_nonempty_stomachs=1)
+        # 2 empty + 1 nonempty → num_sampled=3, fraction = 1/3 = 0.3333
+        m = PredatorDietMetrics(num_empty=2, num_nonempty=1)
         assert m.fraction_feeding == pytest.approx(0.3333, abs=1e-4)
 
     def test_fraction_not_in_model_dump_base_fields(self):
@@ -190,34 +196,152 @@ class TestSpeciesNameValidation:
 
 
 # ---------------------------------------------------------------------------
-# Field-level validation — study_date
+# Field-level validation — study_year_range
 # ---------------------------------------------------------------------------
 
 
-class TestStudyDateValidation:
+class TestStudyYearRangeValidation:
     def test_single_year(self):
-        m = PredatorDietMetrics(study_date="2019")
-        assert m.study_date == "2019"
+        m = PredatorDietMetrics(study_year_range="1987")
+        assert m.study_year_range == "1987"
 
-    def test_year_range_hyphen(self):
-        m = PredatorDietMetrics(study_date="2015-2018")
-        assert m.study_date == "2015-2018"
+    def test_year_range(self):
+        m = PredatorDietMetrics(study_year_range="1998-2000")
+        assert m.study_year_range == "1998-2000"
 
-    def test_null_date_allowed(self):
-        m = PredatorDietMetrics(study_date=None)
-        assert m.study_date is None
+    def test_null_allowed(self):
+        m = PredatorDietMetrics(study_year_range=None)
+        assert m.study_year_range is None
 
-    def test_text_date_rejected(self):
-        with pytest.raises(ValidationError):
-            PredatorDietMetrics(study_date="March 2019")
+    def test_free_form_range_normalized(self):
+        m = PredatorDietMetrics(study_year_range="from April 1984 to March 1986")
+        assert m.study_year_range == "1984-1986"
 
-    def test_partial_year_rejected(self):
-        with pytest.raises(ValidationError):
-            PredatorDietMetrics(study_date="19")
+    def test_same_year_repeated_returns_single(self):
+        m = PredatorDietMetrics(study_year_range="collected in 1987 and 1987")
+        assert m.study_year_range == "1987"
 
-    def test_three_year_range_rejected(self):
-        with pytest.raises(ValidationError):
-            PredatorDietMetrics(study_date="2015-2018-2020")
+    def test_no_year_becomes_none(self):
+        m = PredatorDietMetrics(study_year_range="spring")
+        assert m.study_year_range is None
+
+
+# ---------------------------------------------------------------------------
+# Field-level validation — study_year
+# ---------------------------------------------------------------------------
+
+
+class TestStudyYearValidation:
+    def test_single_year(self):
+        m = PredatorDietMetrics(study_year="2019")
+        assert m.study_year == "2019"
+
+    def test_range_string_yields_midpoint(self):
+        # "2015-2018" → (2015+2018+1)//2 = 2017
+        m = PredatorDietMetrics(study_year="2015-2018")
+        assert m.study_year == "2017"
+
+    def test_free_form_range_yields_midpoint(self):
+        # "from April 1984 to March 1986" → midpoint of 1984+1986 = 1985
+        m = PredatorDietMetrics(study_year="from April 1984 to March 1986")
+        assert m.study_year == "1985"
+
+    def test_adjacent_years_midpoint_rounds_up(self):
+        # 1984+1985 midpoint = (1984+1985+1)//2 = 1985
+        m = PredatorDietMetrics(study_year="1984-1985")
+        assert m.study_year == "1985"
+
+    def test_year_extracted_from_text(self):
+        # "March 2019" → validator extracts 2019
+        m = PredatorDietMetrics(study_year="March 2019")
+        assert m.study_year == "2019"
+
+    def test_no_year_becomes_none(self):
+        # "19" has no 4-digit year
+        m = PredatorDietMetrics(study_year="19")
+        assert m.study_year is None
+
+    def test_null_allowed(self):
+        m = PredatorDietMetrics(study_year=None)
+        assert m.study_year is None
+
+
+# ---------------------------------------------------------------------------
+# Field-level validation — study_month
+# ---------------------------------------------------------------------------
+
+
+class TestStudyMonthValidation:
+    def test_zero_padded_string(self):
+        m = PredatorDietMetrics(study_month="03")
+        assert m.study_month == "03"
+
+    def test_bare_digit_zero_padded(self):
+        m = PredatorDietMetrics(study_month="3")
+        assert m.study_month == "03"
+
+    def test_month_name_converted(self):
+        m = PredatorDietMetrics(study_month="March")
+        assert m.study_month == "03"
+
+    def test_month_name_case_insensitive(self):
+        m = PredatorDietMetrics(study_month="march")
+        assert m.study_month == "03"
+
+    def test_abbreviated_month(self):
+        m = PredatorDietMetrics(study_month="Apr")
+        assert m.study_month == "04"
+
+    def test_december(self):
+        m = PredatorDietMetrics(study_month="December")
+        assert m.study_month == "12"
+
+    def test_null_allowed(self):
+        m = PredatorDietMetrics(study_month=None)
+        assert m.study_month is None
+
+    def test_invalid_month_becomes_none(self):
+        m = PredatorDietMetrics(study_month="spring")
+        assert m.study_month is None
+
+    def test_out_of_range_becomes_none(self):
+        m = PredatorDietMetrics(study_month="13")
+        assert m.study_month is None
+
+
+# ---------------------------------------------------------------------------
+# Field-level validation — study_day
+# ---------------------------------------------------------------------------
+
+
+class TestStudyDayValidation:
+    def test_zero_padded_string(self):
+        m = PredatorDietMetrics(study_day="05")
+        assert m.study_day == "05"
+
+    def test_bare_digit_zero_padded(self):
+        m = PredatorDietMetrics(study_day="5")
+        assert m.study_day == "05"
+
+    def test_two_digit_day(self):
+        m = PredatorDietMetrics(study_day="15")
+        assert m.study_day == "15"
+
+    def test_last_day_of_month(self):
+        m = PredatorDietMetrics(study_day="31")
+        assert m.study_day == "31"
+
+    def test_null_allowed(self):
+        m = PredatorDietMetrics(study_day=None)
+        assert m.study_day is None
+
+    def test_out_of_range_becomes_none(self):
+        m = PredatorDietMetrics(study_day="32")
+        assert m.study_day is None
+
+    def test_zero_becomes_none(self):
+        m = PredatorDietMetrics(study_day="0")
+        assert m.study_day is None
 
 
 # ---------------------------------------------------------------------------
@@ -228,27 +352,27 @@ class TestStudyDateValidation:
 class TestCountFieldValidation:
     def test_negative_empty_stomachs_rejected(self):
         with pytest.raises(ValidationError):
-            PredatorDietMetrics(num_empty_stomachs=-1)
+            PredatorDietMetrics(num_empty=-1)
 
     def test_negative_nonempty_stomachs_rejected(self):
         with pytest.raises(ValidationError):
-            PredatorDietMetrics(num_nonempty_stomachs=-5)
+            PredatorDietMetrics(num_nonempty=-5)
 
     def test_zero_empty_stomachs_allowed(self):
-        m = PredatorDietMetrics(num_empty_stomachs=0)
-        assert m.num_empty_stomachs == 0
+        m = PredatorDietMetrics(num_empty=0)
+        assert m.num_empty == 0
 
-    def test_zero_sample_size_rejected(self):
+    def test_zero_num_sampled_rejected(self):
         with pytest.raises(ValidationError):
-            PredatorDietMetrics(sample_size=0)
+            PredatorDietMetrics(num_sampled=0)
 
-    def test_negative_sample_size_rejected(self):
+    def test_negative_num_sampled_rejected(self):
         with pytest.raises(ValidationError):
-            PredatorDietMetrics(sample_size=-10)
+            PredatorDietMetrics(num_sampled=-10)
 
     def test_large_counts_accepted(self):
-        m = PredatorDietMetrics(num_empty_stomachs=0, num_nonempty_stomachs=10000, sample_size=10000)
-        assert m.sample_size == 10000
+        m = PredatorDietMetrics(num_empty=0, num_nonempty=10000, num_sampled=10000)
+        assert m.num_sampled == 10000
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +386,9 @@ class TestSerialization:
         d = m.model_dump()
         m2 = PredatorDietMetrics.model_validate(d)
         assert m2.species_name == m.species_name
-        assert m2.sample_size == m.sample_size
+        assert m2.study_year_range == m.study_year_range
+        assert m2.study_year == m.study_year
+        assert m2.num_sampled == m.num_sampled
         assert m2.fraction_feeding == m.fraction_feeding
 
     def test_model_validate_json(self):
@@ -272,14 +398,21 @@ class TestSerialization:
             {
                 "species_name": "Vulpes vulpes",
                 "study_location": "Bristol, UK",
-                "study_date": "2015-2018",
-                "num_empty_stomachs": 12,
-                "num_nonempty_stomachs": 88,
-                "sample_size": 100,
+                "study_year_range": "2015-2018",
+                "study_year": "2017",
+                "study_month": "06",
+                "study_day": "15",
+                "num_empty": 12,
+                "num_nonempty": 88,
+                "num_sampled": 100,
             }
         )
         m = PredatorDietMetrics.model_validate_json(payload)
         assert m.species_name == "Vulpes vulpes"
+        assert m.study_year_range == "2015-2018"
+        assert m.study_year == "2017"
+        assert m.study_month == "06"
+        assert m.study_day == "15"
         assert m.fraction_feeding == pytest.approx(0.88)
 
     def test_model_json_schema_contains_required_fields(self):
@@ -287,7 +420,10 @@ class TestSerialization:
         props = schema.get("properties", {})
         assert "species_name" in props
         assert "study_location" in props
-        assert "study_date" in props
-        assert "num_empty_stomachs" in props
-        assert "num_nonempty_stomachs" in props
-        assert "sample_size" in props
+        assert "study_year_range" in props
+        assert "study_year" in props
+        assert "study_month" in props
+        assert "study_day" in props
+        assert "num_empty" in props
+        assert "num_nonempty" in props
+        assert "num_sampled" in props

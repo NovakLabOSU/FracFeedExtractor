@@ -28,32 +28,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from src.config import FIELDS
+
 # Canonical column order for every summary CSV the project writes.  The
 # extracted data is listed first, with classifier metadata trailing at the end.
-SUMMARY_FIELDNAMES: List[str] = [
-    "filename",
-    "species_name",
-    "study_location",
-    "study_date",
-    "sample_size",
-    "num_empty_stomachs",
-    "num_nonempty_stomachs",
-    "fraction_feeding",
-    "classification",
-    "confidence",
-    "pred_prob",
-    "extraction_status",
-]
+SUMMARY_FIELDNAMES: List[str] = (
+    ["filename"]
+    + [spec.name for spec in FIELDS]
+    + ["fraction_feeding", "classification", "confidence", "pred_prob", "extraction_status"]
+)
 
 # Reader-friendly header shown in the CSV, one per key in SUMMARY_FIELDNAMES.
 COLUMN_LABELS: Dict[str, str] = {
     "filename": "File",
-    "species_name": "Predator Species",
-    "study_location": "Study Location",
-    "study_date": "Study Year(s)",
-    "sample_size": "Sample Size (N)",
-    "num_empty_stomachs": "Empty Stomachs",
-    "num_nonempty_stomachs": "Non-empty Stomachs",
+    **{spec.name: spec.csv_label for spec in FIELDS},
     "fraction_feeding": "Fraction Feeding",
     "classification": "Classification",
     "confidence": "Classifier Confidence",
@@ -62,15 +50,7 @@ COLUMN_LABELS: Dict[str, str] = {
 }
 
 # Metric fields copied straight out of an extracted metrics dict.
-_METRIC_FIELDS = (
-    "species_name",
-    "study_location",
-    "study_date",
-    "sample_size",
-    "num_empty_stomachs",
-    "num_nonempty_stomachs",
-    "fraction_feeding",
-)
+_METRIC_FIELDS = tuple(spec.name for spec in FIELDS) + ("fraction_feeding",)
 
 
 # ---------------------------------------------------------------------------

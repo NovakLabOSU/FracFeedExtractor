@@ -18,6 +18,7 @@ dependencies = [
     "numpy",
     "google-api-python-client",
     "ollama",
+    "anthropic",
     "pydantic",
     "camelot-py[base]",
     "opencv-python",

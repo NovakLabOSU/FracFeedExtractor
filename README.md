@@ -113,7 +113,7 @@ The classifier was evaluated on a held-out test set of 234 papers. It achieves *
 Pull the default extraction model before running:
 
 ```bash
-ollama pull qwen2.5:7b   # ~5 GB
+ollama pull qwen3:30b   # ~20 GB
 ollama list
 ```
 
@@ -137,19 +137,119 @@ py -m venv venv
 pip install -e ".[dev]"
 ```
 
+### Configuration
+
+Copy the environment template and fill in your credentials:
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and set the variables relevant to your workflow:
+
+- `GOOGLE_SERVICE_ACCOUNT_JSON` — full JSON key for the Google Cloud service account (ask the project owner). Required for Google Drive mode.
+- `GOOGLE_DRIVE_ROOT_FOLDER_ID` — the ID from your Drive folder's URL (`drive.google.com/drive/folders/<ID>`). Required for Google Drive mode.
+- `GOOGLE_DRIVE_USE_SHARED_DRIVE` — set to `true` for a Shared/Team Drive; leave blank otherwise.
+- `ANTHROPIC_API_KEY` — only required when using Anthropic Claude models for extraction (e.g., `--llm-model claude-haiku-4-5-20251001`).
+
+The `.env` file is gitignored and must never be committed.
+
 ### Quick Start
 
 ```bash
-# Classify and extract from a folder of PDFs
+# Classify and extract from a folder of PDFs (uses qwen3:30b by default)
 python src/pipeline/classify_extract.py path/to/pdfs/
 
-# Adjust the LLM model or confidence threshold
-python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model qwen2.5:7b --confidence-threshold 0.70
+# Use a different model or confidence threshold
+python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model qwen3:30b --confidence-threshold 0.70
 ```
 
 Results are written to `data/results/metrics/` (per-paper JSON) and `data/results/summaries/` (pipeline CSV).
 
+### Switching Models
+
+The pipeline supports both locally-run and API-based models via the `--llm-model` flag.
+
+**Local (Ollama)** — runs on-device; no API key or internet connection required. Pull the model once before first use.
+
+```bash
+ollama pull qwen3:30b
+python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model qwen3:30b
+```
+
+**Anthropic API** — requires `ANTHROPIC_API_KEY` in `.env`; calls are metered. No `ollama pull` needed.
+
+```bash
+python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model claude-haiku-4-5-20251001
+```
+
+The default model (`qwen3:30b`), the extraction prompt, and all extraction fields are configured in `src/config.py` — edit them there to change behavior without touching any other file.
+
 > For virtual environment setup, full CLI flag reference, and contribution guidelines, see the [Contributing Guide](documentation/CONTRIBUTING.md).
+
+### Customizing Extraction Fields
+
+All extraction fields are defined in `src/config.py` as a `FIELDS` list of `FieldSpec` entries. Adding, removing, or modifying a field requires editing only that file — the Pydantic model, LLM prompt, CSV output, retry hints, and merge logic are all derived from `FIELDS` automatically.
+
+**Adding a field** — append a `FieldSpec` to `FIELDS` and update `_PROMPT_EXAMPLES` in the same file:
+
+```python
+from typing import Optional
+
+FieldSpec(
+    name="latitude",            # snake_case key used everywhere
+    python_type=Optional[float],
+    prompt_type="float or null",
+    description="Decimal latitude of the primary collection site (e.g., -46.9 for Marion Island).",
+    csv_label="Latitude",
+    retryable=True,
+    hint="- latitude: Look for coordinates in the Study Area or Methods section.\n",
+    ge=-90.0,
+    le=90.0,
+),
+```
+
+**Removing a field** — delete its `FieldSpec` entry from `FIELDS`. The field disappears from the model schema, prompt, CSV columns, and merge logic automatically.
+
+**Built-in `normalizer` strings** — the following string values can be passed to `normalizer` to apply pre-built normalization logic:
+
+| String | Applies to | Effect |
+|---|---|---|
+| `"year_range"` | string fields | Extracts `YYYY` or `YYYY-YYYY` from free-form text |
+| `"year"` | string fields | Extracts ceiling-midpoint year from free-form text |
+| `"month"` | string fields | Normalizes month names / bare digits to `"MM"` |
+| `"day"` | string fields | Normalizes bare digit day values to `"DD"` |
+
+A plain callable (function taking `value` and returning `value`) is also accepted for custom normalization.
+
+**Constraints** — `FieldSpec` supports `pattern` (regex), `min_length`, `max_length`, `ge`, `le`, and `gt`; all are optional. Errors in these attributes (bad regex, `ge > le`, unsupported `python_type`) are caught at import time with a clear message.
+
+After adding a field, run `pytest tests/` to confirm the existing tests still pass.
+
+---
+
+## Extracting PDFs from Google Drive
+
+PDFs stored on Google Drive can be processed directly using `scripts/full_pipeline.py --api`. This streams PDFs from Drive, runs the full classify-and-extract pipeline, and saves results locally.
+
+**Required Drive folder structure:**
+
+```text
+<GOOGLE_DRIVE_ROOT_FOLDER_ID>/
+├── useful/        ← PDFs to be classified and extracted
+└── not-useful/    ← (optional) papers already known to be irrelevant
+```
+
+**Steps:**
+
+1. Complete the [Configuration](#configuration) step above to create your `.env` file and set the Google Drive variables.
+2. Run:
+
+```bash
+python scripts/full_pipeline.py --api
+```
+
+Run `python scripts/full_pipeline.py --help` for additional flags (e.g. `--max-files`, `--output-dir`).
 
 ---
 

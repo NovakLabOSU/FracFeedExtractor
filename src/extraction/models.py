@@ -1,19 +1,106 @@
-"""Pydantic models for predator diet data extraction."""
+"""Pydantic models for predator diet data extraction.
+
+PredatorDietMetrics is built dynamically from the FIELDS registry in
+src/config.py so that adding or removing an extraction field requires only
+editing that one file.
+"""
 
 import re
-from typing import Annotated, Optional
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, computed_field, field_validator, model_validator
+from typing import Callable, Optional
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    create_model,
+    field_validator,
+    model_validator,
+)
+
+from src.config import FIELDS, FieldSpec
+
+# ---------------------------------------------------------------------------
+# Month lookup table
+# ---------------------------------------------------------------------------
+
+_MONTH_MAP = {
+    "january": "01", "february": "02", "march": "03", "april": "04",
+    "may": "05", "june": "06", "july": "07", "august": "08",
+    "september": "09", "october": "10", "november": "11", "december": "12",
+    "jan": "01", "feb": "02", "mar": "03", "apr": "04",
+    "jun": "06", "jul": "07", "aug": "08", "sep": "09",
+    "oct": "10", "nov": "11", "dec": "12",
+}
 
 
-class PredatorDietMetrics(BaseModel):
-    """Structured schema for extracted predator diet survey metrics.
+# ---------------------------------------------------------------------------
+# Built-in normalizer functions (module-level, no cls parameter)
+# ---------------------------------------------------------------------------
 
-    All count fields are non-negative integers.  When both
-    ``num_empty_stomachs`` and ``num_nonempty_stomachs`` are present the
-    model guarantees that ``sample_size`` equals their sum.
-    ``fraction_feeding`` is derived automatically from the validated counts.
-    """
 
+def _normalize_year_range(value):
+    if value is None or not isinstance(value, str):
+        return value
+    years = re.findall(r"\b(\d{4})\b", value)
+    if not years:
+        return None
+    if len(years) >= 2 and years[0] != years[1]:
+        return f"{years[0]}-{years[1]}"
+    return years[0]
+
+
+def _normalize_year(value):
+    if value is None or not isinstance(value, str):
+        return value
+    years = re.findall(r"\b(\d{4})\b", value)
+    if not years:
+        return None
+    if len(years) >= 2 and years[0] != years[1]:
+        y1, y2 = int(years[0]), int(years[1])
+        return str((y1 + y2 + 1) // 2)
+    return years[0]
+
+
+def _normalize_month(value):
+    if value is None or not isinstance(value, str):
+        return value
+    v = value.strip()
+    name = v.lower()
+    if name in _MONTH_MAP:
+        return _MONTH_MAP[name]
+    if re.match(r"^\d{1,2}$", v):
+        n = int(v)
+        if 1 <= n <= 12:
+            return f"{n:02d}"
+    return None
+
+
+def _normalize_day(value):
+    if value is None or not isinstance(value, str):
+        return value
+    v = value.strip()
+    if re.match(r"^\d{1,2}$", v):
+        n = int(v)
+        if 1 <= n <= 31:
+            return f"{n:02d}"
+    return None
+
+
+_NORMALIZER_MAP: dict[str, Callable] = {
+    "year_range": _normalize_year_range,
+    "year": _normalize_year,
+    "month": _normalize_month,
+    "day": _normalize_day,
+}
+
+
+# ---------------------------------------------------------------------------
+# Base class — cross-field validator and computed field only
+# ---------------------------------------------------------------------------
+
+
+class _MetricsBase(BaseModel):
     model_config = ConfigDict(
         strict=True,
         validate_default=True,
@@ -21,115 +108,92 @@ class PredatorDietMetrics(BaseModel):
         frozen=False,
     )
 
-    species_name: Optional[str] = Field(
-        default=None,
-        min_length=3,
-        max_length=200,
-        pattern=r"^[A-Z][a-z]+( [a-z]+)*$",
-        description=(
-            "Binomial scientific name of the PRIMARY PREDATOR species studied "
-            "(the animal whose stomachs were examined, not its prey). "
-            "Return exactly one species. If multiple predators are studied, "
-            "choose the one with the most stomach samples. "
-            "Format: Capitalize genus, lowercase specific epithet (e.g., 'Canis lupus', 'Pygoscelis papua')."
-        ),
-        examples=["Canis lupus", "Vulpes vulpes", "Pygoscelis papua", "Ursus arctos"],
-    )
-
-    study_location: Optional[str] = Field(
-        default=None,
-        min_length=1,
-        max_length=500,
-        description=(
-            "Geographic area where predator specimens were collected. "
-            "Include site, region, and country if available. "
-            "Common section locations: Methods, Study Area, Study Site, or Materials and Methods. "
-            "Examples: 'Marion Island, sub-Antarctic', 'Yellowstone National Park, Wyoming, USA', 'Bristol, UK'."
-        ),
-        examples=["Yellowstone National Park, Wyoming, USA", "Marion Island, sub-Antarctic", "Bristol, UK"],
-    )
-
-    study_date: Optional[str] = Field(
-        default=None,
-        min_length=4,
-        max_length=30,
-        pattern=r"^\d{4}(-\d{4})?$",
-        description=(
-            "Year or year-range when specimens were COLLECTED (not publication year). "
-            "Format: 'YYYY' for single year or 'YYYY-YYYY' for range (e.g., '2019' or '2019-2021'). "
-            "Common phrasings: 'specimens collected in', 'sampling period', 'field season', "
-            "'between [year] and [year]', 'during [year]', 'from [year] to [year]'. "
-        ),
-        examples=["2019", "2019-2021", "1984-1985", "2015-2018"],
-    )
-
-    num_empty_stomachs: Optional[NonNegativeInt] = Field(
-        default=None,
-        description=(
-            "Number of predators with empty stomachs (no food present). "
-            "Common phrasings: 'empty', 'vacant', 'without food', 'zero prey items', "
-            "'no contents', 'stomachs with no contents', 'N individuals had empty stomachs', "
-            "'N empty', 'N with no prey'. Must be >= 0."
-        ),
-    )
-
-    num_nonempty_stomachs: Optional[NonNegativeInt] = Field(
-        default=None,
-        description=(
-            "Number of predators with non-empty (food-containing) stomachs. "
-            "Common phrasings: 'non-empty', 'with food', 'containing prey', 'with contents', "
-            "'fed', 'N contained food', 'N had prey items', 'N with prey'. Must be >= 0."
-        ),
-    )
-
-    sample_size: Optional[Annotated[int, Field(gt=0)]] = Field(
-        default=None,
-        description=(
-            "Total number of predator individuals whose stomachs (or gut contents) were examined. "
-            "Must be a positive integer (> 0). This is the count of predators dissected, stomach-pumped, "
-            "or otherwise sampled — NOT the number of prey items found. "
-            "Common phrasings: 'N stomachs were examined', 'a total of N individuals', 'N specimens', "
-            "'n=N', 'sample size of N', 'N predators were sampled'. "
-            "When both num_empty_stomachs and num_nonempty_stomachs are reported, "
-            "sample_size should equal their sum."
-        ),
-    )
-
-    @field_validator("study_date", mode="before")
-    @classmethod
-    def _normalize_study_date(cls, value):
-        """Coerce free-form date strings into 'YYYY' or 'YYYY-YYYY'.
-
-        The LLM sometimes returns chatty values like
-        '2015, between August and late-' or 'from 1984 to 1985'.  Pull the
-        year(s) out so one messy field does not fail validation for the whole
-        record.  If no 4-digit year is found, fall back to None.
-        """
-        if value is None or not isinstance(value, str):
-            return value
-        years = re.findall(r"\b(\d{4})\b", value)
-        if not years:
-            return None
-        if len(years) >= 2 and years[0] != years[1]:
-            return f"{years[0]}-{years[1]}"
-        return years[0]
-
     @model_validator(mode="after")
-    def _reconcile_sample_size(self) -> "PredatorDietMetrics":
-        """Ensure sample_size == num_empty + num_nonempty when both counts are present."""
-        empty = self.num_empty_stomachs
-        nonempty = self.num_nonempty_stomachs
+    def _reconcile_num_sampled(self):
+        """Ensure num_sampled == num_empty + num_nonempty when both counts are present."""
+        empty = getattr(self, "num_empty", None)
+        nonempty = getattr(self, "num_nonempty", None)
         if empty is not None and nonempty is not None:
             calculated = empty + nonempty
-            if calculated > 0 and (self.sample_size is None or self.sample_size != calculated):
-                self.sample_size = calculated
+            current = getattr(self, "num_sampled", None)
+            if calculated > 0 and (current is None or current != calculated):
+                object.__setattr__(self, "num_sampled", calculated)
         return self
 
-    @computed_field(
-        description="Fraction of predators that had food in their stomachs (0.0–1.0).",
-    )
+    @computed_field(description="Fraction of predators that had food in their stomachs (0.0–1.0).")
     @property
     def fraction_feeding(self) -> Optional[float]:
-        if self.num_nonempty_stomachs is not None and self.sample_size is not None and self.sample_size > 0:
-            return round(self.num_nonempty_stomachs / self.sample_size, 4)
+        nonempty = getattr(self, "num_nonempty", None)
+        sampled = getattr(self, "num_sampled", None)
+        if nonempty is not None and sampled is not None and sampled > 0:
+            return round(nonempty / sampled, 4)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Import-time validation of FIELDS
+# ---------------------------------------------------------------------------
+
+_VALID_TYPES = {Optional[str], Optional[int], Optional[float]}
+_RESERVED = set(_MetricsBase.model_computed_fields.keys()) | {"model_config"}
+
+for _spec in FIELDS:
+    assert _spec.name.isidentifier(), f"FieldSpec: invalid name {_spec.name!r}"
+    assert _spec.name not in _RESERVED, f"FieldSpec: reserved name {_spec.name!r}"
+    assert _spec.python_type in _VALID_TYPES, (
+        f"FieldSpec: unsupported python_type for {_spec.name!r} — "
+        f"must be Optional[str], Optional[int], or Optional[float]"
+    )
+    if _spec.pattern:
+        re.compile(_spec.pattern)
+    if _spec.ge is not None and _spec.le is not None:
+        assert _spec.ge <= _spec.le, f"FieldSpec: ge > le for {_spec.name!r}"
+
+
+# ---------------------------------------------------------------------------
+# Dynamic model construction
+# ---------------------------------------------------------------------------
+
+
+def _make_field_validator(field_name: str, norm_fn: Callable):
+    """Return a Pydantic field_validator for field_name that applies norm_fn."""
+    def _v(cls, value):
+        return norm_fn(value)
+    _v.__name__ = f"_validate_{field_name}"
+    _v.__qualname__ = f"_validate_{field_name}"
+    return field_validator(field_name, mode="before")(classmethod(_v))
+
+
+_field_defs: dict = {}
+_validators: dict = {}
+
+for _spec in FIELDS:
+    kwargs: dict = {"default": None, "description": _spec.description}
+    if _spec.pattern is not None:
+        kwargs["pattern"] = _spec.pattern
+    if _spec.min_length is not None:
+        kwargs["min_length"] = _spec.min_length
+    if _spec.max_length is not None:
+        kwargs["max_length"] = _spec.max_length
+    if _spec.ge is not None:
+        kwargs["ge"] = _spec.ge
+    if _spec.le is not None:
+        kwargs["le"] = _spec.le
+    if _spec.gt is not None:
+        kwargs["gt"] = _spec.gt
+    _field_defs[_spec.name] = (_spec.python_type, Field(**kwargs))
+
+    if _spec.normalizer is not None:
+        if isinstance(_spec.normalizer, str):
+            norm_fn = _NORMALIZER_MAP[_spec.normalizer]
+        else:
+            norm_fn = _spec.normalizer
+        _validators[f"_validate_{_spec.name}"] = _make_field_validator(_spec.name, norm_fn)
+
+
+PredatorDietMetrics = create_model(
+    "PredatorDietMetrics",
+    __base__=_MetricsBase,
+    __validators__=_validators,
+    **_field_defs,
+)

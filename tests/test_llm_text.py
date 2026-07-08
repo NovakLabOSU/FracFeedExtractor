@@ -32,7 +32,7 @@ Abstract
 We examined the stomach contents of 144 Pygoscelis papua individuals
 collected at Marion Island, sub-Antarctic between 1984 and 1985.
 A total of 144 food samples was collected; all samples contained prey.
-num_empty_stomachs = 0, num_nonempty_stomachs = 144, sample_size = 144.
+num_empty = 0, num_nonempty = 144, num_sampled = 144.
 
 [PAGE 2]
 Methods
@@ -188,7 +188,7 @@ class TestScoreParagraph:
     def test_empty_paragraph_scores_zero(self):
         assert _score_paragraph("") == 0
 
-    def test_sample_size_language_scores_high(self):
+    def test_num_sampled_language_scores_high(self):
         para = "A total of 144 stomachs were examined."
         assert _score_paragraph(para) > 0
 

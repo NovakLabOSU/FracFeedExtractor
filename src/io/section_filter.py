@@ -41,7 +41,7 @@ from typing import List, Tuple
 # ---------------------------------------------------------------------------
 
 _POSITIVE_PATTERNS = [
-    # sample_size — explicit counts of stomachs / specimens / individuals
+    # num_sampled — explicit counts of stomachs / specimens / individuals
     re.compile(
         r"(?i)(\bn\s*=\s*\d+"
         r"|total\s+of\s+\d+"

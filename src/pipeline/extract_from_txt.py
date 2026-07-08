@@ -15,7 +15,7 @@ The pipeline:
      via src/io/section_filter.py
   4. Trim to the character budget using section-priority ranking
      via src/extraction/llm_text.py::extract_key_sections()
-  5. Call Ollama for structured extraction via src/extraction/llm_client.py
+  5. Call LLM for structured extraction via src/extraction/llm_client.py
   6. Save result JSON per file and a summary CSV
 
 Usage::
@@ -30,14 +30,14 @@ Usage::
     python src/pipeline/extract_from_txt.py \\
         --input-dir  data/processed-text/ \\
         --output-dir data/results/ \\
-        --llm-model  qwen2.5:7b \\
+        --llm-model  qwen3:30b \\
         --max-chars  10000 \\
         --num-ctx    8192
 
 Output:
     - data/cleaned-text/text_cleaner/<stem>_<YYYYMMDD_HHMMSS>.txt  noise-stripped text
     - data/cleaned-text/section_filter/<stem>_<YYYYMMDD_HHMMSS>.txt  section-filtered text
-    - data/cleaned-text/llm_text/<stem>_<YYYYMMDD_HHMMSS>.txt  trimmed text passed to Ollama
+    - data/cleaned-text/llm_text/<stem>_<YYYYMMDD_HHMMSS>.txt  trimmed text passed to the LLM
     - data/results/metrics/<stem>_results.json  per file
     - data/results/summaries/txt_pipeline_summary_<timestamp>.csv  overall
 """
@@ -48,6 +48,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from src.config import DEFAULT_LLM_MODEL
+from src.extraction.models import PredatorDietMetrics
 from src.io.text_cleaner import clean_text
 from src.io.section_filter import filter_relevant_sections
 from src.extraction.llm_text import extract_key_sections
@@ -80,9 +82,9 @@ def run_txt_pipeline(
         input_dir:   Directory containing pre-classified useful .txt files.
                      Ignored when *single_file* is provided.
         output_dir:  Root output directory for JSON results and summary CSV.
-        llm_model:   Ollama model name (e.g. ``"qwen2.5:7b"``).
-        max_chars:   Character budget for the text sent to Ollama.
-        num_ctx:     Context window size requested from Ollama.
+        llm_model:   LLM model name (e.g. ``"qwen3:30b"`` or ``"claude-haiku-4-5-20251001"``).
+        max_chars:   Character budget for the text sent to the LLM.
+        num_ctx:     Context window size (passed to Ollama; ignored for Anthropic).
         single_file: If set, process only this one .txt file.
     """
     if single_file is not None:
@@ -115,14 +117,10 @@ def run_txt_pipeline(
             "filtered_chars": "",
             "trimmed_chars": "",
             "extraction_status": "",
-            "species_name": "",
-            "study_location": "",
-            "study_date": "",
-            "sample_size": "",
-            "num_empty_stomachs": "",
-            "num_nonempty_stomachs": "",
-            "fraction_feeding": "",
         }
+        for _f in PredatorDietMetrics.model_fields:
+            row[_f] = ""
+        row["fraction_feeding"] = ""
 
         # ── Step 1: Read ────────────────────────────────────────────────────
         try:
@@ -234,7 +232,7 @@ def run_txt_pipeline(
                 print(f"  [WARN] Could not save LLM text: {exc}", file=sys.stderr)
 
             # ── Step 6: LLM extraction ──────────────────────────────────────
-            print(f"  [INFO] Calling Ollama ({llm_model})…", file=sys.stderr)
+            print(f"  [INFO] Calling LLM ({llm_model})…", file=sys.stderr)
             try:
                 metrics = extract_metrics_from_text(
                     text=trimmed,
@@ -242,7 +240,7 @@ def run_txt_pipeline(
                     num_ctx=num_ctx,
                 )
             except Exception as exc:
-                print(f"  [ERROR] Ollama extraction failed: {exc}", file=sys.stderr)
+                print(f"  [ERROR] LLM extraction failed: {exc}", file=sys.stderr)
                 row["extraction_status"] = "extraction_failed"
                 summary_rows.append(row)
                 continue
@@ -264,16 +262,13 @@ def run_txt_pipeline(
             m = result["metrics"]
 
         row["extraction_status"] = "success"
-        row["species_name"] = m.get("species_name") or ""
-        row["study_location"] = m.get("study_location") or ""
-        row["study_date"] = m.get("study_date") or ""
-        row["sample_size"] = "" if m.get("sample_size") is None else m["sample_size"]
-        row["num_empty_stomachs"] = "" if m.get("num_empty_stomachs") is None else m["num_empty_stomachs"]
-        row["num_nonempty_stomachs"] = "" if m.get("num_nonempty_stomachs") is None else m["num_nonempty_stomachs"]
+        for _f in PredatorDietMetrics.model_fields:
+            _v = m.get(_f)
+            row[_f] = "" if _v is None else _v
         row["fraction_feeding"] = "" if m.get("fraction_feeding") is None else m["fraction_feeding"]
 
         print(
-            f"  [OK] species={m.get('species_name')}  " f"n={m.get('sample_size')}  " f"date={m.get('study_date')}",
+            f"  [OK] species={m.get('species_name')}  " f"n={m.get('num_sampled')}  " f"date={m.get('study_year')}",
             file=sys.stderr,
         )
 
@@ -292,12 +287,7 @@ def run_txt_pipeline(
         "filtered_chars",
         "trimmed_chars",
         "extraction_status",
-        "species_name",
-        "study_location",
-        "study_date",
-        "sample_size",
-        "num_empty_stomachs",
-        "num_nonempty_stomachs",
+        *PredatorDietMetrics.model_fields.keys(),
         "fraction_feeding",
     ]
     with open(summary_path, "w", newline="", encoding="utf-8") as f:
@@ -327,7 +317,7 @@ def run_txt_pipeline(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description=("Extract structured predator-diet metrics from pre-classified " "useful .txt files using Ollama."),
+        description=("Extract structured predator-diet metrics from pre-classified " "useful .txt files using an LLM."),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -362,21 +352,20 @@ Examples:
     parser.add_argument(
         "--llm-model",
         type=str,
-        # default="qwen2.5:7b",
-        default="qwen2.5:7b",
-        help="Ollama model name (default: qwen2.5:7b).",
+        default=DEFAULT_LLM_MODEL,
+        help=f"LLM model name (default: {DEFAULT_LLM_MODEL}).",
     )
     parser.add_argument(
         "--max-chars",
         type=int,
         default=10000,
-        help="Maximum characters to send to Ollama after cleaning (default: 10000).",
+        help="Maximum characters to send to the LLM after cleaning (default: 10000).",
     )
     parser.add_argument(
         "--num-ctx",
         type=int,
         default=8192,
-        help="Ollama context window size (default: 8192).",
+        help="Context window size for Ollama (default: 8192). Ignored for Anthropic models.",
     )
     parser.add_argument(
         "--labels",
@@ -416,6 +405,9 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    from dotenv import load_dotenv
+    load_dotenv()
 
     # ── Load label filter ───────────────────────────────────────────────
     useful_stems = None

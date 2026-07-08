@@ -86,9 +86,9 @@ The system prompt went through several rewrites:
 
 **Initial prompt:** A short description of the task with a list of field names. Return rates were poor; the LLM frequently returned `null` for fields that were present in the text.
 
-**Added field descriptions (PR #36, Feb 2026):** Each field in the Pydantic schema got an explicit description including common phrasings found in the literature (e.g., "stomachs with no contents", "N empty", "N with no prey" for `num_empty_stomachs`). This alone improved the extraction rate substantially.
+**Added field descriptions (PR #36, Feb 2026):** Each field in the Pydantic schema got an explicit description including common phrasings found in the literature (e.g., "stomachs with no contents", "N empty", "N with no prey" for `num_empty`). This alone improved the extraction rate substantially.
 
-**Added few-shot examples:** The prompt includes concrete worked examples of input text and expected JSON output. This helped the most with `study_date`, where models were frequently returning publication years instead of collection years until we added an example that made the distinction explicit.
+**Added few-shot examples:** The prompt includes concrete worked examples of input text and expected JSON output. This helped the most with `study_year`, where models were frequently returning publication years instead of collection years until we added an example that made the distinction explicit.
 
 **Rewrote for diverse sampling methods (Mar 2026):** The original prompt assumed stomach dissection as the sampling method. Many papers use stomach pumping, scat analysis, or regurgitation. The prompt was rewritten to cover these cases after we noticed systematic null returns on a set of seabird diet papers that used regurgitation sampling.
 
@@ -104,11 +104,11 @@ The `PredatorDietMetrics` model in `src/extraction/models.py` evolved significan
 
 **Tightened constraints (Feb–Apr 2026):**
 - `species_name`: regex enforcing binomial format (`^[A-Z][a-z]+(\s[a-z]+)*$`). This prevents the LLM from returning common names like "Northern pike" instead of *Esox lucius*.
-- `study_date`: regex enforcing `YYYY` or `YYYY-YYYY` format only.
-- `sample_size`: must be positive (> 0), not just non-negative.
-- `num_empty_stomachs` and `num_nonempty_stomachs`: non-negative integers.
+- `study_year`: regex enforcing `YYYY` or `YYYY-YYYY` format only.
+- `num_sampled`: must be positive (> 0), not just non-negative.
+- `num_empty` and `num_nonempty`: non-negative integers.
 
-**Auto-reconciliation:** If `num_empty_stomachs` and `num_nonempty_stomachs` are both present, `sample_size` is automatically set to their sum via a `@model_validator`. This prevents subtle inconsistencies when the LLM extracts counts from a table but reads the stated sample size from a different paragraph.
+**Auto-reconciliation:** If `num_empty` and `num_nonempty` are both present, `num_sampled` is automatically set to their sum via a `@model_validator`. This prevents subtle inconsistencies when the LLM extracts counts from a table but reads the stated sample size from a different paragraph.
 
 ---
 

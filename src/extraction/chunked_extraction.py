@@ -8,7 +8,9 @@ from pathlib import Path
 from collections import Counter
 from typing import Any, Optional
 
+from src.config import DEFAULT_LLM_MODEL
 from src.extraction.llm_client import extract_metrics_from_text
+from src.extraction.models import PredatorDietMetrics
 from src.classifier.pdf_classifier import load_classifier
 
 
@@ -56,7 +58,7 @@ def merge_results(results: list[Optional[dict[str, Any]]]) -> dict[str, Any]:
         return {}
 
     merged: dict[str, Any] = {}
-    fields = ['species_name', 'study_location', 'study_date', 'num_empty_stomachs', 'num_nonempty_stomachs', 'sample_size']
+    fields = list(PredatorDietMetrics.model_fields.keys())
 
     for field in fields:
         values = [r.get(field) for r in results if r.get(field) is not None]
@@ -70,8 +72,8 @@ def merge_results(results: list[Optional[dict[str, Any]]]) -> dict[str, Any]:
             merged[field] = most_common[0]
             merged[f"{field}_confidence"] = round(most_common[1] / len(values), 2)
 
-    nonempty = merged.get("num_nonempty_stomachs")
-    sample = merged.get("sample_size")
+    nonempty = merged.get("num_nonempty")
+    sample = merged.get("num_sampled")
     if nonempty and sample and sample > 0:
         merged["fraction_feeding"] = round(nonempty / sample, 4)
     else:
@@ -83,7 +85,7 @@ def merge_results(results: list[Optional[dict[str, Any]]]) -> dict[str, Any]:
 def extract_with_chunking(
     text: str,
     model_dir: str = "src/classifier/models",
-    llm_model: str = "qwen2.5:7b",
+    llm_model: str = DEFAULT_LLM_MODEL,
     num_ctx: int = 8192,
     top_n: int = 3,
     chunk_size: int = 3000,
@@ -129,7 +131,7 @@ def extract_with_chunking(
             )
             result_dict = metrics.model_dump()
             results.append(result_dict)
-            print(f"    species={result_dict.get('species_name')}, location={result_dict.get('study_location')}, sample={result_dict.get('sample_size')}", file=sys.stderr)
+            print(f"    species={result_dict.get('species_name')}, location={result_dict.get('study_location')}, sample={result_dict.get('num_sampled')}", file=sys.stderr)
         except Exception as e:
             print(f"    [ERROR] {e}", file=sys.stderr)
 

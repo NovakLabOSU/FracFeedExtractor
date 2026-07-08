@@ -14,7 +14,7 @@ Usage:
     # Custom options
     python src/pipeline/classify_extract.py path/to/folder/ \\
         --model-dir src/classifier/models \\
-        --llm-model qwen2.5:7b \\
+        --llm-model qwen3:30b \\
         --output-dir results/ \\
         --confidence-threshold 0.70 \\
         --max-chars 12000 \\
@@ -32,6 +32,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+from src.config import DEFAULT_LLM_MODEL
 from src.io.pdf_text_extraction import extract_text_from_pdf
 from src.io.summary_csv import blank_row, metrics_to_row, write_summary_csv
 from src.classifier.pdf_classifier import load_classifier, classify_text
@@ -159,11 +160,11 @@ def run_pipeline(
     Args:
         input_path: Path to a single PDF or a directory of PDFs.
         model_dir: Directory containing classifier model artifacts.
-        llm_model: Ollama model name for extraction.
+        llm_model: LLM model name for extraction.
         output_dir: Where to write JSON results and the summary CSV.
         confidence_threshold: Classifier probability threshold for 'useful'.
         max_chars: Max characters to send to the LLM.
-        num_ctx: Context window size for Ollama.
+        num_ctx: Context window size (passed to Ollama; ignored for Anthropic).
         workers: Number of parallel worker processes (default: 1 = sequential).
     """
     # ── Collect PDF paths ─────────────────────────────────────────────────
@@ -281,7 +282,7 @@ Examples:
     python src/pipeline/classify_extract.py data/pdfs/ \\
         --model-dir src/classifier/models \\
         --output-dir results/ \\
-        --llm-model qwen2.5:7b \\
+        --llm-model qwen3:30b \\
         --confidence-threshold 0.70
         """,
     )
@@ -299,8 +300,8 @@ Examples:
     parser.add_argument(
         "--llm-model",
         type=str,
-        default="qwen2.5:7b",
-        help="Ollama model to use for extraction (default: qwen2.5:7b).",
+        default=DEFAULT_LLM_MODEL,
+        help=f"LLM model to use for extraction (default: {DEFAULT_LLM_MODEL}).",
     )
     parser.add_argument(
         "--output-dir",
@@ -324,7 +325,7 @@ Examples:
         "--num-ctx",
         type=int,
         default=8192,
-        help="Context window size for Ollama (default: 4096).",
+        help="Context window size for Ollama (default: 8192). Ignored for Anthropic models.",
     )
     parser.add_argument(
         "--workers",
@@ -335,6 +336,8 @@ Examples:
 
     args = parser.parse_args()
 
+    from dotenv import load_dotenv
+    load_dotenv()
     # Configure persistent logging for this process — one call covers all modules
     setup_logging()
 

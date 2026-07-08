@@ -1,0 +1,400 @@
+"""Project-wide configuration constants."""
+
+from dataclasses import dataclass, field as dc_field
+from typing import Callable, Optional
+
+DEFAULT_LLM_MODEL = "qwen3:30b"
+
+
+# ---------------------------------------------------------------------------
+# Custom normalizers for categorical fields
+# ---------------------------------------------------------------------------
+
+
+def _normalize_survey_type(value):
+    if value is None or not isinstance(value, str):
+        return value
+    v = value.strip()
+    canonical = {"Gut content (lethal)", "Gut content (lavage)", "Direct observation", "Other"}
+    if v in canonical:
+        return v
+    v_lower = v.lower()
+    for c in canonical:
+        if c.lower() == v_lower:
+            return c
+    if any(kw in v_lower for kw in ["lethal", "dissect", "gut content (lethal)"]):
+        return "Gut content (lethal)"
+    if any(kw in v_lower for kw in ["lavage", "pump", "gastric", "emetic"]):
+        return "Gut content (lavage)"
+    if any(kw in v_lower for kw in ["direct observ", "visual observ", "behavioral observ"]):
+        return "Direct observation"
+    if any(kw in v_lower for kw in ["other", "scat", "fecal", "isotope", "molecular", "regurgit", "indirect"]):
+        return "Other"
+    return None
+
+
+def _normalize_ecosystem(value):
+    if value is None or not isinstance(value, str):
+        return value
+    v = value.strip()
+    canonical = {"Marine", "Terrestrial", "Lotic", "Lentic"}
+    if v in canonical:
+        return v
+    v_lower = v.lower()
+    for c in canonical:
+        if c.lower() == v_lower:
+            return c
+    if any(kw in v_lower for kw in ["marine", "ocean", "sea", "coastal", "estuar", "intertidal", "pelagic", "subtidal"]):
+        return "Marine"
+    if any(kw in v_lower for kw in ["terrestrial", "forest", "grassland", "savann", "desert", "woodland", "riparian"]):
+        return "Terrestrial"
+    if any(kw in v_lower for kw in ["lotic", "stream", "river", "creek", "brook", "flowing"]):
+        return "Lotic"
+    if any(kw in v_lower for kw in ["lentic", "lake", "pond", "reservoir", "wetland", "standing"]):
+        return "Lentic"
+    return None
+
+
+# ---------------------------------------------------------------------------
+# FieldSpec — single source of truth for all extraction fields
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class FieldSpec:
+    """Configuration for one extraction field.
+
+    Required attributes define the field's identity and prompt text.
+    Optional attributes add validation constraints and retry behaviour.
+    """
+
+    # Required
+    name: str
+    python_type: type
+    prompt_type: str
+    description: str
+    csv_label: str
+
+    # Optional
+    retryable: bool = True
+    hint: str = ""
+    normalizer: "str | Callable | None" = dc_field(default=None)
+    pattern: "str | None" = dc_field(default=None)
+    min_length: "int | None" = dc_field(default=None)
+    max_length: "int | None" = dc_field(default=None)
+    ge: "float | None" = dc_field(default=None)
+    le: "float | None" = dc_field(default=None)
+    gt: "float | None" = dc_field(default=None)
+
+
+# ---------------------------------------------------------------------------
+# FIELDS — the unified registry of all extraction fields
+# ---------------------------------------------------------------------------
+
+FIELDS: list = [
+    FieldSpec(
+        name="species_name",
+        python_type=Optional[str],
+        prompt_type="string or null",
+        description=(
+            'Binomial Latin name (Genus species) of the PRIMARY PREDATOR whose diet is studied. '
+            'This is the animal being studied, not its prey. Return exactly one species. '
+            'If multiple predator species appear, choose the one with the most samples. '
+            'Capitalize genus, lowercase epithet (e.g., "Pygoscelis papua").'
+        ),
+        csv_label="Predator Species",
+        retryable=True,
+        hint=(
+            "- species_name: Look for the first binomial Latin name (Genus species) "
+            "in the title or abstract. This is the PREDATOR, not its prey.\n"
+        ),
+        pattern=r"^[A-Z][a-z]+( [a-z]+)*$",
+        min_length=3,
+        max_length=200,
+    ),
+    FieldSpec(
+        name="study_location",
+        python_type=Optional[str],
+        prompt_type="string or null",
+        description=(
+            'Geographic area where specimens were collected. Include site, region, and country '
+            'if available (e.g., "Marion Island, sub-Antarctic"). '
+            "Check Methods, Study Area, Study Site, and Abstract."
+        ),
+        csv_label="Study Location",
+        retryable=True,
+        hint=(
+            "- study_location: Check Methods or Study Area sections for place names, "
+            "islands, countries, or coordinates.\n"
+        ),
+        min_length=1,
+        max_length=500,
+    ),
+    FieldSpec(
+        name="study_year_range",
+        python_type=Optional[str],
+        prompt_type="string or null",
+        description=(
+            'Year-range of diet survey or specimen collection, NOT publication year. Format "YYYY-YYYY".\n'
+            "  Where to look:\n"
+            '  - "specimens collected in", "sampling period", "field season", "between [year] and [year]"\n'
+            "  For example:\n"
+            '  - "April 1984" → "1984"\n'
+            '  - "from April 1984 to March 1986" → "1984-1985"\n'
+            '  - "from December 1996 to March 1997" → "1996-1997"'
+        ),
+        csv_label="Study Year Range",
+        retryable=True,
+        hint=(
+            "- study_year_range: Look for the full collection period — 'from [year] to [year]', "
+            "'between [year] and [year]', 'field season [year]-[year]'. "
+            "Return 'YYYY-YYYY' for a range or 'YYYY' for a single year. "
+            "Distinguish collection dates from publication/submission dates.\n"
+        ),
+        normalizer="year_range",
+        pattern=r"^\d{4}(-\d{4})?$",
+        min_length=4,
+        max_length=9,
+    ),
+    FieldSpec(
+        name="study_year",
+        python_type=Optional[str],
+        prompt_type="string or null",
+        description=(
+            'Year of diet survey or specimen collection, NOT publication year. '
+            'If a year-range is given, return the midpoint year. Format "YYYY".\n'
+            "  Where to look:\n"
+            '  - "specimens collected in", "sampling period", "field season", "between [year] and [year]"\n'
+            "  For example:\n"
+            '  - "April 1984" → "1984"\n'
+            '  - "from April 1984 to March 1986" → "1985"\n'
+            '  - "from December 1996 to March 1997" → "1997"'
+        ),
+        csv_label="Study Year",
+        retryable=True,
+        hint=(
+            "- study_year: Look for phrases like 'collected in', 'sampled during', "
+            "'field season', 'from [month] [year] to [month] [year]'. "
+            "Return a single midpoint year ('YYYY'). "
+            "If no collection date is explicit, infer from 'Received [date]' — "
+            "collection is typically 1-2 years before manuscript submission.\n"
+        ),
+        normalizer="year",
+        pattern=r"^\d{4}$",
+        min_length=4,
+        max_length=4,
+    ),
+    FieldSpec(
+        name="study_month",
+        python_type=Optional[str],
+        prompt_type="string or null",
+        description=(
+            'Month of diet survey or specimen collection, NOT publication month. '
+            'If a month-range is given, return the midpoint month only if the range spans less than 6 months.'
+            'Format "MM" (e.g., "03" for March).\n'
+            "  Where to look:\n"
+            '  - "specimens collected in", "sampling period", "field season", "between [month] and [month]"\n'
+            "  For example:\n"
+            '  - "March 1984" → "03"\n'
+            '  - "from March 1984 to May 1984" → "04"\n'
+            '  - "from March 1984 to May 1985" → null'
+        ),
+        csv_label="Study Month",
+        retryable=False,
+        normalizer="month",
+        pattern=r"^\d{2}$",
+        min_length=2,
+        max_length=2,
+    ),
+    FieldSpec(
+        name="study_day",
+        python_type=Optional[str],
+        prompt_type="string or null",
+        description=(
+            'Day of diet survey or specimen collection, NOT publication day. '
+            'If a day-range is given, return the midpoint day only if the range spans less than 1 month. '
+            'Format "DD" (e.g., "05" for March 5th).\n'
+            "  Where to look:\n"
+            '  - "specimens collected in", "sampling period", "field season", "between [month] and [month]"\n'
+            "  For example:\n"
+            '  - "March 5th 1984" → "05"\n'
+            '  - "from March 5th 1984 to March 9th 1984" → "07"\n'
+            '  - "from March 5th 1984 to April 9th 1984" → null'
+        ),
+        csv_label="Study Day",
+        retryable=False,
+        normalizer="day",
+        pattern=r"^\d{2}$",
+        min_length=2,
+        max_length=2,
+    ),
+    FieldSpec(
+        name="num_empty",
+        python_type=Optional[int],
+        prompt_type="integer (>= 0) or null",
+        description=(
+            "Number of surveyed predator individuals that were not feeding or were with NO food. "
+            "Apply broadly across study methods.\n"
+            '  - Stomach / Gut dissection: "empty", "vacuous","vacant", "without food", "zero prey items"\n'
+            '  - Stomach pumping / gastric lavage: "yielded no food", "no contents obtained", "produced no material"\n'
+            '  - Direct observation: "no prey items observed", "no food in stomachs", "not feeding", '
+            '"not consuming prey", "not eating", "not foraging"\n'
+            "  If ALL predators were eating or had guts that contained food, set this to 0."
+        ),
+        csv_label="Empty Stomachs",
+        retryable=True,
+        hint=(
+            "- num_empty: Look for 'empty', 'no food', 'no contents', "
+            "'negative for prey'. If ALL samples had food (e.g., stomach pumping "
+            "where every sample produced material), return 0.\n"
+        ),
+        ge=0.0,
+    ),
+    FieldSpec(
+        name="num_nonempty",
+        python_type=Optional[int],
+        prompt_type="integer (>= 0) or null",
+        description=(
+            "Number of surveyed predator individuals that were feeding or were WITH food. "
+            "Similar method mapping as above:\n"
+            '  - Stomach / Gut dissection: "non-empty", "with food", "containing prey", "with contents", "feeding"\n'
+            '  - Stomach pumping / gastric lavage: "food samples collected", "samples containing prey"\n'
+            '  If study says "a total of N food samples was collected" and it implies that ALL samples '
+            "had food, set num_nonempty = num_sampled."
+        ),
+        csv_label="Non-empty Stomachs",
+        retryable=True,
+        hint=(
+            "- num_nonempty: Look for 'contained food', 'with prey', "
+            "'non-empty', 'food samples collected'. If ALL samples had food, "
+            "this equals num_sampled.\n"
+        ),
+        ge=0.0,
+    ),
+    FieldSpec(
+        name="num_sampled",
+        python_type=Optional[int],
+        prompt_type="integer (> 0) or null",
+        description=(
+            "Total number of predator individuals examined. Equals num_empty + num_nonempty when both are known.\n"
+            "  Where to look:\n"
+            "  - Check Abstract, Methods, and Results.\n"
+            "  Examples of phrases that indicate num_sampled:\n"
+            '  - "N stomachs examined", "N individuals", "N specimens", "n=N", '
+            '"a total of N specimens", "a total of N stomachs", "N samples were collected", '
+            '"N animals were examined"\n'
+            '  - "two groups of 225" → num_sampled = 450'
+        ),
+        csv_label="Sample Size (N)",
+        retryable=True,
+        hint=(
+            "- num_sampled: Look for 'N stomachs', 'N specimens', 'a total of N', "
+            "'n=N', 'N individuals examined', 'two groups of N'. Check Abstract, "
+            "Methods, and Results.\n"
+        ),
+        gt=0.0,
+    ),
+    FieldSpec(
+        name="survey_type",
+        python_type=Optional[str],
+        prompt_type="string or null",
+        description=(
+            "The primary method used to assess diet. "
+            "Use EXACTLY one of the following four values (or null if the method cannot be determined):\n"
+            '  - "Gut content (lethal)": The predator was killed and its gastrointestinal tract was dissected or examined.\n'
+            '  - "Gut content (lavage)": Stomach contents were flushed or pumped out non-lethally '
+            "(e.g., gastric lavage, emetics, stomach pumping, oesophageal flushing).\n"
+            '  - "Direct observation": Diet was assessed by directly observing predation events or '
+            "prey items, without specimen collection (e.g., behavioral observation).\n"
+            '  - "Other": Any other method when method cannot be inferred.'
+        ),
+        csv_label="Survey Type",
+        retryable=True,
+        hint=(
+            "- survey_type: Look in the 'Methods' or 'Study Design' section. "
+            "Dissection/killing = 'Gut content (lethal)'; stomach pump/lavage/emetic = 'Gut content (lavage)'; "
+            "watching predators eat = 'Direct observation'; scat/feces/isotopes = 'Other'.\n"
+        ),
+        normalizer=_normalize_survey_type,
+        pattern=r"^(Gut content \(lethal\)|Gut content \(lavage\)|Direct observation|Other)$",
+        min_length=5,
+        max_length=50,
+    ),
+    FieldSpec(
+        name="ecosystem",
+        python_type=Optional[str],
+        prompt_type="string or null",
+        description=(
+            "The primary type of ecosystem where the diet survey was conducted. "
+            "Use EXACTLY one of the following values (or null if it cannot be determined):\n"
+            '  - "Marine": Saltwater environments (oceans, seas, estuaries, coastal waters, intertidal zones).\n'
+            '  - "Terrestrial": Land-based environments (forests, grasslands, deserts, savannas, agricultural areas).\n'
+            '  - "Lotic": Flowing freshwater environments (rivers, streams, creeks, brooks).\n'
+            '  - "Lentic": Standing freshwater environments (lakes, ponds, reservoirs, wetlands).'
+        ),
+        csv_label="Ecosystem",
+        retryable=True,
+        hint=(
+            "- ecosystem: Look for study area descriptions. "
+            "Ocean/sea/estuary = 'Marine'; rivers/streams = 'Lotic'; "
+            "lakes/ponds = 'Lentic'; land environments = 'Terrestrial'.\n"
+        ),
+        normalizer=_normalize_ecosystem,
+        pattern=r"^(Marine|Terrestrial|Lotic|Lentic)$",
+        min_length=5,
+        max_length=20,
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
+# Prompt assembly
+# ---------------------------------------------------------------------------
+
+_PROMPT_HEADER = (
+    "You are a scientific data extraction assistant. Your task is to read a predator diet study "
+    "and return a single flat JSON object with exactly these fields:"
+)
+
+_PROMPT_RULES = """\
+RULES
+- Do not invent data; use null only if truly ambiguous or missing.
+- If ALL samples had food, set num_empty = 0 and num_nonempty = num_sampled.
+- Do not infer values on the basis of scat samples, fecal analysis, stable isotope analysis, molecular detection, or immunoassays. Return null for all fields for these studies unless they also include direct stomach/gut dissection, stomach pumping, or direct observation of feeding.
+- Restrict to diet studies of predators (e.g., carnivores, piscivores, insectivores, omnivores) that consumer other animals. Do not extract from studies ofanimals that primarily consume plants or fruit (i.e., herbivores or frugivores). Return null for all fields if the study is not about a predator diet.
+- When values are given as a percentage or proportion, convert to absolute numbers only when num_sampled is given.
+- Ignore page markers [PAGE N].
+- Prioritize Abstract, Methods, and Results sections.
+- Carefully distinguish collection dates from publication/submission dates.
+- Return a single JSON object; do not return arrays."""
+
+_PROMPT_EXAMPLES = """\
+EXAMPLES
+
+1. Stomach dissection, terrestrial predator (all data present):
+{"species_name": "Canis lupus", "study_location": "Yellowstone National Park, Wyoming, USA", "study_year_range": "2018-2020", "study_year": "2019", "study_month": "04", "study_day": "06", "num_empty": 5, "num_nonempty": 47, "num_sampled": 52, "survey_type": "Gut content (lethal)", "ecosystem": "Terrestrial"}
+
+2. Gastric lavage, marine predator (all samples had food):
+{"species_name": "Pygoscelis papua", "study_location": "Marion Island, sub-Antarctic", "study_year_range": "1987", "study_year": "1987", "study_month": null, "study_day": null, "num_empty": 0, "num_nonempty": 144, "num_sampled": 144, "survey_type": "Gut content (lavage)", "ecosystem": "Marine"}
+
+3. Stomach dissection, freshwater predator (minimal data):
+{"species_name": "Ursus arctos", "study_location": null, "study_year_range": "2020", "study_year": "2020", "study_month": null, "study_day": null, "num_empty": 1, "num_nonempty": 22, "num_sampled": 23, "survey_type": "Gut content (lethal)", "ecosystem": "Lotic"}
+
+4. Direct observation, lentic ecosystem:
+{"species_name": "Ardea herodias", "study_location": "Chesapeake Bay watershed, Maryland, USA", "study_year_range": "2005-2007", "study_year": "2006", "study_month": null, "study_day": null, "num_empty": 12, "num_nonempty": 88, "num_sampled": 100, "survey_type": "Direct observation", "ecosystem": "Lentic"}"""
+
+
+def build_prompt(text: str) -> str:
+    """Assemble the full LLM extraction prompt from FIELDS and static sections."""
+    field_list = "\n".join(f"  {f.name:<22} - {f.prompt_type}" for f in FIELDS)
+    definitions = "\n\n".join(f"{f.name}: {f.description}" for f in FIELDS)
+    return (
+        _PROMPT_HEADER + "\n\n"
+        + field_list + "\n\n"
+        + "Use null ONLY when the value truly cannot be determined from any part of the text.\n\n"
+        + "FIELD DEFINITIONS\n\n"
+        + definitions + "\n\n"
+        + _PROMPT_RULES + "\n\n"
+        + _PROMPT_EXAMPLES
+        + f"\n\nTEXT\n{text}"
+    )
