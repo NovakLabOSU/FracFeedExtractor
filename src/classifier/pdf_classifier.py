@@ -32,9 +32,8 @@ warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 log = logging.getLogger(__name__)
 
 
-@functools.lru_cache(maxsize=None)
-def load_classifier(model_dir: str = "src/classifier/models") -> Tuple:
-    """Load the trained classifier artifacts from disk.
+def load_classifier(model_dir="src/classifier/models") -> Tuple:
+    """Load the trained classifier artifacts from disk, cached by directory path.
 
     Args:
         model_dir: Directory containing:
@@ -48,6 +47,11 @@ def load_classifier(model_dir: str = "src/classifier/models") -> Tuple:
     Raises:
         FileNotFoundError: If any of the three artifacts are missing.
     """
+    return _load_classifier_cached(str(model_dir))
+
+
+@functools.lru_cache(maxsize=None)
+def _load_classifier_cached(model_dir: str) -> Tuple:
     model_path = Path(model_dir) / "pdf_classifier.json"
     vectorizer_path = Path(model_dir) / "tfidf_vectorizer.pkl"
     encoder_path = Path(model_dir) / "label_encoder.pkl"

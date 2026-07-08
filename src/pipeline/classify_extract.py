@@ -33,7 +33,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from src.io.pdf_text_extraction import extract_text_from_pdf
-from src.io.summary_csv import write_summary_csv
+from src.io.summary_csv import blank_row, metrics_to_row, write_summary_csv
 from src.classifier.pdf_classifier import load_classifier, classify_text
 from src.extraction.llm_text import extract_key_sections
 from src.extraction.llm_client import extract_metrics_from_text, save_extraction_result
@@ -61,20 +61,7 @@ def _process_single_pdf(
     """Classify one PDF and return a summary row dict."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    row = {
-        "filename": pdf_path.name,
-        "classification": "",
-        "confidence": "",
-        "pred_prob": "",
-        "extraction_status": "",
-        "species_name": "",
-        "study_location": "",
-        "study_date": "",
-        "sample_size": "",
-        "num_empty_stomachs": "",
-        "num_nonempty_stomachs": "",
-        "fraction_feeding": "",
-    }
+    row = blank_row(pdf_path.name)
 
     # ── Step 1: Extract text ──────────────────────────────────────────
     try:
@@ -129,15 +116,14 @@ def _process_single_pdf(
                 output_dir=output_dir,
             )
 
-            m = result["metrics"]
-            row["extraction_status"] = "success"
-            row["species_name"] = m.get("species_name") or ""
-            row["study_location"] = m.get("study_location") or ""
-            row["study_date"] = m.get("study_date") or ""
-            row["sample_size"] = "" if m.get("sample_size") is None else m["sample_size"]
-            row["num_empty_stomachs"] = "" if m.get("num_empty_stomachs") is None else m["num_empty_stomachs"]
-            row["num_nonempty_stomachs"] = "" if m.get("num_nonempty_stomachs") is None else m["num_nonempty_stomachs"]
-            row["fraction_feeding"] = "" if m.get("fraction_feeding") is None else m["fraction_feeding"]
+            row = metrics_to_row(
+                filename=pdf_path.name,
+                metrics=result["metrics"],
+                classification=row["classification"],
+                confidence=row["confidence"],
+                pred_prob=row["pred_prob"],
+                extraction_status="success",
+            )
 
         except Exception as e:
             print(f"  [ERROR] LLM extraction failed ({pdf_path.name}): {e}", file=sys.stderr)
@@ -230,7 +216,8 @@ def run_pipeline(
                     row = future.result()
                 except Exception as exc:
                     print(f"  [ERROR] Worker failed for {pdf_path.name}: {exc}", file=sys.stderr)
-                    row = {"filename": pdf_path.name, "extraction_status": "worker_failed"}
+                    row = blank_row(pdf_path.name)
+                    row["extraction_status"] = "worker_failed"
                 summary_rows.append(row)
     else:
         for idx, pdf_path in enumerate(pdf_paths, start=1):

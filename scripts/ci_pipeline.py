@@ -79,7 +79,7 @@ def main():
             pdf_bytes = download_file_bytes(service, f["id"])
             print(f"Downloaded {len(pdf_bytes)} bytes")
             text = extract_text_from_pdf_bytes(pdf_bytes)
-            if not text:
+            if not text.strip():
                 print(f"  [WARN] {pdf_name}: no text extracted, skipping", file=sys.stderr)
                 continue
             stem = sanitize_filename(pdf_name)

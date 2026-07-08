@@ -324,7 +324,7 @@ def extract_key_sections(text: str, max_chars: int) -> str:
         else:
             body_sections.append((start, heading, content))
 
-    preamble_text = "\n\n".join(p for p in preamble_parts if p)[:_ABSTRACT_CAP]
+    preamble_text = "\n\n".join(p for p in preamble_parts if p)[:min(_ABSTRACT_CAP, max_chars)]
 
     budget = max_chars - len(preamble_text)
 

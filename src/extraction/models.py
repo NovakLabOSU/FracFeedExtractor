@@ -110,8 +110,8 @@ class PredatorDietMetrics(BaseModel):
         years = re.findall(r"\b(\d{4})\b", value)
         if not years:
             return None
-        if len(years) >= 2 and years[0] != years[-1]:
-            return f"{years[0]}-{years[-1]}"
+        if len(years) >= 2 and years[0] != years[1]:
+            return f"{years[0]}-{years[1]}"
         return years[0]
 
     @model_validator(mode="after")
@@ -121,7 +121,7 @@ class PredatorDietMetrics(BaseModel):
         nonempty = self.num_nonempty_stomachs
         if empty is not None and nonempty is not None:
             calculated = empty + nonempty
-            if self.sample_size is None or self.sample_size != calculated:
+            if calculated > 0 and (self.sample_size is None or self.sample_size != calculated):
                 self.sample_size = calculated
         return self
 
