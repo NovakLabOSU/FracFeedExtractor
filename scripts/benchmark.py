@@ -149,12 +149,14 @@ def benchmark(results_dir: Path, ground_truth_path: Path, tolerance: float, mism
             if _values_match(pr_val, gt_val, tolerance):
                 correct[field] += 1
             else:
-                mismatches.append({
-                    "paper": stem,
-                    "field": field,
-                    "ground_truth": gt_val,
-                    "predicted": pr_val,
-                })
+                mismatches.append(
+                    {
+                        "paper": stem,
+                        "field": field,
+                        "ground_truth": gt_val,
+                        "predicted": pr_val,
+                    }
+                )
 
     # ── Print accuracy table ──────────────────────────────────────────────
     print(f"\nBenchmark results ({papers_matched} papers matched, {papers_missing} missing)\n")
@@ -183,9 +185,7 @@ def benchmark(results_dir: Path, ground_truth_path: Path, tolerance: float, mism
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Benchmark pipeline extraction accuracy against ground-truth labels."
-    )
+    parser = argparse.ArgumentParser(description="Benchmark pipeline extraction accuracy against ground-truth labels.")
     parser.add_argument(
         "--results",
         required=True,
