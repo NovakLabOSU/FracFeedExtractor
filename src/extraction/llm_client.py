@@ -21,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 from pathlib import Path
 
 from src.config import DEFAULT_LLM_MODEL, FIELDS, build_prompt
-from src.extraction.models import PredatorDietMetrics
+from src.extraction.models import ExtractionResult, PredatorDietMetrics
 from src.extraction.llm_text import extract_key_sections, load_document
 from src.io.summary_csv import metrics_to_row, write_summary_csv
 from src.utils.logger import setup_logging
@@ -48,8 +48,8 @@ def _strip_patterns(schema):
 
 _MAX_RETRIES = 3
 _BACKOFF_BASE = 2  # seconds
-_ANTHROPIC_MAX_TOKENS = 512  # JSON extraction output is ~100-200 tokens across all fields
-_FULL_SCHEMA = PredatorDietMetrics.model_json_schema()
+_ANTHROPIC_MAX_TOKENS = 4096  # multi-record output can easily exceed 512 tokens
+_FULL_SCHEMA = ExtractionResult.model_json_schema()
 _STRIPPED_SCHEMA = _strip_patterns(_FULL_SCHEMA)  # patterns removed for Ollama GBNF compiler
 
 
@@ -149,12 +149,13 @@ def extract_metrics_from_text(
     model: str = DEFAULT_LLM_MODEL,
     num_ctx: int = 8192,
     _retry: bool = False,
-) -> PredatorDietMetrics:
+) -> list[PredatorDietMetrics]:
     """Extract structured metrics from text using an LLM.
 
-    On the first call, if any fields come back null the function automatically
-    retries once with a focused follow-up prompt that gives method-specific
-    hints for finding the missing data.
+    Returns one PredatorDietMetrics per (species, survey) pair found in the
+    text.  On the first call, if any record has retryable fields that came back
+    null, the function automatically retries once with a focused follow-up
+    prompt that provides the current partial extraction as context.
 
     Args:
         text: Preprocessed text content from a scientific publication.
@@ -163,7 +164,7 @@ def extract_metrics_from_text(
         _retry: Internal flag — True when this is the automatic retry attempt.
 
     Returns:
-        PredatorDietMetrics object with extracted data.
+        List of PredatorDietMetrics objects, one per (species, survey) pair.
     """
     prompt = build_prompt(text)
 
@@ -175,29 +176,47 @@ def extract_metrics_from_text(
 
     if not content:
         raise ValueError("LLM returned empty content on initial call")
-    metrics = PredatorDietMetrics.model_validate_json(content)
+    records = ExtractionResult.model_validate_json(content).records
 
-    # ── Retry once if any extractable fields are null ───────────────────────
+    # ── Retry once if any record has retryable null fields ──────────────────
     _retryable = [spec.name for spec in FIELDS if spec.retryable]
-    missing = [f for f in _retryable if getattr(metrics, f) is None]
 
-    if not _retry and missing:
+    # Collect missing fields per record index: {index: [field, ...]}
+    missing_per_record: dict[int, list[str]] = {}
+    for i, rec in enumerate(records):
+        missing = [f for f in _retryable if getattr(rec, f) is None]
+        if missing:
+            missing_per_record[i] = missing
+
+    if not _retry and missing_per_record:
+        missing_summary = "; ".join(
+            f"record {i} ({records[i].species_name or 'unknown'}, "
+            f"{records[i].study_location or 'unknown location'}, "
+            f"{records[i].study_year_range or 'unknown year'}): "
+            + ", ".join(fields)
+            for i, fields in missing_per_record.items()
+        )
         print(
-            f"  [INFO] Retry: {', '.join(missing)} came back null — re-prompting",
+            f"  [INFO] Retry: null fields in {len(missing_per_record)} record(s) — re-prompting",
             file=sys.stderr,
         )
 
+        # Build per-record hint lines for only the fields that are null
+        all_missing_fields: list[str] = sorted({
+            f for fields in missing_per_record.values() for f in fields
+        })
+        hint_text = "".join(_hints.get(f, "") for f in all_missing_fields)
+
+        current_json = ExtractionResult(records=records).model_dump_json(indent=2)
         retry_prompt = (
-            "The following fields were returned as null. Please re-read the text "
-            "carefully — especially the Abstract, Methods, and Results sections — "
-            "and try harder to find values for them. Think about different study "
-            "methods (stomach pumping, scat analysis, immunoassays, etc.).\n\n"
-            f"Missing fields: {', '.join(missing)}\n\n"
-            "Hints:\n"
+            "Some fields in the extraction below are null. Re-read the text carefully "
+            "— especially the Abstract, Methods, and Results sections — and return a "
+            "corrected JSON with the same records array and all missing fields filled in.\n\n"
+            f"Current extraction:\n{current_json}\n\n"
+            f"Missing fields per record:\n  {missing_summary}\n\n"
+            f"Hints:\n{hint_text}"
+            f"\nTEXT\n{text}"
         )
-        for field in missing:
-            retry_prompt += _hints.get(field, "")
-        retry_prompt += f"\nTEXT\n{text}"
 
         retry_content = _call_llm_with_retry(
             model=model,
@@ -206,59 +225,60 @@ def extract_metrics_from_text(
         )
         if not retry_content:
             raise ValueError("LLM returned empty content on retry")
-        retry_metrics = PredatorDietMetrics.model_validate_json(retry_content)
+        retry_records = ExtractionResult.model_validate_json(retry_content).records
 
-        # Merge: prefer retry values for fields that were null, keep originals otherwise
-        merged = metrics.model_dump()
-        retry_dict = retry_metrics.model_dump()
-        for field in _retryable:
-            if merged.get(field) is None and retry_dict.get(field) is not None:
-                merged[field] = retry_dict[field]
+        # Merge by species_name key; fall back to positional when key is absent.
+        # This handles both record-count mismatches and reordered retry results.
+        if len(retry_records) != len(records):
+            log.warning(
+                "Retry returned %d records vs original %d — merging by key with positional fallback",
+                len(retry_records), len(records),
+            )
+        retry_by_species: dict[str, PredatorDietMetrics] = {}
+        for r in retry_records:
+            retry_by_species[(r.species_name or "").strip().lower()] = r
 
-        metrics = PredatorDietMetrics.model_validate(merged)
+        merged_records = []
+        for i, orig in enumerate(records):
+            orig_key = (orig.species_name or "").strip().lower()
+            retry_rec = retry_by_species.get(orig_key)
+            if retry_rec is None and i < len(retry_records):
+                retry_rec = retry_records[i]
+            if retry_rec is not None:
+                orig_dict = orig.model_dump()
+                retry_dict = retry_rec.model_dump()
+                for field in _retryable:
+                    if orig_dict.get(field) is None and retry_dict.get(field) is not None:
+                        orig_dict[field] = retry_dict[field]
+                merged_records.append(PredatorDietMetrics.model_validate(orig_dict))
+            else:
+                merged_records.append(orig)
+        records = merged_records
 
-    # ── Geocode if lat/lon are registered fields but came back null ──────────
-    if (
-        "latitude" in _FIELD_NAMES
-        and "longitude" in _FIELD_NAMES
-        and metrics.latitude is None
-        and metrics.longitude is None
-        and metrics.study_location
-    ):
-        try:
-            geo = _get_geocoder().geocode(metrics.study_location)
-            if geo is not None:
-                metrics = metrics.model_copy(update={"latitude": geo.lat, "longitude": geo.lon})
-                if geo.confidence < 0.4:
-                    log.warning(
-                        "Low-confidence geocode (%.2f) for '%s' → %s",
-                        geo.confidence, metrics.study_location, geo.display_name,
-                    )
-        except Exception as e:
-            log.warning("Geocoding failed for '%s': %s", metrics.study_location, e)
+    # ── Geocode each record that lacks lat/lon but has a study_location ──────
+    if "latitude" in _FIELD_NAMES and "longitude" in _FIELD_NAMES:
+        geocoded: list[PredatorDietMetrics] = []
+        for rec in records:
+            if rec.latitude is None and rec.longitude is None and rec.study_location:
+                try:
+                    geo = _get_geocoder().geocode(rec.study_location)
+                    if geo is not None:
+                        rec = rec.model_copy(update={"latitude": geo.lat, "longitude": geo.lon})
+                        if geo.confidence < 0.4:
+                            log.warning(
+                                "Low-confidence geocode (%.2f) for '%s' → %s",
+                                geo.confidence, rec.study_location, geo.display_name,
+                            )
+                except Exception as e:
+                    log.warning("Geocoding failed for '%s': %s", rec.study_location, e)
+            geocoded.append(rec)
+        records = geocoded
 
-    return metrics
+    return records
 
 
-def save_extraction_result(
-    metrics: PredatorDietMetrics,
-    source_file: Path,
-    original_text: str,
-    output_dir: Path,
-) -> dict:
-    """Resolve source page numbers and save extraction results to JSON.
-
-    Args:
-        metrics: Populated PredatorDietMetrics object.
-        source_file: Original PDF/text path.
-        original_text: Full un-truncated extracted text (with [PAGE N] markers).
-        output_dir: Directory where the JSON result file will be written.
-
-    Returns:
-        The complete result dict written to disk.
-    """
-    metrics_dict = metrics.model_dump()
-
+def _resolve_source_pages(metrics_dict: dict, original_text: str) -> list[int] | None:
+    """Return sorted page numbers where field values from metrics_dict appear in original_text."""
     _skip_fields = {"fraction_feeding", "source_pages"}
     source_pages: set[int] = set()
     for field_name, value in metrics_dict.items():
@@ -271,13 +291,36 @@ def save_extraction_result(
                 page_markers = re.findall(r'\[PAGE (\d+)\]', original_text[:pos])
                 if page_markers:
                     source_pages.add(int(page_markers[-1]))
+    return sorted(source_pages) if source_pages else None
 
-    metrics_dict["source_pages"] = sorted(source_pages) if source_pages else None
+
+def save_extraction_result(
+    records: list[PredatorDietMetrics],
+    source_file: Path,
+    original_text: str,
+    output_dir: Path,
+) -> dict:
+    """Resolve source page numbers and save extraction results to JSON.
+
+    Args:
+        records: List of PredatorDietMetrics objects, one per (species, survey).
+        source_file: Original PDF/text path.
+        original_text: Full un-truncated extracted text (with [PAGE N] markers).
+        output_dir: Directory where the JSON result file will be written.
+
+    Returns:
+        The complete result dict written to disk.
+    """
+    serialized_records = []
+    for rec in records:
+        rec_dict = rec.model_dump()
+        rec_dict["source_pages"] = _resolve_source_pages(rec_dict, original_text)
+        serialized_records.append(rec_dict)
 
     result = {
         "source_file": source_file.name,
         "file_type": source_file.suffix.lower(),
-        "metrics": metrics_dict,
+        "records": serialized_records,
     }
 
     metrics_dir = output_dir / "metrics"
@@ -327,44 +370,46 @@ def main():
 
     print(f"[INFO] Extracting metrics with {args.model}...", file=sys.stderr)
     try:
-        metrics = extract_metrics_from_text(text, model=args.model, num_ctx=args.num_ctx)
+        records = extract_metrics_from_text(text, model=args.model, num_ctx=args.num_ctx)
     except Exception as e:
         print(f"[ERROR] Extraction failed: {e}", file=sys.stderr)
         log.error("Metric extraction failed for %s: %s", input_path.name, e)
         sys.exit(1)
 
     result = save_extraction_result(
-        metrics=metrics,
+        records=records,
         source_file=input_path,
         original_text=original_text,
         output_dir=Path(args.output_dir),
     )
 
-    # Also emit a one-row summary CSV so the single-file path produces the
-    # same tabular output as the batch pipeline (same columns; classifier
-    # columns are left blank since this path has no classification step).
-    csv_row = metrics_to_row(
-        filename=input_path.name,
-        metrics=result["metrics"],
-        extraction_status="success",
-    )
+    # Emit one CSV row per (species, survey) record.
+    csv_rows = [
+        metrics_to_row(
+            filename=input_path.name,
+            metrics=rec_dict,
+            extraction_status="success",
+        )
+        for rec_dict in result["records"]
+    ]
     csv_path = write_summary_csv(
-        [csv_row],
+        csv_rows,
         Path(args.output_dir),
         filename=input_path.stem + "_results.csv",
     )
     print(f"[SUCCESS] Summary CSV saved to {csv_path}", file=sys.stderr)
 
-    metrics_dict = result["metrics"]
-    print("\n=== Extraction Summary ===", file=sys.stderr)
-    print(f"Species         : {metrics_dict.get('species_name', 'N/A')}", file=sys.stderr)
-    print(f"Location        : {metrics_dict.get('study_location', 'N/A')}", file=sys.stderr)
-    print(f"Date            : {metrics_dict.get('study_year', 'N/A')}", file=sys.stderr)
-    print(f"Sample size     : {metrics_dict.get('num_sampled', 'N/A')}", file=sys.stderr)
-    print(f"Empty stomachs  : {metrics_dict.get('num_empty', 'N/A')}", file=sys.stderr)
-    print(f"Non-empty       : {metrics_dict.get('num_nonempty', 'N/A')}", file=sys.stderr)
-    print(f"Fraction feeding: {metrics_dict.get('fraction_feeding', 'N/A')}", file=sys.stderr)
-    print(f"Source pages    : {metrics_dict.get('source_pages', 'N/A')}", file=sys.stderr)
+    print(f"\n=== Extraction Summary ({len(result['records'])} record(s)) ===", file=sys.stderr)
+    for i, rec_dict in enumerate(result["records"], start=1):
+        print(f"\n  Record {i}:", file=sys.stderr)
+        print(f"    Species         : {rec_dict.get('species_name', 'N/A')}", file=sys.stderr)
+        print(f"    Location        : {rec_dict.get('study_location', 'N/A')}", file=sys.stderr)
+        print(f"    Date            : {rec_dict.get('study_year', 'N/A')}", file=sys.stderr)
+        print(f"    Sample size     : {rec_dict.get('num_sampled', 'N/A')}", file=sys.stderr)
+        print(f"    Empty stomachs  : {rec_dict.get('num_empty', 'N/A')}", file=sys.stderr)
+        print(f"    Non-empty       : {rec_dict.get('num_nonempty', 'N/A')}", file=sys.stderr)
+        print(f"    Fraction feeding: {rec_dict.get('fraction_feeding', 'N/A')}", file=sys.stderr)
+        print(f"    Source pages    : {rec_dict.get('source_pages', 'N/A')}", file=sys.stderr)
 
 
 if __name__ == "__main__":

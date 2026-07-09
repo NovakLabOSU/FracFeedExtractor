@@ -226,3 +226,9 @@ PredatorDietMetrics = create_model(
     __validators__=_validators,
     **_field_defs,
 )
+
+
+class ExtractionResult(BaseModel):
+    """Wrapper returned by the LLM: one record per (species, survey) pair."""
+
+    records: list[PredatorDietMetrics]

@@ -104,7 +104,8 @@ def run_txt_pipeline(
     cleaner_text_dir.mkdir(parents=True, exist_ok=True)
     filter_text_dir.mkdir(parents=True, exist_ok=True)
     llm_text_dir.mkdir(parents=True, exist_ok=True)
-    summary_rows = []
+    summary_rows: list[dict] = []
+    files_processed = 0
 
     for idx, txt_path in enumerate(txt_paths, start=1):
         print(f"\n[{idx}/{len(txt_paths)}] {txt_path.name}", file=sys.stderr)
@@ -118,6 +119,7 @@ def run_txt_pipeline(
             print(f"  [ERROR] Could not read file: {exc}", file=sys.stderr)
             row["extraction_status"] = "read_failed"
             summary_rows.append(row)
+            files_processed += 1
             continue
 
         print(f"  [INFO] Raw size   : {len(raw_text):,} chars", file=sys.stderr)
@@ -126,6 +128,7 @@ def run_txt_pipeline(
             print(f"  [WARN] File is empty — skipping.", file=sys.stderr)
             row["extraction_status"] = "empty_file"
             summary_rows.append(row)
+            files_processed += 1
             continue
 
         # ── Step 2: Clean ───────────────────────────────────────────────────
@@ -136,6 +139,7 @@ def run_txt_pipeline(
             print(f"  [WARN] Nothing left after cleaning — skipping.", file=sys.stderr)
             row["extraction_status"] = "empty_after_clean"
             summary_rows.append(row)
+            files_processed += 1
             continue
 
         # ── Step 3: Save text_cleaner output ────────────────────────────────
@@ -163,7 +167,7 @@ def run_txt_pipeline(
         if chunked:
             print(f"  [INFO] Chunked extraction (top {top_chunks} chunks)…", file=sys.stderr)
             try:
-                merged = extract_with_chunking(
+                record_dicts = extract_with_chunking(
                     text=filtered,
                     model_dir=model_dir,
                     llm_model=llm_model,
@@ -176,6 +180,7 @@ def run_txt_pipeline(
                 print(f"  [ERROR] Chunked extraction failed: {exc}", file=sys.stderr)
                 row["extraction_status"] = "extraction_failed"
                 summary_rows.append(row)
+                files_processed += 1
                 continue
 
             # save JSON
@@ -188,13 +193,12 @@ def run_txt_pipeline(
                 "source_file": txt_path.name,
                 "file_type": txt_path.suffix.lower(),
                 "extraction_mode": "chunked",
-                "metrics": merged,
+                "records": record_dicts,
             }
             with open(out_path, "w", encoding="utf-8") as _f:
                 _json.dump(result_obj, _f, indent=2)
             print(f"[SUCCESS] Results saved to {out_path}", file=sys.stderr)
 
-            m = merged
         else:
             # ── Step 5: Trim to LLM budget ──────────────────────────────────
             if len(filtered) > max_chars:
@@ -217,7 +221,7 @@ def run_txt_pipeline(
             # ── Step 6: LLM extraction ──────────────────────────────────────
             print(f"  [INFO] Calling LLM ({llm_model})…", file=sys.stderr)
             try:
-                metrics = extract_metrics_from_text(
+                records = extract_metrics_from_text(
                     text=trimmed,
                     model=llm_model,
                     num_ctx=num_ctx,
@@ -226,12 +230,13 @@ def run_txt_pipeline(
                 print(f"  [ERROR] LLM extraction failed: {exc}", file=sys.stderr)
                 row["extraction_status"] = "extraction_failed"
                 summary_rows.append(row)
+                files_processed += 1
                 continue
 
             # ── Step 7: Save JSON ───────────────────────────────────────────
             try:
                 result = save_extraction_result(
-                    metrics=metrics,
+                    records=records,
                     source_file=txt_path,
                     original_text=raw_text,
                     output_dir=output_dir,
@@ -240,18 +245,30 @@ def run_txt_pipeline(
                 print(f"  [ERROR] Could not save result: {exc}", file=sys.stderr)
                 row["extraction_status"] = "save_failed"
                 summary_rows.append(row)
+                files_processed += 1
                 continue
 
-            m = result["metrics"]
+            record_dicts = result["records"]
 
-        row = metrics_to_row(filename=txt_path.name, metrics=m, extraction_status="success")
+        # One CSV row per (species, survey) record
+        file_rows = [
+            metrics_to_row(filename=txt_path.name, metrics=rd, extraction_status="success")
+            for rd in record_dicts
+        ]
+        if not file_rows:
+            row["extraction_status"] = "no_records"
+            summary_rows.append(row)
+        else:
+            for rd in record_dicts:
+                print(
+                    f"  [OK] species={rd.get('species_name')}  "
+                    f"n={rd.get('num_sampled')}  "
+                    f"date={rd.get('study_year')}",
+                    file=sys.stderr,
+                )
+            summary_rows.extend(file_rows)
 
-        print(
-            f"  [OK] species={m.get('species_name')}  " f"n={m.get('num_sampled')}  " f"date={m.get('study_year')}",
-            file=sys.stderr,
-        )
-
-        summary_rows.append(row)
+        files_processed += 1
 
     # ── Write summary CSV ───────────────────────────────────────────────────
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -262,16 +279,16 @@ def run_txt_pipeline(
     )
 
     # ── Final report ────────────────────────────────────────────────────────
-    total = len(summary_rows)
-    succeeded = sum(1 for r in summary_rows if r["extraction_status"] == "success")
-    failed = total - succeeded
+    succeeded = len({r["filename"] for r in summary_rows if r["extraction_status"] == "success"})
+    failed = files_processed - succeeded
 
     print("\n" + "=" * 55, file=sys.stderr)
     print("TXT EXTRACTION PIPELINE COMPLETE", file=sys.stderr)
     print("=" * 55, file=sys.stderr)
-    print(f"  Files processed   : {total}", file=sys.stderr)
+    print(f"  Files processed   : {files_processed}", file=sys.stderr)
     print(f"  Successful        : {succeeded}", file=sys.stderr)
     print(f"  Failed / skipped  : {failed}", file=sys.stderr)
+    print(f"  Total CSV rows    : {len(summary_rows)}", file=sys.stderr)
     print(f"  Summary CSV       : {summary_path}", file=sys.stderr)
     print("=" * 55, file=sys.stderr)
 

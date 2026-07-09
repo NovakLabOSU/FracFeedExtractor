@@ -58,11 +58,15 @@ def _process_single_pdf(
     clf_model,
     vectorizer,
     encoder,
-):
-    """Classify one PDF and return a summary row dict."""
+) -> list[dict]:
+    """Classify one PDF and return a list of summary row dicts (one per record).
+
+    Returns a single-element list on failure or when the paper is not useful,
+    and one element per extracted (species, survey) record on success.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    row = blank_row(pdf_path.name)
+    base_row = blank_row(pdf_path.name)
 
     # ── Step 1: Extract text ──────────────────────────────────────────
     try:
@@ -70,14 +74,14 @@ def _process_single_pdf(
     except Exception as e:
         print(f"  [ERROR] Text extraction failed ({pdf_path.name}): {e}", file=sys.stderr)
         log.error("Text extraction failed for %s: %s", pdf_path.name, e)
-        row["extraction_status"] = "text_extraction_failed"
-        return row
+        base_row["extraction_status"] = "text_extraction_failed"
+        return [base_row]
 
     if not original_text.strip():
         print(f"  [WARN] No text extracted from {pdf_path.name}. Skipping.", file=sys.stderr)
         log.warning("No text extracted from %s — skipping.", pdf_path.name)
-        row["extraction_status"] = "empty_text"
-        return row
+        base_row["extraction_status"] = "empty_text"
+        return [base_row]
 
     print(f"  [INFO] {pdf_path.name}: {len(original_text)} chars", file=sys.stderr)
 
@@ -91,9 +95,9 @@ def _process_single_pdf(
     )
     print(f"  [CLASSIFIER] {pdf_path.name} → {label} ({confidence:.2%})", file=sys.stderr)
 
-    row["classification"] = label
-    row["confidence"] = f"{confidence:.4f}"
-    row["pred_prob"] = f"{pred_prob:.4f}"
+    base_row["classification"] = label
+    base_row["confidence"] = f"{confidence:.4f}"
+    base_row["pred_prob"] = f"{pred_prob:.4f}"
 
     # ── Step 3: Extract ───────────────────────────────────────────────
     if label == "useful":
@@ -105,37 +109,41 @@ def _process_single_pdf(
             print(f"  [INFO] {pdf_path.name}: trimmed to {len(text_for_llm)} chars (budget {max_chars})", file=sys.stderr)
 
         try:
-            metrics = extract_metrics_from_text(
+            records = extract_metrics_from_text(
                 text=text_for_llm,
                 model=llm_model,
                 num_ctx=num_ctx,
             )
             result = save_extraction_result(
-                metrics=metrics,
+                records=records,
                 source_file=pdf_path,
                 original_text=original_text,
                 output_dir=output_dir,
             )
 
-            row = metrics_to_row(
-                filename=pdf_path.name,
-                metrics=result["metrics"],
-                classification=row["classification"],
-                confidence=row["confidence"],
-                pred_prob=row["pred_prob"],
-                extraction_status="success",
-            )
+            rows = [
+                metrics_to_row(
+                    filename=pdf_path.name,
+                    metrics=rec_dict,
+                    classification=base_row["classification"],
+                    confidence=base_row["confidence"],
+                    pred_prob=base_row["pred_prob"],
+                    extraction_status="success",
+                )
+                for rec_dict in result["records"]
+            ]
+            return rows if rows else [dict(base_row, extraction_status="no_records")]
 
         except Exception as e:
             print(f"  [ERROR] LLM extraction failed ({pdf_path.name}): {e}", file=sys.stderr)
             log.error("LLM extraction failed for %s: %s", pdf_path.name, e)
-            row["extraction_status"] = "extraction_failed"
+            base_row["extraction_status"] = "extraction_failed"
 
     else:
         print(f"  [INFO] {pdf_path.name}: Not useful — skipping LLM extraction.", file=sys.stderr)
-        row["extraction_status"] = "skipped_not_useful"
+        base_row["extraction_status"] = "skipped_not_useful"
 
-    return row
+    return [base_row]
 
 
 def run_pipeline(
@@ -191,7 +199,8 @@ def run_pipeline(
         sys.exit(1)
     print("[INFO] Classifier loaded.", file=sys.stderr)
 
-    summary_rows = []
+    # Per-PDF rows lists; each inner list has ≥1 row (one per record on success).
+    per_pdf_rows: list[list[dict]] = []
 
     if workers > 1 and len(pdf_paths) > 1:
         print(f"[INFO] Using {workers} worker processes.", file=sys.stderr)
@@ -214,16 +223,17 @@ def run_pipeline(
             for future in as_completed(futures):
                 pdf_path = futures[future]
                 try:
-                    row = future.result()
+                    rows = future.result()
                 except Exception as exc:
                     print(f"  [ERROR] Worker failed for {pdf_path.name}: {exc}", file=sys.stderr)
                     row = blank_row(pdf_path.name)
                     row["extraction_status"] = "worker_failed"
-                summary_rows.append(row)
+                    rows = [row]
+                per_pdf_rows.append(rows)
     else:
         for idx, pdf_path in enumerate(pdf_paths, start=1):
             print(f"\n[{idx}/{len(pdf_paths)}] Processing: {pdf_path.name}", file=sys.stderr)
-            row = _process_single_pdf(
+            rows = _process_single_pdf(
                 pdf_path,
                 llm_model,
                 output_dir,
@@ -234,17 +244,22 @@ def run_pipeline(
                 vectorizer,
                 encoder,
             )
-            summary_rows.append(row)
+            per_pdf_rows.append(rows)
+
+    # Flatten: one CSV row per (paper × record)
+    summary_rows = [row for rows in per_pdf_rows for row in rows]
 
     # ── Write summary CSV ─────────────────────────────────────────────────
     summary_path = write_summary_csv(summary_rows, output_dir)
 
-    # ── Final summary ─────────────────────────────────────────────────────
-    total = len(summary_rows)
-    useful_count = sum(1 for r in summary_rows if r["classification"] == "useful")
-    not_useful_count = sum(1 for r in summary_rows if r["classification"] == "not useful")
-    extracted_count = sum(1 for r in summary_rows if r["extraction_status"] == "success")
-    error_count = sum(1 for r in summary_rows if r["extraction_status"] in ("text_extraction_failed", "empty_text", "extraction_failed", "worker_failed"))
+    # ── Final summary (stats counted per PDF, not per row) ────────────────
+    total = len(per_pdf_rows)
+    # Use first row of each PDF for classification/status (all rows from one PDF share these)
+    first_rows = [rows[0] for rows in per_pdf_rows]
+    useful_count = sum(1 for r in first_rows if r["classification"] == "useful")
+    not_useful_count = sum(1 for r in first_rows if r["classification"] == "not useful")
+    extracted_count = sum(1 for r in first_rows if r["extraction_status"] == "success")
+    error_count = sum(1 for r in first_rows if r["extraction_status"] in ("text_extraction_failed", "empty_text", "extraction_failed", "worker_failed", "no_records"))
 
     print("\n" + "=" * 50, file=sys.stderr)
     print("PIPELINE COMPLETE", file=sys.stderr)

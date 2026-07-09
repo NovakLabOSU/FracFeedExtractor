@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.extraction.models import PredatorDietMetrics
+from src.extraction.models import ExtractionResult, PredatorDietMetrics
 
 
 # ---------------------------------------------------------------------------
@@ -427,3 +427,117 @@ class TestSerialization:
         assert "num_empty" in props
         assert "num_nonempty" in props
         assert "num_sampled" in props
+
+
+# ---------------------------------------------------------------------------
+# ExtractionResult wrapper
+# ---------------------------------------------------------------------------
+
+
+class TestExtractionResult:
+    def test_single_record(self):
+        rec = PredatorDietMetrics(**FULL_SURVEY)
+        result = ExtractionResult(records=[rec])
+        assert len(result.records) == 1
+        assert result.records[0].species_name == "Gadus morhua"
+
+    def test_multiple_records(self):
+        rec1 = PredatorDietMetrics(**FULL_SURVEY)
+        rec2 = PredatorDietMetrics(**PUMP_SURVEY)
+        result = ExtractionResult(records=[rec1, rec2])
+        assert len(result.records) == 2
+        assert result.records[0].species_name == "Gadus morhua"
+        assert result.records[1].species_name == "Pygoscelis papua"
+
+    def test_empty_records_list(self):
+        result = ExtractionResult(records=[])
+        assert result.records == []
+
+    def test_json_round_trip_single(self):
+        import json
+
+        payload = json.dumps({
+            "records": [{
+                "species_name": "Vulpes vulpes",
+                "study_location": "Bristol, UK",
+                "study_year_range": "2015-2018",
+                "study_year": "2017",
+                "study_month": "06",
+                "study_day": "15",
+                "num_empty": 12,
+                "num_nonempty": 88,
+                "num_sampled": 100,
+                "survey_type": None,
+                "ecosystem": None,
+                "latitude": None,
+                "longitude": None,
+            }]
+        })
+        result = ExtractionResult.model_validate_json(payload)
+        assert len(result.records) == 1
+        assert result.records[0].species_name == "Vulpes vulpes"
+        assert result.records[0].study_day == "15"
+        assert result.records[0].fraction_feeding == pytest.approx(0.88)
+
+    def test_json_round_trip_multi_species(self):
+        import json
+
+        payload = json.dumps({
+            "records": [
+                {
+                    "species_name": "Buteo jamaicensis",
+                    "study_location": "Chihuahuan Desert, New Mexico, USA",
+                    "study_year_range": "2010",
+                    "study_year": "2010",
+                    "num_empty": 3,
+                    "num_nonempty": 45,
+                    "num_sampled": 48,
+                    "survey_type": "Gut content (lethal)",
+                    "ecosystem": "Terrestrial",
+                    "latitude": None,
+                    "longitude": None,
+                    "study_month": None,
+                    "study_day": None,
+                },
+                {
+                    "species_name": "Falco mexicanus",
+                    "study_location": "Chihuahuan Desert, New Mexico, USA",
+                    "study_year_range": "2010",
+                    "study_year": "2010",
+                    "num_empty": 7,
+                    "num_nonempty": 31,
+                    "num_sampled": 38,
+                    "survey_type": "Gut content (lethal)",
+                    "ecosystem": "Terrestrial",
+                    "latitude": None,
+                    "longitude": None,
+                    "study_month": None,
+                    "study_day": None,
+                },
+            ]
+        })
+        result = ExtractionResult.model_validate_json(payload)
+        assert len(result.records) == 2
+        species = {r.species_name for r in result.records}
+        assert species == {"Buteo jamaicensis", "Falco mexicanus"}
+
+    def test_record_validation_still_enforced(self):
+        """Per-record Pydantic validators still run inside ExtractionResult."""
+        import json
+
+        payload = json.dumps({
+            "records": [{
+                "species_name": "canis lupus",  # invalid: lowercase genus
+                "num_empty": 5,
+                "num_nonempty": 45,
+                "num_sampled": 50,
+            }]
+        })
+        with pytest.raises(ValidationError):
+            ExtractionResult.model_validate_json(payload)
+
+    def test_schema_has_records_key(self):
+        schema = ExtractionResult.model_json_schema()
+        assert "records" in schema.get("properties", {})
+        records_schema = schema["properties"]["records"]
+        assert records_schema.get("type") == "array"

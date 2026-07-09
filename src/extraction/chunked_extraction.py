@@ -50,35 +50,64 @@ def score_chunk(chunk: str, model: xgb.Booster, vectorizer: Any) -> float:
     return float(score)
 
 
-def merge_results(results: list[Optional[dict[str, Any]]]) -> dict[str, Any]:
-    """Merge extraction results from multiple chunks using voting."""
-    results = [r for r in results if r is not None]
+def _record_key(rec: dict[str, Any], idx: int | None = None) -> tuple:
+    """Grouping key for a (species, survey) record: species × location × year_range.
 
-    if not results:
-        return {}
+    When all three fields are absent, falls back to a unique index-based key so
+    distinct all-null records are never merged together.
+    """
+    key = (
+        (rec.get("species_name") or "").lower().strip(),
+        (rec.get("study_location") or "").lower().strip(),
+        (rec.get("study_year_range") or "").strip(),
+    )
+    if key == ("", "", "") and idx is not None:
+        return ("__null__", str(idx))
+    return key
 
-    merged: dict[str, Any] = {}
+
+def _merge_record_group(group: list[dict[str, Any]]) -> dict[str, Any]:
+    """Majority-vote merge of records that share the same (species, location, year) key."""
     fields = list(PredatorDietMetrics.model_fields.keys())
-
+    merged: dict[str, Any] = {}
     for field in fields:
-        values = [r.get(field) for r in results if r.get(field) is not None]
-
+        values = [r.get(field) for r in group if r.get(field) is not None]
         if not values:
             merged[field] = None
         else:
-            counter = Counter(values)
-            merged[field] = counter.most_common(1)[0][0]
-
-    nonempty = merged.get("num_nonempty")
-    sample = merged.get("num_sampled")
-    if nonempty is not None and sample and sample > 0:
-        merged["fraction_feeding"] = round(nonempty / sample, 4)
-    else:
-        merged["fraction_feeding"] = None
+            merged[field] = Counter(values).most_common(1)[0][0]
 
     merged["source_pages"] = None
+    return PredatorDietMetrics.model_validate(merged).model_dump()
 
-    return merged
+
+def merge_results(chunk_results: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    """Merge multi-record extraction results from multiple chunks.
+
+    Each element of chunk_results is the list of (species, survey) records
+    returned by extract_metrics_from_text() for one chunk.  Records that share
+    the same (species_name, study_location, study_year_range) key are merged
+    by majority vote.  Records with distinct keys become separate output rows.
+
+    Args:
+        chunk_results: One list of record dicts per chunk.
+
+    Returns:
+        Deduplicated list of merged record dicts.
+    """
+    # Flatten all records from every chunk
+    all_records = [rec for chunk in chunk_results for rec in chunk if rec is not None]
+
+    if not all_records:
+        return []
+
+    # Group by natural (species, survey) key
+    groups: dict[tuple, list[dict[str, Any]]] = {}
+    for i, rec in enumerate(all_records):
+        key = _record_key(rec, i)
+        groups.setdefault(key, []).append(rec)
+
+    return [_merge_record_group(group) for group in groups.values()]
 
 
 def extract_with_chunking(
@@ -89,8 +118,12 @@ def extract_with_chunking(
     top_n: int = 3,
     chunk_size: int = 3000,
     overlap: int = 300,
-) -> dict[str, Any]:
-    """Main extraction with chunking pipeline."""
+) -> list[dict[str, Any]]:
+    """Main extraction with chunking pipeline.
+
+    Returns a list of merged record dicts, one per unique (species, survey) pair
+    found across all selected chunks.
+    """
 
     print("  [CHUNK] Loading classifier...", file=sys.stderr)
     model, vectorizer, _encoder = load_classifier(model_dir)
@@ -99,7 +132,7 @@ def extract_with_chunking(
     print(f"  [CHUNK] Split into {len(chunks)} chunks", file=sys.stderr)
 
     if not chunks:
-        return {}
+        return []
 
     # Score all chunks
     scored = [(chunk, score_chunk(chunk, model, vectorizer)) for chunk in chunks]
@@ -118,28 +151,37 @@ def extract_with_chunking(
     print(f"  [CHUNK] Using {len(top_chunks)} chunks (first + top {len(top_scored)} scored)", file=sys.stderr)
     print(f"  [CHUNK] Scores: {[round(s, 3) for _, s in top_chunks]}", file=sys.stderr)
 
-    results = []
+    # Each element is a list of record dicts from one chunk
+    chunk_results: list[list[dict[str, Any]]] = []
+    successful_chunks = 0
     for i, (chunk, score) in enumerate(top_chunks):
         print(f"  [CHUNK] Extracting chunk {i + 1}/{len(top_chunks)}...", file=sys.stderr)
 
         try:
-            metrics = extract_metrics_from_text(
+            records = extract_metrics_from_text(
                 text=chunk,
                 model=llm_model,
                 num_ctx=num_ctx,
             )
-            result_dict = metrics.model_dump()
-            results.append(result_dict)
-            print(f"    species={result_dict.get('species_name')}, location={result_dict.get('study_location')}, sample={result_dict.get('num_sampled')}", file=sys.stderr)
+            record_dicts = [r.model_dump() for r in records]
+            chunk_results.append(record_dicts)
+            successful_chunks += 1
+            for rd in record_dicts:
+                print(
+                    f"    species={rd.get('species_name')}, "
+                    f"location={rd.get('study_location')}, "
+                    f"sample={rd.get('num_sampled')}",
+                    file=sys.stderr,
+                )
         except Exception as e:
             print(f"    [ERROR] {e}", file=sys.stderr)
 
         gc.collect()
 
-    if not results:
+    if not chunk_results:
         raise RuntimeError(f"All {len(top_chunks)} LLM extraction attempts failed")
 
-    merged = merge_results(results)
+    merged = merge_results(chunk_results)
     return merged
 
 
@@ -159,9 +201,9 @@ if __name__ == "__main__":
 
     print(f"Processing {text_path.name}...")
 
-    metrics = extract_with_chunking(text, top_n=args.top_chunks, llm_model=args.llm_model)
+    records = extract_with_chunking(text, top_n=args.top_chunks, llm_model=args.llm_model)
 
-    result = {"source_file": text_path.name, "metrics": metrics}
+    result = {"source_file": text_path.name, "records": records}
 
     output_path = Path(args.output_dir) / f"{text_path.stem}_chunked_results.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -170,4 +212,4 @@ if __name__ == "__main__":
         json.dump(result, f, indent=2)
 
     print(f"Saved to {output_path}")
-    print(json.dumps(metrics, indent=2))
+    print(json.dumps(records, indent=2))

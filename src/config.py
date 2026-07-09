@@ -31,9 +31,9 @@ def _normalize_survey_type(value):
         return "Gut content (lethal)"
     if any(kw in v_lower for kw in ["lavage", "pump", "gastric", "emetic"]):
         return "Gut content (lavage)"
-    if any(kw in v_lower for kw in ["direct observ", "visual observ", "behavioral observ"]):
+    if re.search(r'\bdirect observ', v_lower) or any(kw in v_lower for kw in ["visual observ", "behavioral observ"]):
         return "Direct observation"
-    if re.search(r'\bother\b', v_lower) or any(kw in v_lower for kw in ["scat", "fecal", "isotope", "molecular", "regurgit", "indirect"]):
+    if re.search(r'\bother\b', v_lower) or any(kw in v_lower for kw in ["scat", "fecal", "isotope", "molecular", "pellet", "indirect"]):
         return "Other"
     return None
 
@@ -102,16 +102,15 @@ FIELDS: list = [
         python_type=Optional[str],
         prompt_type="string or null",
         description=(
-            'Binomial Latin name (Genus species) of the PRIMARY PREDATOR whose diet is studied. '
-            'This is the animal being studied, not its prey. Return exactly one species. '
-            'If multiple predator species appear, choose the one with the most samples. '
+            'Binomial Latin name (Genus species) of the predator whose diet is described by this record. '
+            'This is the animal species being studied, not its prey. '
             'Capitalize genus, lowercase epithet (e.g., "Pygoscelis papua").'
         ),
         csv_label="Predator Species",
         retryable=True,
         hint=(
-            "- species_name: Look for the first binomial Latin name (Genus species) "
-            "in the title or abstract. This is the PREDATOR, not its prey.\n"
+            "- species_name: Look for the binomial Latin name (Genus species) "
+            "in the title or abstract or introduction.\n"
         ),
         pattern=r"^[A-Z][a-z]+( [a-z]+)*$",
         min_length=3,
@@ -142,7 +141,7 @@ FIELDS: list = [
         description=(
             "Decimal-degree latitude of the study site. Extract verbatim from text ONLY "
             "(e.g. 44.5, -12.3). If not explicitly stated as a number, output null — "
-            "coordinates will be resolved from study_location."
+            "coordinates will be resolved from study_location. Northern hemisphere = positive, Southern hemisphere = negative."
         ),
         csv_label="Latitude",
         retryable=False,
@@ -155,7 +154,7 @@ FIELDS: list = [
         prompt_type="float or null",
         description=(
             "Decimal-degree longitude of the study site. Extract verbatim from text ONLY. "
-            "Output null if not explicitly stated as a number."
+            "Output null if not explicitly stated as a number. Western hemisphere = negative, Eastern hemisphere = positive."
         ),
         csv_label="Longitude",
         retryable=False,
@@ -276,8 +275,8 @@ FIELDS: list = [
         csv_label="Empty Stomachs",
         retryable=True,
         hint=(
-            "- num_empty: Look for 'empty', 'no food', 'no contents', "
-            "'negative for prey'. If ALL samples had food (e.g., stomach pumping "
+            "- num_empty: Look for 'empty', 'no food', 'no contents', 'negative for prey'. "
+            "If ALL samples had food (e.g., stomach pumping "
             "where every sample produced material), return 0.\n"
         ),
         ge=0.0,
@@ -313,11 +312,11 @@ FIELDS: list = [
             "  - Check Abstract, Methods, and Results.\n"
             "  Examples of phrases that indicate num_sampled:\n"
             '  - "N stomachs examined", "N individuals", "N specimens", "n=N", '
-            '"a total of N specimens", "a total of N stomachs", "N samples were collected", '
+            '"a total of N specimens", "a total of N stomachs", "N samples were collected for diet", '
             '"N animals were examined"\n'
-            '  - "two groups of 225" → num_sampled = 450'
+            "  If samples are reported as subgroups (e.g., 'two groups of 225'), sum them (e.g., 225 + 225 = 450)."
         ),
-        csv_label="Sample Size (N)",
+        csv_label="Total Stomachs",
         retryable=True,
         hint=(
             "- num_sampled: Look for 'N stomachs', 'N specimens', 'a total of N', "
@@ -385,35 +384,52 @@ FIELDS: list = [
 
 _PROMPT_HEADER = (
     "You are a scientific data extraction assistant. Your task is to read a predator diet study "
-    "and return a single flat JSON object with exactly these fields:"
+    'and return a JSON object with a single key "records" whose value is an array. '
+    "Each element of the array represents ONE predator species in ONE survey "
+    "(a unique sampling location and/or time period), with exactly these fields:"
 )
 
 _PROMPT_RULES = """\
 RULES
 - Do not invent data; use null only if truly ambiguous or missing.
 - If ALL samples had food, set num_empty = 0 and num_nonempty = num_sampled.
-- Do not infer values on the basis of scat samples, fecal analysis, stable isotope analysis, molecular detection, or immunoassays. Return null for all fields for these studies unless they also include direct stomach/gut dissection, stomach pumping, or direct observation of feeding.
-- Restrict to diet studies of predators (e.g., carnivores, piscivores, insectivores, omnivores) that consumer other animals. Do not extract from studies ofanimals that primarily consume plants or fruit (i.e., herbivores or frugivores). Return null for all fields if the study is not about a predator diet.
-- When values are given as a percentage or proportion, convert to absolute numbers only when num_sampled is given.
+- Do not infer values on the basis of scat samples, fecal analysis, stable isotope analysis, molecular detection, pellet analysis, or immunoassays. Return null for all fields for these studies unless they also report on direct stomach/gut dissection, stomach pumping, or direct observation of feeding.
+- Restrict to diet studies of predators (e.g., carnivores, piscivores, insectivores, omnivores) that consume other animals. Do not extract from studies of animals that primarily consume plants or fruit (i.e., herbivores or frugivores). Return an empty records array if the study is not about a predator diet.
+- When num_empty or num_nonempty values are given as a percentage or proportion, convert to absolute numbers only when num_sampled is given.
 - Ignore page markers [PAGE N].
 - Prioritize Abstract, Methods, and Results sections.
 - Carefully distinguish collection dates from publication/submission dates.
-- Return a single JSON object; do not return arrays."""
+
+RECORD SPLITTING RULES
+- The unit of one record is ONE predator species in ONE survey.
+- A "survey" is a distinct sampling event with a unique location and/or time period (e.g., "summer 2010 at Site A" vs. "winter 2011 at Site B", or "depth 100-200 m" vs. "depth 200-300 m").
+- Always create one record per predator species studied. A paper studying 3 species produces at least 3 records.
+- Within each species, create one record per distinct survey ONLY when num_sampled, num_empty, or num_nonempty is separately reported for that survey. If a species's counts are given only in aggregate across surveys, use ONE record for that species with the aggregate counts.
+- When BOTH multiple species AND multiple surveys are present, apply both rules independently. Example: 2 species x 2 sites with per-(species, site) counts -> 4 records. Example: 2 species x 2 sites with counts per species but not per site -> 2 records.
+- Do not create a record for a species if its counts cannot be determined.
+- A paper with one species and one survey returns an array with exactly one record.
+- Always return {"records": [...]}; never return a bare JSON object or a bare array.
+
+WITHIN-SPECIES SUBCATEGORY AGGREGATION
+- Some studies report counts broken down within a species and survey.  For example, they may include subcategories of age class (e.g., adults, juveniles, age-0) or sex (e.g., males, females, unsexed/unknown). Always aggregate these subcategories into a single species-survey record: sum num_sampled, num_empty, and num_nonempty across all subcategories. Do not create separate records for subcategories."""
 
 _PROMPT_EXAMPLES = """\
 EXAMPLES
 
-1. Stomach dissection, terrestrial predator (all data present):
-{"species_name": "Canis lupus", "study_location": "Yellowstone National Park, Wyoming, USA", "latitude": null, "longitude": null, "study_year_range": "2018-2020", "study_year": "2019", "study_month": "04", "study_day": "06", "num_empty": 5, "num_nonempty": 47, "num_sampled": 52, "survey_type": "Gut content (lethal)", "ecosystem": "Terrestrial"}
+1. Single species, single survey — array with one record:
+{"records": [{"species_name": "Canis lupus", "study_location": "Yellowstone National Park, Wyoming, USA", "latitude": null, "longitude": null, "study_year_range": "2018-2020", "study_year": "2019", "study_month": "04", "study_day": "06", "num_empty": 5, "num_nonempty": 47, "num_sampled": 52, "survey_type": "Gut content (lethal)", "ecosystem": "Terrestrial"}]}
 
-2. Gastric lavage, marine predator (all samples had food):
-{"species_name": "Pygoscelis papua", "study_location": "Marion Island, sub-Antarctic", "latitude": null, "longitude": null, "study_year_range": "1987", "study_year": "1987", "study_month": null, "study_day": null, "num_empty": 0, "num_nonempty": 144, "num_sampled": 144, "survey_type": "Gut content (lavage)", "ecosystem": "Marine"}
+2. Two species studied at the same location and time — array with two records (one per species):
+{"records": [{"species_name": "Buteo jamaicensis", "study_location": "Chihuahuan Desert, New Mexico, USA", "latitude": null, "longitude": null, "study_year_range": "2010", "study_year": "2010", "study_month": null, "study_day": null, "num_empty": 3, "num_nonempty": 45, "num_sampled": 48, "survey_type": "Gut content (lethal)", "ecosystem": "Terrestrial"}, {"species_name": "Falco mexicanus", "study_location": "Chihuahuan Desert, New Mexico, USA", "latitude": null, "longitude": null, "study_year_range": "2010", "study_year": "2010", "study_month": null, "study_day": null, "num_empty": 7, "num_nonempty": 31, "num_sampled": 38, "survey_type": "Gut content (lethal)", "ecosystem": "Terrestrial"}]}
 
-3. Stomach dissection, freshwater predator (minimal data):
-{"species_name": "Ursus arctos", "study_location": null, "latitude": null, "longitude": null, "study_year_range": "2020", "study_year": "2020", "study_month": null, "study_day": null, "num_empty": 1, "num_nonempty": 22, "num_sampled": 23, "survey_type": "Gut content (lethal)", "ecosystem": "Lotic"}
+3. One species surveyed at two sites with separate per-site counts — array with two records (one per survey):
+{"records": [{"species_name": "Pygoscelis papua", "study_location": "Marion Island, sub-Antarctic", "latitude": null, "longitude": null, "study_year_range": "1987", "study_year": "1987", "study_month": null, "study_day": null, "num_empty": 0, "num_nonempty": 80, "num_sampled": 80, "survey_type": "Gut content (lavage)", "ecosystem": "Marine"}, {"species_name": "Pygoscelis papua", "study_location": "Bouvet Island, sub-Antarctic", "latitude": null, "longitude": null, "study_year_range": "1987", "study_year": "1987", "study_month": null, "study_day": null, "num_empty": 0, "num_nonempty": 64, "num_sampled": 64, "survey_type": "Gut content (lavage)", "ecosystem": "Marine"}]}
 
-4. Direct observation, lentic ecosystem:
-{"species_name": "Ardea herodias", "study_location": "Chesapeake Bay watershed, Maryland, USA", "latitude": null, "longitude": null, "study_year_range": "2005-2007", "study_year": "2006", "study_month": null, "study_day": null, "num_empty": 12, "num_nonempty": 88, "num_sampled": 100, "survey_type": "Direct observation", "ecosystem": "Lentic"}"""
+4. One species, multiple seasonal surveys but counts reported only in aggregate — array with one record using the aggregate total:
+{"records": [{"species_name": "Ardea herodias", "study_location": "Chesapeake Bay watershed, Maryland, USA", "latitude": null, "longitude": null, "study_year_range": "2005-2007", "study_year": "2006", "study_month": null, "study_day": null, "num_empty": 12, "num_nonempty": 88, "num_sampled": 100, "survey_type": "Direct observation", "ecosystem": "Lentic"}]}
+
+5. One species, one survey, counts reported separately for adults and juveniles — aggregate into one record (60 + 40 = 100 sampled, 8 + 4 = 12 empty, 52 + 36 = 88 non-empty):
+{"records": [{"species_name": "Ardea herodias", "study_location": "Chesapeake Bay watershed, Maryland, USA", "latitude": null, "longitude": null, "study_year_range": "2005-2007", "study_year": "2006", "study_month": null, "study_day": null, "num_empty": 12, "num_nonempty": 88, "num_sampled": 100, "survey_type": "Direct observation", "ecosystem": "Lentic"}]}"""
 
 
 def build_prompt(text: str) -> str:
