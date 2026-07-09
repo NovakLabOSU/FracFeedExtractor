@@ -126,6 +126,8 @@ cd FracFeedExtractor
 python3 -m venv venv
 source venv/bin/activate
 pip install -e ".[dev]"
+pip install pre-commit
+pre-commit install
 ```
 
 ```powershell
@@ -135,7 +137,11 @@ cd FracFeedExtractor
 py -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
+pip install pre-commit
+pre-commit install
 ```
+
+The `pre-commit install` step registers a Git hook that runs Black automatically before each commit. This prevents formatting drift from failing CI.
 
 ### Configuration
 
