@@ -155,7 +155,7 @@ _FIELD_PATTERNS: List[Tuple[re.Pattern, int]] = [
 
 # Maximum characters reserved for the pinned abstract/preamble.  Any
 # remaining budget is filled by keyword-scored paragraphs.
-_ABSTRACT_CAP: int = 2000
+_ABSTRACT_CAP: int = 3000
 
 
 def _truncate_at_sentence(text: str, limit: int) -> str:

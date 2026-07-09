@@ -34,8 +34,10 @@ from pathlib import Path
 
 from src.config import DEFAULT_LLM_MODEL
 from src.io.pdf_text_extraction import extract_text_from_pdf
+from src.io.text_cleaner import clean_text
+from src.io.section_filter import filter_relevant_sections
 from src.io.summary_csv import blank_row, metrics_to_row, write_summary_csv
-from src.classifier.pdf_classifier import load_classifier, classify_text
+from src.classifier.pdf_classifier import load_classifier, classify_text, explain_classification
 from src.extraction.llm_text import extract_key_sections
 from src.extraction.llm_client import extract_metrics_from_text, save_extraction_result
 from src.utils.logger import setup_logging
@@ -58,6 +60,8 @@ def _process_single_pdf(
     clf_model,
     vectorizer,
     encoder,
+    skip_classifier: bool = False,
+    explain: bool = False,
 ) -> list[dict]:
     """Classify one PDF and return a list of summary row dicts (one per record).
 
@@ -86,24 +90,41 @@ def _process_single_pdf(
     print(f"  [INFO] {pdf_path.name}: {len(original_text)} chars", file=sys.stderr)
 
     # ── Step 2: Classify ──────────────────────────────────────────────
-    label, confidence, pred_prob = classify_text(
-        text=original_text,
-        model=clf_model,
-        vectorizer=vectorizer,
-        encoder=encoder,
-        threshold=confidence_threshold,
-    )
-    print(f"  [CLASSIFIER] {pdf_path.name} → {label} ({confidence:.2%})", file=sys.stderr)
+    if skip_classifier:
+        label, confidence, pred_prob = "useful", 1.0, 1.0
+        print(f"  [CLASSIFIER] {pdf_path.name} → classifier skipped (--skip-classifier)", file=sys.stderr)
+    else:
+        label, confidence, pred_prob = classify_text(
+            text=original_text,
+            model=clf_model,
+            vectorizer=vectorizer,
+            encoder=encoder,
+            threshold=confidence_threshold,
+        )
+        print(f"  [CLASSIFIER] {pdf_path.name} → {label} ({confidence:.2%})", file=sys.stderr)
 
     base_row["classification"] = label
     base_row["confidence"] = f"{confidence:.4f}"
     base_row["pred_prob"] = f"{pred_prob:.4f}"
 
+    # ── Step 2b: Explain (optional) ───────────────────────────────────
+    if label == "useful" and explain and not skip_classifier:
+        top_terms = explain_classification(original_text, clf_model, vectorizer, top_n=10)
+        if top_terms:
+            print(f"  [EXPLAIN] Top classifier keywords for {pdf_path.name}:", file=sys.stderr)
+            for term, score, pages in top_terms:
+                page_str = f" (p. {pages[0]})" if pages else ""
+                print(f"    {term:<30} score={score:.2f}{page_str}", file=sys.stderr)
+        base_row["top_keywords"] = "; ".join(t for t, _, _ in top_terms)
+
     # ── Step 3: Extract ───────────────────────────────────────────────
     if label == "useful":
         print(f"  [INFO] {pdf_path.name}: Running LLM extraction...", file=sys.stderr)
 
-        text_for_llm = original_text
+        # Apply the same preprocessing chain as the txt pipeline:
+        # clean noise → filter irrelevant sections → trim to LLM budget
+        text_for_llm = clean_text(original_text)
+        text_for_llm = filter_relevant_sections(text_for_llm)
         if len(text_for_llm) > max_chars:
             text_for_llm = extract_key_sections(text_for_llm, max_chars)
             print(f"  [INFO] {pdf_path.name}: trimmed to {len(text_for_llm)} chars (budget {max_chars})", file=sys.stderr)
@@ -155,14 +176,16 @@ def run_pipeline(
     max_chars: int,
     num_ctx: int,
     workers: int = 1,
+    skip_classifier: bool = False,
+    explain: bool = False,
 ):
     """Run classify → extract pipeline on one or more PDFs.
 
     For each PDF:
       1. Extract text via PyMuPDF / OCR (pdf_text_extraction.py)
-      2. Classify with XGBoost (pdf_classifier.py)
-      3. If 'useful': trim text to budget (llm_text.py), run LLM extraction
-         (llm_client.py), and save result JSON (llm_client.py)
+      2. Classify with XGBoost (pdf_classifier.py) — skipped when skip_classifier=True
+      3. If 'useful': clean noise, filter sections, trim to budget, run LLM extraction,
+         and save result JSON
       4. Append a row to the summary CSV regardless of classification outcome
 
     Args:
@@ -174,6 +197,7 @@ def run_pipeline(
         max_chars: Max characters to send to the LLM.
         num_ctx: Context window size (passed to Ollama; ignored for Anthropic).
         workers: Number of parallel worker processes (default: 1 = sequential).
+        skip_classifier: When True, treat every PDF as useful and skip classification.
     """
     # ── Collect PDF paths ─────────────────────────────────────────────────
     if input_path.is_dir():
@@ -190,14 +214,18 @@ def run_pipeline(
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print("[INFO] Loading classifier...", file=sys.stderr)
-    try:
-        clf_model, vectorizer, encoder = load_classifier(model_dir)
-    except FileNotFoundError as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
-        log.critical("Classifier artifacts not found: %s", e)
-        sys.exit(1)
-    print("[INFO] Classifier loaded.", file=sys.stderr)
+    if skip_classifier:
+        print("[INFO] --skip-classifier: treating all PDFs as useful, skipping classification.", file=sys.stderr)
+        clf_model = vectorizer = encoder = None
+    else:
+        print("[INFO] Loading classifier...", file=sys.stderr)
+        try:
+            clf_model, vectorizer, encoder = load_classifier(model_dir)
+        except FileNotFoundError as e:
+            print(f"[ERROR] {e}", file=sys.stderr)
+            log.critical("Classifier artifacts not found: %s", e)
+            sys.exit(1)
+        print("[INFO] Classifier loaded.", file=sys.stderr)
 
     # Per-PDF rows lists; each inner list has ≥1 row (one per record on success).
     per_pdf_rows: list[list[dict]] = []
@@ -217,6 +245,8 @@ def run_pipeline(
                     clf_model,
                     vectorizer,
                     encoder,
+                    skip_classifier,
+                    explain,
                 ): pdf_path
                 for pdf_path in pdf_paths
             }
@@ -243,6 +273,8 @@ def run_pipeline(
                 clf_model,
                 vectorizer,
                 encoder,
+                skip_classifier,
+                explain,
             )
             per_pdf_rows.append(rows)
 
@@ -348,6 +380,20 @@ Examples:
         default=1,
         help="Number of parallel worker processes (default: 1 = sequential).",
     )
+    parser.add_argument(
+        "--skip-classifier",
+        action="store_true",
+        default=False,
+        help="Skip the XGBoost classifier and treat every PDF as useful. "
+             "Useful when PDFs are already known to be relevant.",
+    )
+    parser.add_argument(
+        "--explain",
+        action="store_true",
+        default=False,
+        help="For each useful PDF, print the top classifier keywords and the page "
+             "numbers where they appear. Adds 'top_keywords' to the summary CSV.",
+    )
 
     args = parser.parse_args()
 
@@ -371,6 +417,8 @@ Examples:
         max_chars=args.max_chars,
         num_ctx=args.num_ctx,
         workers=args.workers,
+        skip_classifier=args.skip_classifier,
+        explain=args.explain,
     )
 
 

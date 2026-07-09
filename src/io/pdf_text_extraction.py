@@ -177,9 +177,55 @@ def parse_page_ocr(page: fitz.Page, page_num: int) -> str:
     return f"[PAGE {page_num}]\n{page_text}"
 
 
+def _extract_page_text_column_aware(page: fitz.Page) -> str:
+    """Extract text from a page, sorting blocks left-column-first for two-column layouts.
+
+    Detects two-column layout by checking whether text blocks cluster into two
+    distinct x-ranges separated by a gap around the page midpoint. Falls back
+    to default PyMuPDF ordering when single-column layout is detected.
+    """
+    page_width = page.rect.width
+    if page_width <= 0:
+        return page.get_text("text")
+
+    blocks = page.get_text("dict", flags=fitz.TEXT_PRESERVE_WHITESPACE).get("blocks", [])
+    text_blocks = [(b["bbox"], b) for b in blocks if b.get("type") == 0 and b.get("lines")]
+    if not text_blocks:
+        return page.get_text("text")
+
+    midpoint = page_width / 2
+    # Blocks whose right edge is clearly to the left of centre are left-column candidates
+    left = [b for bbox, b in text_blocks if bbox[2] < midpoint * 0.9]
+    right = [b for bbox, b in text_blocks if bbox[0] > midpoint * 0.3]
+
+    # Require both sides to have content AND at least some blocks on the right start
+    # past 40% of page width (to avoid false positives on narrow figures/margins)
+    is_two_column = (
+        len(left) >= 2
+        and len(right) >= 2
+        and any(b["bbox"][0] > page_width * 0.4 for b in right)
+    )
+
+    if not is_two_column:
+        return page.get_text("text")
+
+    # Sort: left column blocks (x1 < midpoint) first sorted by y0,
+    # then right column blocks sorted by y0
+    left_sorted = sorted(left, key=lambda b: b["bbox"][1])
+    right_sorted = sorted(right, key=lambda b: b["bbox"][1])
+
+    parts = []
+    for b in left_sorted + right_sorted:
+        for line in b.get("lines", []):
+            line_text = "".join(span.get("text", "") for span in line.get("spans", []))
+            if line_text.strip():
+                parts.append(line_text)
+    return "\n".join(parts)
+
+
 def parse_page_embedded(page: fitz.Page, page_num: int) -> str:
     """Extracts text embedded in a PDF page"""
-    page_text = page.get_text("text")
+    page_text = _extract_page_text_column_aware(page)
     if "\x00" in page_text:
         page_text = page_text.replace("\x00", "")
     return f"[PAGE {page_num}]\n{page_text}"

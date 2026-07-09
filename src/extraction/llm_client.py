@@ -286,8 +286,9 @@ def _resolve_source_pages(metrics_dict: dict, original_text: str) -> list[int] |
             value_str = str(value)
             if len(value_str) < 5:
                 continue
-            if value_str in original_text:
-                pos = original_text.find(value_str)
+            match = re.search(r'\b' + re.escape(value_str) + r'\b', original_text)
+            if match:
+                pos = match.start()
                 page_markers = re.findall(r'\[PAGE (\d+)\]', original_text[:pos])
                 if page_markers:
                     source_pages.add(int(page_markers[-1]))

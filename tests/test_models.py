@@ -97,10 +97,13 @@ class TestSampleSizeReconciliation:
         m = PredatorDietMetrics(num_empty=45, num_nonempty=155, num_sampled=None)
         assert m.num_sampled == 200
 
-    def test_wrong_num_sampled_corrected(self):
-        """Model validator should override an incorrect num_sampled."""
-        m = PredatorDietMetrics(num_empty=10, num_nonempty=90, num_sampled=999)
-        assert m.num_sampled == 100
+    def test_inconsistent_num_sampled_kept_with_warning(self, caplog):
+        """Paper's num_sampled is preserved when it doesn't match num_empty + num_nonempty; a warning is logged."""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="src.extraction.models"):
+            m = PredatorDietMetrics(num_empty=10, num_nonempty=90, num_sampled=999)
+        assert m.num_sampled == 999
+        assert any("keeping paper value" in r.message for r in caplog.records)
 
     def test_correct_num_sampled_unchanged(self):
         m = PredatorDietMetrics(**FULL_SURVEY)

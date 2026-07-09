@@ -14,11 +14,13 @@ Usage (standalone):
 import argparse
 import functools
 import logging
+import re
 import sys
 from pathlib import Path
 from typing import Tuple
 
 import joblib
+import numpy as np
 import xgboost as xgb
 
 from src.io.pdf_text_extraction import extract_text_from_pdf
@@ -95,6 +97,69 @@ def classify_text(
         label = "not useful"
     confidence = pred_prob if pred_class == 1 else (1.0 - pred_prob)
     return label, confidence, pred_prob
+
+
+def explain_classification(
+    text: str,
+    model,
+    vectorizer,
+    top_n: int = 10,
+) -> list[tuple[str, float, list[int]]]:
+    """Return the top-N terms driving a classification and the pages they appear on.
+
+    Combines the TF-IDF weight of each term in *text* with the XGBoost global
+    feature importance (gain) to produce a document-specific relevance score.
+    Terms that appear in the document AND are important to the classifier rank
+    highest. This is an approximation — for exact per-prediction attribution,
+    SHAP values would be needed.
+
+    Args:
+        text: Full extracted document text (may contain [PAGE N] markers).
+        model: Loaded XGBoost Booster.
+        vectorizer: Fitted TF-IDF vectorizer.
+        top_n: Number of top terms to return.
+
+    Returns:
+        List of ``(term, combined_score, page_numbers)`` tuples, sorted by
+        combined_score descending. ``page_numbers`` lists the pages where the
+        term first appears, or ``[]`` if no [PAGE N] markers are in the text.
+    """
+    # TF-IDF weights for this document
+    tfidf_vec = vectorizer.transform([text])
+    feature_names = vectorizer.get_feature_names_out()
+
+    # Global feature importances from XGBoost (gain = average loss reduction)
+    raw_scores = model.get_score(importance_type="gain")  # {'f123': 4.2, ...}
+    importance_array = np.zeros(len(feature_names))
+    for key, val in raw_scores.items():
+        idx = int(key[1:])  # strip leading 'f'
+        if idx < len(importance_array):
+            importance_array[idx] = val
+
+    # Combined score: TF-IDF weight × classifier gain — document-specific
+    tfidf_dense = np.asarray(tfidf_vec.todense()).flatten()
+    combined = tfidf_dense * importance_array
+
+    # Top-N indices by combined score (only terms that appear in the document)
+    present = np.where(tfidf_dense > 0)[0]
+    if len(present) == 0:
+        return []
+    top_indices = present[np.argsort(combined[present])[::-1][:top_n]]
+
+    # Resolve page numbers for each top term using [PAGE N] markers
+    results = []
+    for idx in top_indices:
+        term = feature_names[idx]
+        score = float(combined[idx])
+        pages: list[int] = []
+        for match in re.finditer(r'\b' + re.escape(term) + r'\b', text, re.IGNORECASE):
+            page_markers = re.findall(r'\[PAGE (\d+)\]', text[:match.start()])
+            if page_markers:
+                pages.append(int(page_markers[-1]))
+                break  # first occurrence only
+        results.append((term, score, sorted(set(pages))))
+
+    return results
 
 
 def classify_pdf(

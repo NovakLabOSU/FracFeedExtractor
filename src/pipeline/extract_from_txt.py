@@ -1,4 +1,10 @@
-"""Extract-from-TXT Pipeline
+"""Extract-from-TXT Pipeline — DEPRECATED
+
+.. deprecated::
+    Use ``src/pipeline/classify_extract.py --skip-classifier`` instead.
+    That script now applies the same clean → filter → trim preprocessing
+    chain as this one, while also supporting raw PDFs and parallel workers.
+    This file will be removed in a future release.
 
 Processes pre-classified useful .txt files through noise cleaning, section
 filtering, text trimming, and LLM extraction — bypassing the XGBoost
@@ -44,6 +50,7 @@ Output:
 
 import argparse
 import sys
+import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -299,6 +306,17 @@ def run_txt_pipeline(
 
 
 def main() -> None:
+    warnings.warn(
+        "extract_from_txt.py is deprecated. Use "
+        "'src/pipeline/classify_extract.py --skip-classifier' instead.",
+        DeprecationWarning,
+        stacklevel=1,
+    )
+    print(
+        "[DEPRECATED] extract_from_txt.py is deprecated. "
+        "Use 'src/pipeline/classify_extract.py --skip-classifier' instead.",
+        file=sys.stderr,
+    )
     parser = argparse.ArgumentParser(
         description=("Extract structured predator-diet metrics from pre-classified " "useful .txt files using an LLM."),
         formatter_class=argparse.RawDescriptionHelpFormatter,

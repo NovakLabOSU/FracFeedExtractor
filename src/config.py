@@ -429,7 +429,10 @@ EXAMPLES
 {"records": [{"species_name": "Ardea herodias", "study_location": "Chesapeake Bay watershed, Maryland, USA", "latitude": null, "longitude": null, "study_year_range": "2005-2007", "study_year": "2006", "study_month": null, "study_day": null, "num_empty": 12, "num_nonempty": 88, "num_sampled": 100, "survey_type": "Direct observation", "ecosystem": "Lentic"}]}
 
 5. One species, one survey, counts reported separately for adults and juveniles — aggregate into one record (60 + 40 = 100 sampled, 8 + 4 = 12 empty, 52 + 36 = 88 non-empty):
-{"records": [{"species_name": "Ardea herodias", "study_location": "Chesapeake Bay watershed, Maryland, USA", "latitude": null, "longitude": null, "study_year_range": "2005-2007", "study_year": "2006", "study_month": null, "study_day": null, "num_empty": 12, "num_nonempty": 88, "num_sampled": 100, "survey_type": "Direct observation", "ecosystem": "Lentic"}]}"""
+{"records": [{"species_name": "Ardea herodias", "study_location": "Chesapeake Bay watershed, Maryland, USA", "latitude": null, "longitude": null, "study_year_range": "2005-2007", "study_year": "2006", "study_month": null, "study_day": null, "num_empty": 12, "num_nonempty": 88, "num_sampled": 100, "survey_type": "Direct observation", "ecosystem": "Lentic"}]}
+
+6. Counts given in a linearized table with pipe or whitespace-aligned columns — read the column headers to identify num_empty, num_nonempty, num_sampled. Example table text: "Species | n | Empty | Non-empty\nGadus morhua | 134 | 21 | 113". Extract: num_sampled=134, num_empty=21, num_nonempty=113.
+{"records": [{"species_name": "Gadus morhua", "study_location": null, "latitude": null, "longitude": null, "study_year_range": null, "study_year": null, "study_month": null, "study_day": null, "num_empty": 21, "num_nonempty": 113, "num_sampled": 134, "survey_type": "Gut content (lethal)", "ecosystem": null}]}"""
 
 
 def build_prompt(text: str) -> str:
