@@ -244,7 +244,7 @@ def run_pipeline(
     useful_count = sum(1 for r in summary_rows if r["classification"] == "useful")
     not_useful_count = sum(1 for r in summary_rows if r["classification"] == "not useful")
     extracted_count = sum(1 for r in summary_rows if r["extraction_status"] == "success")
-    error_count = sum(1 for r in summary_rows if r["extraction_status"] in ("text_extraction_failed", "empty_text", "extraction_failed"))
+    error_count = sum(1 for r in summary_rows if r["extraction_status"] in ("text_extraction_failed", "empty_text", "extraction_failed", "worker_failed"))
 
     print("\n" + "=" * 50, file=sys.stderr)
     print("PIPELINE COMPLETE", file=sys.stderr)

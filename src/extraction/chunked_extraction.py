@@ -65,19 +65,18 @@ def merge_results(results: list[Optional[dict[str, Any]]]) -> dict[str, Any]:
 
         if not values:
             merged[field] = None
-            merged[f"{field}_confidence"] = 0.0
         else:
             counter = Counter(values)
-            most_common = counter.most_common(1)[0]
-            merged[field] = most_common[0]
-            merged[f"{field}_confidence"] = round(most_common[1] / len(values), 2)
+            merged[field] = counter.most_common(1)[0][0]
 
     nonempty = merged.get("num_nonempty")
     sample = merged.get("num_sampled")
-    if nonempty and sample and sample > 0:
+    if nonempty is not None and sample and sample > 0:
         merged["fraction_feeding"] = round(nonempty / sample, 4)
     else:
         merged["fraction_feeding"] = None
+
+    merged["source_pages"] = None
 
     return merged
 
@@ -136,6 +135,9 @@ def extract_with_chunking(
             print(f"    [ERROR] {e}", file=sys.stderr)
 
         gc.collect()
+
+    if not results:
+        raise RuntimeError(f"All {len(top_chunks)} LLM extraction attempts failed")
 
     merged = merge_results(results)
     return merged

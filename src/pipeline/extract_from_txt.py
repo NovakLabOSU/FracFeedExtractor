@@ -43,18 +43,17 @@ Output:
 """
 
 import argparse
-import csv
 import sys
 from datetime import datetime
 from pathlib import Path
 
 from src.config import DEFAULT_LLM_MODEL
-from src.extraction.models import PredatorDietMetrics
 from src.io.text_cleaner import clean_text
 from src.io.section_filter import filter_relevant_sections
 from src.extraction.llm_text import extract_key_sections
 from src.extraction.llm_client import extract_metrics_from_text, save_extraction_result
 from src.extraction.chunked_extraction import extract_with_chunking
+from src.io.summary_csv import blank_row, metrics_to_row, write_summary_csv
 
 
 # ---------------------------------------------------------------------------
@@ -110,17 +109,7 @@ def run_txt_pipeline(
     for idx, txt_path in enumerate(txt_paths, start=1):
         print(f"\n[{idx}/{len(txt_paths)}] {txt_path.name}", file=sys.stderr)
 
-        row: dict = {
-            "filename": txt_path.name,
-            "raw_chars": "",
-            "cleaned_chars": "",
-            "filtered_chars": "",
-            "trimmed_chars": "",
-            "extraction_status": "",
-        }
-        for _f in PredatorDietMetrics.model_fields:
-            row[_f] = ""
-        row["fraction_feeding"] = ""
+        row = blank_row(txt_path.name)
 
         # ── Step 1: Read ────────────────────────────────────────────────────
         try:
@@ -131,7 +120,6 @@ def run_txt_pipeline(
             summary_rows.append(row)
             continue
 
-        row["raw_chars"] = len(raw_text)
         print(f"  [INFO] Raw size   : {len(raw_text):,} chars", file=sys.stderr)
 
         if not raw_text.strip():
@@ -142,7 +130,6 @@ def run_txt_pipeline(
 
         # ── Step 2: Clean ───────────────────────────────────────────────────
         cleaned = clean_text(raw_text)
-        row["cleaned_chars"] = len(cleaned)
         print(f"  [INFO] After clean: {len(cleaned):,} chars", file=sys.stderr)
 
         if not cleaned.strip():
@@ -162,7 +149,6 @@ def run_txt_pipeline(
 
         # ── Step 4: Section filter ──────────────────────────────────────────
         filtered = filter_relevant_sections(cleaned)
-        row["filtered_chars"] = len(filtered)
         print(f"  [INFO] After filter: {len(filtered):,} chars", file=sys.stderr)
 
         # ── Step 4b: Save section_filter output ─────────────────────────────
@@ -176,7 +162,6 @@ def run_txt_pipeline(
         # ── Step 5+6+7: Extract (chunked or single-pass) ────────────────────
         if chunked:
             print(f"  [INFO] Chunked extraction (top {top_chunks} chunks)…", file=sys.stderr)
-            row["trimmed_chars"] = ""
             try:
                 merged = extract_with_chunking(
                     text=filtered,
@@ -221,8 +206,6 @@ def run_txt_pipeline(
             else:
                 trimmed = filtered
 
-            row["trimmed_chars"] = len(trimmed)
-
             # ── Step 5b: Save llm_text output ───────────────────────────────
             llm_path = llm_text_dir / f"{txt_path.stem}_{ts}.txt"
             try:
@@ -261,11 +244,7 @@ def run_txt_pipeline(
 
             m = result["metrics"]
 
-        row["extraction_status"] = "success"
-        for _f in PredatorDietMetrics.model_fields:
-            _v = m.get(_f)
-            row[_f] = "" if _v is None else _v
-        row["fraction_feeding"] = "" if m.get("fraction_feeding") is None else m["fraction_feeding"]
+        row = metrics_to_row(filename=txt_path.name, metrics=m, extraction_status="success")
 
         print(
             f"  [OK] species={m.get('species_name')}  " f"n={m.get('num_sampled')}  " f"date={m.get('study_year')}",
@@ -276,24 +255,11 @@ def run_txt_pipeline(
 
     # ── Write summary CSV ───────────────────────────────────────────────────
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    summaries_dir = output_dir / "summaries"
-    summaries_dir.mkdir(parents=True, exist_ok=True)
-    summary_path = summaries_dir / f"txt_pipeline_summary_{timestamp}.csv"
-
-    fieldnames = [
-        "filename",
-        "raw_chars",
-        "cleaned_chars",
-        "filtered_chars",
-        "trimmed_chars",
-        "extraction_status",
-        *PredatorDietMetrics.model_fields.keys(),
-        "fraction_feeding",
-    ]
-    with open(summary_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(summary_rows)
+    summary_path = write_summary_csv(
+        summary_rows,
+        output_dir,
+        filename=f"txt_pipeline_summary_{timestamp}.csv",
+    )
 
     # ── Final report ────────────────────────────────────────────────────────
     total = len(summary_rows)

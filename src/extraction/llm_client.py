@@ -48,13 +48,25 @@ def _strip_patterns(schema):
 
 _MAX_RETRIES = 3
 _BACKOFF_BASE = 2  # seconds
-_ANTHROPIC_MAX_TOKENS = 512  # JSON extraction output is ~50-100 tokens
+_ANTHROPIC_MAX_TOKENS = 512  # JSON extraction output is ~100-200 tokens across all fields
 _FULL_SCHEMA = PredatorDietMetrics.model_json_schema()
 _STRIPPED_SCHEMA = _strip_patterns(_FULL_SCHEMA)  # patterns removed for Ollama GBNF compiler
 
 
 # Per-field hints and retryable list derived from FIELDS registry.
 _hints = {spec.name: spec.hint for spec in FIELDS if spec.hint}
+
+_FIELD_NAMES = {spec.name for spec in FIELDS}
+_geocoder = None  # lazy singleton
+
+
+def _get_geocoder():
+    global _geocoder
+    if _geocoder is None:
+        from src.config import GEOCODER_USER_AGENT, GEOCODER_CACHE_PATH
+        from src.extraction.geocoder import NominatimGeocoder
+        _geocoder = NominatimGeocoder(GEOCODER_USER_AGENT, GEOCODER_CACHE_PATH)
+    return _geocoder
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +125,10 @@ def _call_anthropic(model: str, messages: list, schema: dict) -> str:
             f"Anthropic did not return structured output "
             f"(stop_reason={response.stop_reason!r})"
         )
-    return json.dumps(response.content[0].input)
+    tool_block = next((b for b in response.content if b.type == "tool_use"), None)
+    if tool_block is None:
+        raise ValueError("Anthropic response contained no tool_use block")
+    return json.dumps(tool_block.input)
 
 
 def _call_llm_with_retry(model: str, messages: list, options: dict) -> str:
@@ -202,6 +217,26 @@ def extract_metrics_from_text(
 
         metrics = PredatorDietMetrics.model_validate(merged)
 
+    # ── Geocode if lat/lon are registered fields but came back null ──────────
+    if (
+        "latitude" in _FIELD_NAMES
+        and "longitude" in _FIELD_NAMES
+        and metrics.latitude is None
+        and metrics.longitude is None
+        and metrics.study_location
+    ):
+        try:
+            geo = _get_geocoder().geocode(metrics.study_location)
+            if geo is not None:
+                metrics = metrics.model_copy(update={"latitude": geo.lat, "longitude": geo.lon})
+                if geo.confidence < 0.4:
+                    log.warning(
+                        "Low-confidence geocode (%.2f) for '%s' → %s",
+                        geo.confidence, metrics.study_location, geo.display_name,
+                    )
+        except Exception as e:
+            log.warning("Geocoding failed for '%s': %s", metrics.study_location, e)
+
     return metrics
 
 
@@ -229,6 +264,8 @@ def save_extraction_result(
     for field_name, value in metrics_dict.items():
         if value is not None and field_name not in _skip_fields:
             value_str = str(value)
+            if len(value_str) < 5:
+                continue
             if value_str in original_text:
                 pos = original_text.find(value_str)
                 page_markers = re.findall(r'\[PAGE (\d+)\]', original_text[:pos])

@@ -1,9 +1,14 @@
 """Project-wide configuration constants."""
 
+import re
 from dataclasses import dataclass, field as dc_field
+from pathlib import Path
 from typing import Callable, Optional
 
 DEFAULT_LLM_MODEL = "qwen3:30b"
+
+GEOCODER_USER_AGENT = "FracFeedExtractor/1.0"
+GEOCODER_CACHE_PATH = str(Path(__file__).parent.parent / ".geocode_cache")
 
 
 # ---------------------------------------------------------------------------
@@ -28,7 +33,7 @@ def _normalize_survey_type(value):
         return "Gut content (lavage)"
     if any(kw in v_lower for kw in ["direct observ", "visual observ", "behavioral observ"]):
         return "Direct observation"
-    if any(kw in v_lower for kw in ["other", "scat", "fecal", "isotope", "molecular", "regurgit", "indirect"]):
+    if re.search(r'\bother\b', v_lower) or any(kw in v_lower for kw in ["scat", "fecal", "isotope", "molecular", "regurgit", "indirect"]):
         return "Other"
     return None
 
@@ -129,6 +134,33 @@ FIELDS: list = [
         ),
         min_length=1,
         max_length=500,
+    ),
+    FieldSpec(
+        name="latitude",
+        python_type=Optional[float],
+        prompt_type="float or null",
+        description=(
+            "Decimal-degree latitude of the study site. Extract verbatim from text ONLY "
+            "(e.g. 44.5, -12.3). If not explicitly stated as a number, output null — "
+            "coordinates will be resolved from study_location."
+        ),
+        csv_label="Latitude",
+        retryable=False,
+        ge=-90.0,
+        le=90.0,
+    ),
+    FieldSpec(
+        name="longitude",
+        python_type=Optional[float],
+        prompt_type="float or null",
+        description=(
+            "Decimal-degree longitude of the study site. Extract verbatim from text ONLY. "
+            "Output null if not explicitly stated as a number."
+        ),
+        csv_label="Longitude",
+        retryable=False,
+        ge=-180.0,
+        le=180.0,
     ),
     FieldSpec(
         name="study_year_range",
@@ -372,16 +404,16 @@ _PROMPT_EXAMPLES = """\
 EXAMPLES
 
 1. Stomach dissection, terrestrial predator (all data present):
-{"species_name": "Canis lupus", "study_location": "Yellowstone National Park, Wyoming, USA", "study_year_range": "2018-2020", "study_year": "2019", "study_month": "04", "study_day": "06", "num_empty": 5, "num_nonempty": 47, "num_sampled": 52, "survey_type": "Gut content (lethal)", "ecosystem": "Terrestrial"}
+{"species_name": "Canis lupus", "study_location": "Yellowstone National Park, Wyoming, USA", "latitude": null, "longitude": null, "study_year_range": "2018-2020", "study_year": "2019", "study_month": "04", "study_day": "06", "num_empty": 5, "num_nonempty": 47, "num_sampled": 52, "survey_type": "Gut content (lethal)", "ecosystem": "Terrestrial"}
 
 2. Gastric lavage, marine predator (all samples had food):
-{"species_name": "Pygoscelis papua", "study_location": "Marion Island, sub-Antarctic", "study_year_range": "1987", "study_year": "1987", "study_month": null, "study_day": null, "num_empty": 0, "num_nonempty": 144, "num_sampled": 144, "survey_type": "Gut content (lavage)", "ecosystem": "Marine"}
+{"species_name": "Pygoscelis papua", "study_location": "Marion Island, sub-Antarctic", "latitude": null, "longitude": null, "study_year_range": "1987", "study_year": "1987", "study_month": null, "study_day": null, "num_empty": 0, "num_nonempty": 144, "num_sampled": 144, "survey_type": "Gut content (lavage)", "ecosystem": "Marine"}
 
 3. Stomach dissection, freshwater predator (minimal data):
-{"species_name": "Ursus arctos", "study_location": null, "study_year_range": "2020", "study_year": "2020", "study_month": null, "study_day": null, "num_empty": 1, "num_nonempty": 22, "num_sampled": 23, "survey_type": "Gut content (lethal)", "ecosystem": "Lotic"}
+{"species_name": "Ursus arctos", "study_location": null, "latitude": null, "longitude": null, "study_year_range": "2020", "study_year": "2020", "study_month": null, "study_day": null, "num_empty": 1, "num_nonempty": 22, "num_sampled": 23, "survey_type": "Gut content (lethal)", "ecosystem": "Lotic"}
 
 4. Direct observation, lentic ecosystem:
-{"species_name": "Ardea herodias", "study_location": "Chesapeake Bay watershed, Maryland, USA", "study_year_range": "2005-2007", "study_year": "2006", "study_month": null, "study_day": null, "num_empty": 12, "num_nonempty": 88, "num_sampled": 100, "survey_type": "Direct observation", "ecosystem": "Lentic"}"""
+{"species_name": "Ardea herodias", "study_location": "Chesapeake Bay watershed, Maryland, USA", "latitude": null, "longitude": null, "study_year_range": "2005-2007", "study_year": "2006", "study_month": null, "study_day": null, "num_empty": 12, "num_nonempty": 88, "num_sampled": 100, "survey_type": "Direct observation", "ecosystem": "Lentic"}"""
 
 
 def build_prompt(text: str) -> str:

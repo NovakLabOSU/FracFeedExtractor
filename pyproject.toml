@@ -26,6 +26,8 @@ dependencies = [
     "xgboost",
     "pyspellchecker",
     "joblib",
+    "requests",
+    "diskcache",
 ]
 
 [project.optional-dependencies]

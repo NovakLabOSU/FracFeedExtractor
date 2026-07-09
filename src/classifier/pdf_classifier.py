@@ -91,6 +91,8 @@ def classify_text(
     pred_prob = float(model.predict(dtest)[0])
     pred_class = 1 if pred_prob >= threshold else 0
     label = encoder.inverse_transform([pred_class])[0]
+    if label == "not-useful":
+        label = "not useful"
     confidence = pred_prob if pred_class == 1 else (1.0 - pred_prob)
     return label, confidence, pred_prob
 
