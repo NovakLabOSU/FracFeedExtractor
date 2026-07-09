@@ -384,20 +384,19 @@ Examples:
         "--skip-classifier",
         action="store_true",
         default=False,
-        help="Skip the XGBoost classifier and treat every PDF as useful. "
-             "Useful when PDFs are already known to be relevant.",
+        help="Skip the XGBoost classifier and treat every PDF as useful. " "Useful when PDFs are already known to be relevant.",
     )
     parser.add_argument(
         "--explain",
         action="store_true",
         default=False,
-        help="For each useful PDF, print the top classifier keywords and the page "
-             "numbers where they appear. Adds 'top_keywords' to the summary CSV.",
+        help="For each useful PDF, print the top classifier keywords and the page " "numbers where they appear. Adds 'top_keywords' to the summary CSV.",
     )
 
     args = parser.parse_args()
 
     from dotenv import load_dotenv
+
     load_dotenv()
     # Configure persistent logging for this process — one call covers all modules
     setup_logging()

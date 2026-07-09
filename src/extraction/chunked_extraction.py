@@ -168,9 +168,7 @@ def extract_with_chunking(
             successful_chunks += 1
             for rd in record_dicts:
                 print(
-                    f"    species={rd.get('species_name')}, "
-                    f"location={rd.get('study_location')}, "
-                    f"sample={rd.get('num_sampled')}",
+                    f"    species={rd.get('species_name')}, " f"location={rd.get('study_location')}, " f"sample={rd.get('num_sampled')}",
                     file=sys.stderr,
                 )
         except Exception as e:

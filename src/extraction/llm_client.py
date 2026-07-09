@@ -65,6 +65,7 @@ def _get_geocoder():
     if _geocoder is None:
         from src.config import GEOCODER_USER_AGENT, GEOCODER_CACHE_PATH
         from src.extraction.geocoder import NominatimGeocoder
+
         _geocoder = NominatimGeocoder(GEOCODER_USER_AGENT, GEOCODER_CACHE_PATH)
     return _geocoder
 
@@ -88,6 +89,7 @@ def _call_ollama(model: str, messages: list, schema: dict, options: dict) -> str
     for attempt in range(_MAX_RETRIES):
         try:
             from ollama import chat
+
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(chat, messages=messages, model=model, format=schema, options=options)
                 response = future.result(timeout=_LLM_TIMEOUT)
@@ -98,7 +100,7 @@ def _call_ollama(model: str, messages: list, schema: dict, options: dict) -> str
             log.warning("Transient LLM error (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES, e)
 
         if attempt < _MAX_RETRIES - 1:
-            wait = _BACKOFF_BASE ** attempt
+            wait = _BACKOFF_BASE**attempt
             log.info("Retrying in %ds...", wait)
             time.sleep(wait)
 
@@ -108,23 +110,23 @@ def _call_ollama(model: str, messages: list, schema: dict, options: dict) -> str
 def _call_anthropic(model: str, messages: list, schema: dict) -> str:
     """Call Anthropic API using tool-use to enforce structured JSON output."""
     import anthropic
+
     client = anthropic.Anthropic()
     response = client.messages.create(
         model=model,
         max_tokens=_ANTHROPIC_MAX_TOKENS,
-        tools=[{
-            "name": "extract_metrics",
-            "description": "Extract predator diet metrics from text.",
-            "input_schema": schema,
-        }],
+        tools=[
+            {
+                "name": "extract_metrics",
+                "description": "Extract predator diet metrics from text.",
+                "input_schema": schema,
+            }
+        ],
         tool_choice={"type": "tool", "name": "extract_metrics"},
         messages=messages,
     )
     if response.stop_reason != "tool_use" or not response.content:
-        raise ValueError(
-            f"Anthropic did not return structured output "
-            f"(stop_reason={response.stop_reason!r})"
-        )
+        raise ValueError(f"Anthropic did not return structured output " f"(stop_reason={response.stop_reason!r})")
     tool_block = next((b for b in response.content if b.type == "tool_use"), None)
     if tool_block is None:
         raise ValueError("Anthropic response contained no tool_use block")
@@ -190,10 +192,7 @@ def extract_metrics_from_text(
 
     if not _retry and missing_per_record:
         missing_summary = "; ".join(
-            f"record {i} ({records[i].species_name or 'unknown'}, "
-            f"{records[i].study_location or 'unknown location'}, "
-            f"{records[i].study_year_range or 'unknown year'}): "
-            + ", ".join(fields)
+            f"record {i} ({records[i].species_name or 'unknown'}, " f"{records[i].study_location or 'unknown location'}, " f"{records[i].study_year_range or 'unknown year'}): " + ", ".join(fields)
             for i, fields in missing_per_record.items()
         )
         print(
@@ -202,9 +201,7 @@ def extract_metrics_from_text(
         )
 
         # Build per-record hint lines for only the fields that are null
-        all_missing_fields: list[str] = sorted({
-            f for fields in missing_per_record.values() for f in fields
-        })
+        all_missing_fields: list[str] = sorted({f for fields in missing_per_record.values() for f in fields})
         hint_text = "".join(_hints.get(f, "") for f in all_missing_fields)
 
         current_json = ExtractionResult(records=records).model_dump_json(indent=2)
@@ -232,7 +229,8 @@ def extract_metrics_from_text(
         if len(retry_records) != len(records):
             log.warning(
                 "Retry returned %d records vs original %d — merging by key with positional fallback",
-                len(retry_records), len(records),
+                len(retry_records),
+                len(records),
             )
         retry_by_species: dict[str, PredatorDietMetrics] = {}
         for r in retry_records:
@@ -267,7 +265,9 @@ def extract_metrics_from_text(
                         if geo.confidence < 0.4:
                             log.warning(
                                 "Low-confidence geocode (%.2f) for '%s' → %s",
-                                geo.confidence, rec.study_location, geo.display_name,
+                                geo.confidence,
+                                rec.study_location,
+                                geo.display_name,
                             )
                 except Exception as e:
                     log.warning("Geocoding failed for '%s': %s", rec.study_location, e)
@@ -345,6 +345,7 @@ def main():
     args = parser.parse_args()
 
     from dotenv import load_dotenv
+
     load_dotenv()
     setup_logging()
 

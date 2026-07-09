@@ -32,11 +32,7 @@ from src.config import FIELDS
 
 # Canonical column order for every summary CSV the project writes.  The
 # extracted data is listed first, with classifier metadata trailing at the end.
-SUMMARY_FIELDNAMES: List[str] = (
-    ["filename"]
-    + [spec.name for spec in FIELDS]
-    + ["fraction_feeding", "classification", "confidence", "pred_prob", "extraction_status"]
-)
+SUMMARY_FIELDNAMES: List[str] = ["filename"] + [spec.name for spec in FIELDS] + ["fraction_feeding", "classification", "confidence", "pred_prob", "extraction_status"]
 
 # Reader-friendly header shown in the CSV, one per key in SUMMARY_FIELDNAMES.
 COLUMN_LABELS: Dict[str, str] = {

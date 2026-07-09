@@ -100,6 +100,7 @@ class TestSampleSizeReconciliation:
     def test_inconsistent_num_sampled_kept_with_warning(self, caplog):
         """Paper's num_sampled is preserved when it doesn't match num_empty + num_nonempty; a warning is logged."""
         import logging
+
         with caplog.at_level(logging.WARNING, logger="src.extraction.models"):
             m = PredatorDietMetrics(num_empty=10, num_nonempty=90, num_sampled=999)
         assert m.num_sampled == 999
@@ -459,23 +460,27 @@ class TestExtractionResult:
     def test_json_round_trip_single(self):
         import json
 
-        payload = json.dumps({
-            "records": [{
-                "species_name": "Vulpes vulpes",
-                "study_location": "Bristol, UK",
-                "study_year_range": "2015-2018",
-                "study_year": "2017",
-                "study_month": "06",
-                "study_day": "15",
-                "num_empty": 12,
-                "num_nonempty": 88,
-                "num_sampled": 100,
-                "survey_type": None,
-                "ecosystem": None,
-                "latitude": None,
-                "longitude": None,
-            }]
-        })
+        payload = json.dumps(
+            {
+                "records": [
+                    {
+                        "species_name": "Vulpes vulpes",
+                        "study_location": "Bristol, UK",
+                        "study_year_range": "2015-2018",
+                        "study_year": "2017",
+                        "study_month": "06",
+                        "study_day": "15",
+                        "num_empty": 12,
+                        "num_nonempty": 88,
+                        "num_sampled": 100,
+                        "survey_type": None,
+                        "ecosystem": None,
+                        "latitude": None,
+                        "longitude": None,
+                    }
+                ]
+            }
+        )
         result = ExtractionResult.model_validate_json(payload)
         assert len(result.records) == 1
         assert result.records[0].species_name == "Vulpes vulpes"
@@ -485,40 +490,42 @@ class TestExtractionResult:
     def test_json_round_trip_multi_species(self):
         import json
 
-        payload = json.dumps({
-            "records": [
-                {
-                    "species_name": "Buteo jamaicensis",
-                    "study_location": "Chihuahuan Desert, New Mexico, USA",
-                    "study_year_range": "2010",
-                    "study_year": "2010",
-                    "num_empty": 3,
-                    "num_nonempty": 45,
-                    "num_sampled": 48,
-                    "survey_type": "Gut content (lethal)",
-                    "ecosystem": "Terrestrial",
-                    "latitude": None,
-                    "longitude": None,
-                    "study_month": None,
-                    "study_day": None,
-                },
-                {
-                    "species_name": "Falco mexicanus",
-                    "study_location": "Chihuahuan Desert, New Mexico, USA",
-                    "study_year_range": "2010",
-                    "study_year": "2010",
-                    "num_empty": 7,
-                    "num_nonempty": 31,
-                    "num_sampled": 38,
-                    "survey_type": "Gut content (lethal)",
-                    "ecosystem": "Terrestrial",
-                    "latitude": None,
-                    "longitude": None,
-                    "study_month": None,
-                    "study_day": None,
-                },
-            ]
-        })
+        payload = json.dumps(
+            {
+                "records": [
+                    {
+                        "species_name": "Buteo jamaicensis",
+                        "study_location": "Chihuahuan Desert, New Mexico, USA",
+                        "study_year_range": "2010",
+                        "study_year": "2010",
+                        "num_empty": 3,
+                        "num_nonempty": 45,
+                        "num_sampled": 48,
+                        "survey_type": "Gut content (lethal)",
+                        "ecosystem": "Terrestrial",
+                        "latitude": None,
+                        "longitude": None,
+                        "study_month": None,
+                        "study_day": None,
+                    },
+                    {
+                        "species_name": "Falco mexicanus",
+                        "study_location": "Chihuahuan Desert, New Mexico, USA",
+                        "study_year_range": "2010",
+                        "study_year": "2010",
+                        "num_empty": 7,
+                        "num_nonempty": 31,
+                        "num_sampled": 38,
+                        "survey_type": "Gut content (lethal)",
+                        "ecosystem": "Terrestrial",
+                        "latitude": None,
+                        "longitude": None,
+                        "study_month": None,
+                        "study_day": None,
+                    },
+                ]
+            }
+        )
         result = ExtractionResult.model_validate_json(payload)
         assert len(result.records) == 2
         species = {r.species_name for r in result.records}
@@ -528,14 +535,18 @@ class TestExtractionResult:
         """Per-record Pydantic validators still run inside ExtractionResult."""
         import json
 
-        payload = json.dumps({
-            "records": [{
-                "species_name": "canis lupus",  # invalid: lowercase genus
-                "num_empty": 5,
-                "num_nonempty": 45,
-                "num_sampled": 50,
-            }]
-        })
+        payload = json.dumps(
+            {
+                "records": [
+                    {
+                        "species_name": "canis lupus",  # invalid: lowercase genus
+                        "num_empty": 5,
+                        "num_nonempty": 45,
+                        "num_sampled": 50,
+                    }
+                ]
+            }
+        )
         with pytest.raises(ValidationError):
             ExtractionResult.model_validate_json(payload)
 

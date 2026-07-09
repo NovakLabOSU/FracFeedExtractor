@@ -25,12 +25,29 @@ from src.config import FIELDS, FieldSpec
 # ---------------------------------------------------------------------------
 
 _MONTH_MAP = {
-    "january": "01", "february": "02", "march": "03", "april": "04",
-    "may": "05", "june": "06", "july": "07", "august": "08",
-    "september": "09", "october": "10", "november": "11", "december": "12",
-    "jan": "01", "feb": "02", "mar": "03", "apr": "04",
-    "jun": "06", "jul": "07", "aug": "08", "sep": "09",
-    "oct": "10", "nov": "11", "dec": "12",
+    "january": "01",
+    "february": "02",
+    "march": "03",
+    "april": "04",
+    "may": "05",
+    "june": "06",
+    "july": "07",
+    "august": "08",
+    "september": "09",
+    "october": "10",
+    "november": "11",
+    "december": "12",
+    "jan": "01",
+    "feb": "02",
+    "mar": "03",
+    "apr": "04",
+    "jun": "06",
+    "jul": "07",
+    "aug": "08",
+    "sep": "09",
+    "oct": "10",
+    "nov": "11",
+    "dec": "12",
 }
 
 
@@ -143,9 +160,13 @@ class _MetricsBase(BaseModel):
                 object.__setattr__(self, "num_sampled", calculated)
             elif current is not None and current != calculated:
                 import logging
+
                 logging.getLogger(__name__).warning(
                     "num_sampled=%d != num_empty(%d) + num_nonempty(%d)=%d — keeping paper value",
-                    current, empty, nonempty, calculated,
+                    current,
+                    empty,
+                    nonempty,
+                    calculated,
                 )
         return self
 
@@ -169,10 +190,7 @@ _RESERVED = set(_MetricsBase.model_computed_fields.keys()) | {"model_config"}
 for _spec in FIELDS:
     assert _spec.name.isidentifier(), f"FieldSpec: invalid name {_spec.name!r}"
     assert _spec.name not in _RESERVED, f"FieldSpec: reserved name {_spec.name!r}"
-    assert _spec.python_type in _VALID_TYPES, (
-        f"FieldSpec: unsupported python_type for {_spec.name!r} — "
-        f"must be Optional[str], Optional[int], or Optional[float]"
-    )
+    assert _spec.python_type in _VALID_TYPES, f"FieldSpec: unsupported python_type for {_spec.name!r} — " f"must be Optional[str], Optional[int], or Optional[float]"
     if _spec.pattern:
         re.compile(_spec.pattern)
     if _spec.ge is not None and _spec.le is not None:
@@ -186,8 +204,10 @@ for _spec in FIELDS:
 
 def _make_field_validator(field_name: str, norm_fn: Callable):
     """Return a Pydantic field_validator for field_name that applies norm_fn."""
+
     def _v(cls, value):
         return norm_fn(value)
+
     _v.__name__ = f"_validate_{field_name}"
     _v.__qualname__ = f"_validate_{field_name}"
     return field_validator(field_name, mode="before")(classmethod(_v))

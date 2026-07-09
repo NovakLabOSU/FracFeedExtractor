@@ -108,10 +108,7 @@ FIELDS: list = [
         ),
         csv_label="Predator Species",
         retryable=True,
-        hint=(
-            "- species_name: Look for the binomial Latin name (Genus species) "
-            "in the title or abstract or introduction.\n"
-        ),
+        hint=("- species_name: Look for the binomial Latin name (Genus species) " "in the title or abstract or introduction.\n"),
         pattern=r"^[A-Z][a-z]+( [a-z]+)*$",
         min_length=3,
         max_length=200,
@@ -127,10 +124,7 @@ FIELDS: list = [
         ),
         csv_label="Study Location",
         retryable=True,
-        hint=(
-            "- study_location: Check Methods or Study Area sections for place names, "
-            "islands, countries, or coordinates.\n"
-        ),
+        hint=("- study_location: Check Methods or Study Area sections for place names, " "islands, countries, or coordinates.\n"),
         min_length=1,
         max_length=500,
     ),
@@ -274,11 +268,7 @@ FIELDS: list = [
         ),
         csv_label="Empty Stomachs",
         retryable=True,
-        hint=(
-            "- num_empty: Look for 'empty', 'no food', 'no contents', 'negative for prey'. "
-            "If ALL samples had food (e.g., stomach pumping "
-            "where every sample produced material), return 0.\n"
-        ),
+        hint=("- num_empty: Look for 'empty', 'no food', 'no contents', 'negative for prey'. " "If ALL samples had food (e.g., stomach pumping " "where every sample produced material), return 0.\n"),
         ge=0.0,
     ),
     FieldSpec(
@@ -295,11 +285,7 @@ FIELDS: list = [
         ),
         csv_label="Non-empty Stomachs",
         retryable=True,
-        hint=(
-            "- num_nonempty: Look for 'contained food', 'with prey', "
-            "'non-empty', 'food samples collected'. If ALL samples had food, "
-            "this equals num_sampled.\n"
-        ),
+        hint=("- num_nonempty: Look for 'contained food', 'with prey', " "'non-empty', 'food samples collected'. If ALL samples had food, " "this equals num_sampled.\n"),
         ge=0.0,
     ),
     FieldSpec(
@@ -318,11 +304,7 @@ FIELDS: list = [
         ),
         csv_label="Total Stomachs",
         retryable=True,
-        hint=(
-            "- num_sampled: Look for 'N stomachs', 'N specimens', 'a total of N', "
-            "'n=N', 'N individuals examined', 'two groups of N'. Check Abstract, "
-            "Methods, and Results.\n"
-        ),
+        hint=("- num_sampled: Look for 'N stomachs', 'N specimens', 'a total of N', " "'n=N', 'N individuals examined', 'two groups of N'. Check Abstract, " "Methods, and Results.\n"),
         gt=0.0,
     ),
     FieldSpec(
@@ -365,11 +347,7 @@ FIELDS: list = [
         ),
         csv_label="Ecosystem",
         retryable=True,
-        hint=(
-            "- ecosystem: Look for study area descriptions. "
-            "Ocean/sea/estuary = 'Marine'; rivers/streams = 'Lotic'; "
-            "lakes/ponds = 'Lentic'; land environments = 'Terrestrial'.\n"
-        ),
+        hint=("- ecosystem: Look for study area descriptions. " "Ocean/sea/estuary = 'Marine'; rivers/streams = 'Lotic'; " "lakes/ponds = 'Lentic'; land environments = 'Terrestrial'.\n"),
         normalizer=_normalize_ecosystem,
         pattern=r"^(Marine|Terrestrial|Lotic|Lentic)$",
         min_length=5,
@@ -440,12 +418,16 @@ def build_prompt(text: str) -> str:
     field_list = "\n".join(f"  {f.name:<22} - {f.prompt_type}" for f in FIELDS)
     definitions = "\n\n".join(f"{f.name}: {f.description}" for f in FIELDS)
     return (
-        _PROMPT_HEADER + "\n\n"
-        + field_list + "\n\n"
+        _PROMPT_HEADER
+        + "\n\n"
+        + field_list
+        + "\n\n"
         + "Use null ONLY when the value truly cannot be determined from any part of the text.\n\n"
         + "FIELD DEFINITIONS\n\n"
-        + definitions + "\n\n"
-        + _PROMPT_RULES + "\n\n"
+        + definitions
+        + "\n\n"
+        + _PROMPT_RULES
+        + "\n\n"
         + _PROMPT_EXAMPLES
         + f"\n\nTEXT\n{text}"
     )

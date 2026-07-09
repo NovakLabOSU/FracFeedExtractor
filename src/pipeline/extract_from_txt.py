@@ -258,19 +258,14 @@ def run_txt_pipeline(
             record_dicts = result["records"]
 
         # One CSV row per (species, survey) record
-        file_rows = [
-            metrics_to_row(filename=txt_path.name, metrics=rd, extraction_status="success")
-            for rd in record_dicts
-        ]
+        file_rows = [metrics_to_row(filename=txt_path.name, metrics=rd, extraction_status="success") for rd in record_dicts]
         if not file_rows:
             row["extraction_status"] = "no_records"
             summary_rows.append(row)
         else:
             for rd in record_dicts:
                 print(
-                    f"  [OK] species={rd.get('species_name')}  "
-                    f"n={rd.get('num_sampled')}  "
-                    f"date={rd.get('study_year')}",
+                    f"  [OK] species={rd.get('species_name')}  " f"n={rd.get('num_sampled')}  " f"date={rd.get('study_year')}",
                     file=sys.stderr,
                 )
             summary_rows.extend(file_rows)
@@ -307,14 +302,12 @@ def run_txt_pipeline(
 
 def main() -> None:
     warnings.warn(
-        "extract_from_txt.py is deprecated. Use "
-        "'src/pipeline/classify_extract.py --skip-classifier' instead.",
+        "extract_from_txt.py is deprecated. Use " "'src/pipeline/classify_extract.py --skip-classifier' instead.",
         DeprecationWarning,
         stacklevel=1,
     )
     print(
-        "[DEPRECATED] extract_from_txt.py is deprecated. "
-        "Use 'src/pipeline/classify_extract.py --skip-classifier' instead.",
+        "[DEPRECATED] extract_from_txt.py is deprecated. " "Use 'src/pipeline/classify_extract.py --skip-classifier' instead.",
         file=sys.stderr,
     )
     parser = argparse.ArgumentParser(
@@ -408,6 +401,7 @@ Examples:
     args = parser.parse_args()
 
     from dotenv import load_dotenv
+
     load_dotenv()
 
     # ── Load label filter ───────────────────────────────────────────────

@@ -153,7 +153,7 @@ def explain_classification(
         score = float(combined[idx])
         pages: list[int] = []
         for match in re.finditer(r'\b' + re.escape(term) + r'\b', text, re.IGNORECASE):
-            page_markers = re.findall(r'\[PAGE (\d+)\]', text[:match.start()])
+            page_markers = re.findall(r'\[PAGE (\d+)\]', text[: match.start()])
             if page_markers:
                 pages.append(int(page_markers[-1]))
                 break  # first occurrence only

@@ -200,11 +200,7 @@ def _extract_page_text_column_aware(page: fitz.Page) -> str:
 
     # Require both sides to have content AND at least some blocks on the right start
     # past 40% of page width (to avoid false positives on narrow figures/margins)
-    is_two_column = (
-        len(left) >= 2
-        and len(right) >= 2
-        and any(b["bbox"][0] > page_width * 0.4 for b in right)
-    )
+    is_two_column = len(left) >= 2 and len(right) >= 2 and any(b["bbox"][0] > page_width * 0.4 for b in right)
 
     if not is_two_column:
         return page.get_text("text")

@@ -65,9 +65,7 @@ def test_resolve_source_pages_multiple_fields_multiple_pages():
 
 def test_resolve_source_pages_skips_fraction_feeding_and_source_pages():
     text = _doc((1, "fraction_feeding 0.70123 source_pages 3."))
-    result = _resolve_source_pages(
-        {"fraction_feeding": 0.70123, "source_pages": [3]}, text
-    )
+    result = _resolve_source_pages({"fraction_feeding": 0.70123, "source_pages": [3]}, text)
     assert result is None
 
 
