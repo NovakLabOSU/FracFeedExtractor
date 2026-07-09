@@ -31,18 +31,18 @@ At a high-level, all these systems perform the following:
 4
 
 [PAGE 5]
-Agent-Centric View of AI 
-Reasoning
-Environment
-Percepts
-Actions
 Sensors
-Actuators
-Agent: anything that perceives its environment through
-sensors and acts on that environment through actuators
 Agent
+Reasoning
+Actuators
+Sensors
+Agent
+Percepts
+Environment
+Reasoning
+Actions
+Actuators
 5
-
 [PAGE 6]
 Agent-Related Terms
 • Percept sequence (P): A complete history of everything the agent 
@@ -69,7 +69,10 @@ status
 7
 
 [PAGE 8]
-Example: Vacuum Cleaner Agent
+Sensors: Camera to detect 
+obstacles and dirt
+Percept Sequence: Cleanliness 
+status 
 Percept Sequence
 Action
 [A, Clean]
@@ -92,15 +95,7 @@ Right
 Suck
 :
 :
-Sensors: Camera to detect 
-obstacles and dirt
-Percept Sequence: Cleanliness 
-status 
-Actuators: Suction brush, 
-wheels
-Agent function 
 8
-
 [PAGE 9]
 Agent Design and Implementation
 Before implementing an agent, we need to think carefully about:
@@ -119,18 +114,21 @@ be evaluated?
 9
 
 [PAGE 10]
-PEAS Descriptions of Task Environments
-Performance, Environment, Actuators, Sensors
+Example: Autonomous taxi
 Performance 
 Measure
-Environment
-Actuators
-Sensors
 Safe, fast, 
 legal, 
 comfortable 
 trip, maximize 
 profits
+Roads, other 
+traffic, 
+pedestrians, 
+customers
+Environment
+Actuators
+Sensors
 Roads, other 
 traffic, 
 pedestrians, 
@@ -145,23 +143,17 @@ GPS, odometer,
 accelerometer, 
 engine sensors, 
 keyboard
-Example: Autonomous taxi
-PEAS is the standard way of specifying an agent task environment before you 
-even design the agent
 10
-
 [PAGE 11]
-PEAS Descriptions of Task Environments
-Performance, Environment, Actuators, Sensors
 Performance 
 Measure
-Environment
-Actuators
-Sensors
 Healthy 
 patient, 
 minimize 
 costs, lawsuits
+Environment
+Actuators
+Sensors
 Patient, hospital, 
 staff
 Display 
@@ -174,42 +166,27 @@ of symptoms,
 findings, 
 patient’s 
 answers 
-Example: Medical Diagnosis Agent
 11
-
 [PAGE 12]
-Properties of Environments
-Fully observable: can access complete state 
-of environment at each point in time
-Partially observable: could be due to noisy, 
-inaccurate or incomplete sensor data
 Deterministic: next state of the 
 environment completely determined by 
 current state and agent’s action
-Stochastic: when actions have multiple 
-outcomes, each prescribed by a probability 
-Episodic: agent’s experience divided into 
-independent, atomic episodes in which 
-agent perceives and performs a single 
-action in each episode.
-Sequential: current decision affects all future 
-decisions
-Static: agent doesn’t need to keep sensing 
-while decides what action to take, doesn’t 
-need to worry about time
-Dynamic: environment changes while agent 
-is thinking (changes with time)
 Discrete: (note: applies to states, time, 
 percepts, or actions)
+Partially observable: could be due to noisy, 
+inaccurate or incomplete sensor data
+Stochastic: when actions have multiple 
+outcomes, each prescribed by a probability 
+Sequential: current decision affects all future 
+decisions
+Dynamic: environment changes while agent 
+is thinking (changes with time)
 Continuous: continuous values of states 
 and/or actions
-Single agent: single decision-making and 
-executing entity 
 Multiagent: multiple decision-
 making/executing entities; cooperative or 
 competitive
 12
-
 [PAGE 13]
 How Should An Agent Act?
 Given:
@@ -256,32 +233,28 @@ Agent’s percept sequence to date
 
 [PAGE 16]
 Types of Agents
-• Categorized based on their performance measure 
-Types of 
-Agents
 Simple reflux 
 agents
+agents
+Types of 
+Agents
 Model-based 
-agents
 Goal-directed 
-agents
 Utility-directed 
 agents
+agents
+agents
 16
-
 [PAGE 17]
 Simple Reflex Agents
-17
-• Simple if-then:  if condition then action; no internal model
-• Selects actions using only the current percept
-function SIMPLE-REFLEX-AGENT(percept) returns an action
+return action
+Example:   if temp < 68 → turn heater on
 static: rules, a set of condition-action rules
 state ← INTERPRET-INPUT(percept)
 rule ← RULE-MATCH(state, rules)
 action ← RULE-ACTION[rule]
 return action
-Example:   if temp < 68 → turn heater on
-
+17
 [PAGE 18]
 Simple Reflex Agents
 18
@@ -298,10 +271,8 @@ observable
 19
 
 [PAGE 20]
-Model-based Reflex Agents
-• Maintain some internal state that keeps track of the part of the world 
-it can’t see now (partial observability)
-• Needs model (encodes knowledge about how the world works)
+action ← RULE-ACTION[rule]
+return action
 function REFLEX-AGENT-WITH-STATE(percept) returns an action
 static: state, a description of the current world state
 rules, a set of condition-action rules
@@ -310,11 +281,7 @@ state ← UPDATE-STATE(state, action, percept)
 rule ← RULE-MATCH(state, rules)
 action ← RULE-ACTION[rule]
 return action
-Example: Vacuum cleaner robot
-The internal model (“map of which rooms are clean/dirty”) allows it to act 
-sensibly despite partial observability.
 20
-
 [PAGE 21]
 Model-based Reflex Agents
 21
@@ -451,41 +418,27 @@ Many of the modern AI agents are designed to learn from
 data, to adapt better to the environment and user 
 
 [PAGE 35]
-From Classical AI to Modern Agents
-35
-Agent Type
-Modern AI Example
-Connection
-Simple reflex agent
-Basic rule-based systems such 
-as thermostat control
+Goal-based agent
+Utility-based agent
 Direct condition–action 
 mapping, no memory
-Model-based agent
-Roomba with mapping, 
-warehouse robots
 Maintains internal state of 
 environment to act under 
 partial observability
-Goal-based agent
 Delivery drones, planning in 
 robotics, navigation apps 
 (Google Maps, Waze)
 Chooses actions to achieve 
 explicit goals
-Utility-based agent
 Self-driving cars, 
 recommendation systems, 
 medical diagnosis AIs
 Balances multiple objectives 
 (e.g., safety vs. speed, accuracy 
 vs. coverage)
-Learning agent
-Spam filters, ChatGPT, 
-AlphaGo, adaptive robots
 Improves behavior over time 
 from data and feedback
-
+35
 [PAGE 36]
 Planning Agents
 • Need to plan a sequence of actions to reach the goal or complete 
@@ -518,8 +471,7 @@ cost function is only defined if s’ is a successor state of s.
 38
 
 [PAGE 39]
-Formalizing the Search Problem: Example from 
-Textbook
-39
 start
 goal
+goal
+39

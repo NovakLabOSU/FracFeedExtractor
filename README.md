@@ -315,6 +315,15 @@ Found a bug or have a question?
 
 ---
 
+## Repository Layout
+
+| Directory | Purpose |
+| --- | --- |
+| `data/` | Runtime inputs for the pipeline — real PDFs (in `useful/` and `not-useful/`) used to train the classifier and run extractions, plus intermediate outputs in `processed-text/` and final results in `results/`. These are the actual papers the system processes. |
+| `tests/` | Automated `pytest` test suite that verifies code correctness. Each `test_*.py` file exercises a specific module in isolation. `tests/test.pdf` is a minimal synthetic fixture used by those tests so they run without a model, OCR stack, or the real papers in `data/`. |
+
+---
+
 ## Documentation
 
 - [Contributing Guide](documentation/CONTRIBUTING.md) — setup, CLI reference, and contribution workflow
