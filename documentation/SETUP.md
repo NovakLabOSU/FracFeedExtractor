@@ -107,8 +107,9 @@ python src/pipeline/classify_extract.py path/to/pdfs/
 ```
 
 Results are written to:
-- `data/results/metrics/` — one JSON file per paper classified as useful
-- `data/results/summaries/` — a pipeline summary CSV covering all processed files
+
+- `results/metrics/` — one JSON file per paper classified as useful
+- `results/summaries/` — a pipeline summary CSV covering all processed files
 
 ### Full CLI reference
 
@@ -116,7 +117,7 @@ Results are written to:
 python src/pipeline/classify_extract.py path/to/pdfs/ \
     --model-dir src/classifier/models \
     --llm-model qwen2.5:7b \
-    --output-dir data/results \
+    --output-dir results \
     --confidence-threshold 0.70 \
     --max-chars 12000 \
     --num-ctx 4096 \
@@ -127,7 +128,7 @@ python src/pipeline/classify_extract.py path/to/pdfs/ \
 |---|---|---|
 | `--model-dir` | `src/classifier/models` | Directory containing classifier artifacts |
 | `--llm-model` | `qwen2.5:7b` | Ollama model used for extraction |
-| `--output-dir` | `data/results` | Destination for JSON results and summary CSV |
+| `--output-dir` | `results` | Destination for JSON results and summary CSV |
 | `--confidence-threshold` | `0.70` | Minimum classifier confidence to route a paper to the LLM |
 | `--max-chars` | `12000` | Maximum characters sent to the LLM per paper |
 | `--num-ctx` | `4096` | Ollama context window size in tokens |
@@ -172,7 +173,7 @@ This overwrites the three artifacts in `src/classifier/models/`. See `documentat
 
 ## 8. Sample Output
 
-A paper classified as useful produces a JSON file like this in `data/results/metrics/`:
+A paper classified as useful produces a JSON file like this in `results/metrics/`:
 
 ```json
 {

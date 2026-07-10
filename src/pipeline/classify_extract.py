@@ -353,8 +353,8 @@ Examples:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="data/results",
-        help="Output directory for JSON results and summary CSV (default: data/results).",
+        default="results",
+        help="Output directory for JSON results and summary CSV (default: results).",
     )
     parser.add_argument(
         "--confidence-threshold",

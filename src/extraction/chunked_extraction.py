@@ -188,7 +188,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("text_file", help="Path to text file")
-    parser.add_argument("--output-dir", default="data/results")
+    parser.add_argument("--output-dir", default="results")
     parser.add_argument("--top-chunks", type=int, default=3)
     parser.add_argument("--llm-model", default="cniongolo/biomistral")
     args = parser.parse_args()

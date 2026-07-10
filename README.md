@@ -67,7 +67,7 @@ The pipeline consists of the following components:
 2. **Text Cleaning & Section Filtering** — References, captions, and irrelevant paragraphs are stripped to reduce noise before classification.
 3. **XGBoost Classifier** — TF-IDF features feed a trained XGBoost model that scores each paper as useful or not useful with a confidence score.
 4. **LLM Extraction** — Relevant papers are passed to a locally-run LLM (via Ollama) with a structured prompt, returning a `PredatorDietMetrics` JSON object containing stomach counts, predator identity, survey location, and survey year.
-5. **Output** — Per-paper JSON files and a pipeline summary CSV are written to `data/results/`.
+5. **Output** — Per-paper JSON files and a pipeline summary CSV are written to `results/`.
 
 ---
 
@@ -170,7 +170,7 @@ python src/pipeline/classify_extract.py path/to/pdfs/
 python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model qwen3:30b --confidence-threshold 0.70
 ```
 
-Results are written to `data/results/metrics/` (per-paper JSON) and `data/results/summaries/` (pipeline CSV).
+Results are written to `results/metrics/` (per-paper JSON) and `results/summaries/` (pipeline CSV).
 
 ### Switching Models
 
@@ -325,7 +325,8 @@ Found a bug or have a question?
 
 | Directory | Purpose |
 | --- | --- |
-| `data/` | Runtime working directory for the pipeline. `useful/` and `not-useful/` contain a committed sample of 20 labeled PDFs used as integration-test fixtures and usage examples — they are **not** the full training corpus (see [Data Source](#data-source)). `processed-text/` holds extracted plain-text intermediates; `results/` holds pipeline output. |
+| `data/` | Training/test fixtures. `useful/` and `not-useful/` contain a committed sample of 20 labeled PDFs used as integration-test fixtures and usage examples — they are **not** the full training corpus (see [Data Source](#data-source)). `processed-text/` holds extracted plain-text intermediates. |
+| `results/` | Pipeline output (git-ignored). `metrics/` holds one JSON file per useful paper; `summaries/` holds the pipeline summary CSV. Created automatically on first run. |
 | `tests/` | Automated `pytest` test suite that verifies code correctness. Each `test_*.py` file exercises a specific module in isolation. `tests/test.pdf` is a minimal synthetic fixture used by those tests so they run without a model, OCR stack, or the real papers in `data/`. |
 
 ---

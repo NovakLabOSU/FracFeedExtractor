@@ -6,7 +6,7 @@ by the pipeline, then computes per-field accuracy.
 Usage::
 
     python scripts/benchmark.py \\
-        --results  data/results/metrics/ \\
+        --results  results/metrics/ \\
         --ground-truth data/ground_truth.csv \\
         [--tolerance 0]          # exact match only (default)
         [--mismatch-log out.csv] # write detailed mismatch log
@@ -190,7 +190,7 @@ def main():
         "--results",
         required=True,
         type=str,
-        help="Directory containing per-paper result JSON files (e.g. data/results/metrics/).",
+        help="Directory containing per-paper result JSON files (e.g. results/metrics/).",
     )
     parser.add_argument(
         "--ground-truth",

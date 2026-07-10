@@ -80,7 +80,7 @@ All contributors must follow the Oregon State University Student Code of Conduct
   python src/pipeline/classify_extract.py path/to/pdfs/ \
       --model-dir src/classifier/models \
       --llm-model qwen2.5:7b \
-      --output-dir data/results \
+      --output-dir results \
       --confidence-threshold 0.70 \
       --max-chars 12000 \
       --num-ctx 4096 \
@@ -90,14 +90,14 @@ All contributors must follow the Oregon State University Student Code of Conduct
   |------|---------|-------------|
   | `--model-dir` | `src/classifier/models` | Directory containing classifier artifacts |
   | `--llm-model` | `qwen2.5:7b` | Ollama model for extraction |
-  | `--output-dir` | `data/results` | Destination for JSON results and summary CSV |
+  | `--output-dir` | `results` | Destination for JSON results and summary CSV |
   | `--confidence-threshold` | `0.70` | Probability threshold for "useful" classification |
   | `--max-chars` | `12000` | Maximum characters sent to the LLM |
   | `--num-ctx` | `4096` | Ollama context window size (tokens) |
   | `--workers` | `1` | Parallel worker processes (`1` = sequential) |
 
 * ### Sample Output
-  Each PDF classified as "useful" produces a JSON file in `data/results/metrics/`:
+  Each PDF classified as "useful" produces a JSON file in `results/metrics/`:
   ```json
   {
     "source_file": "Smith_2002.pdf",

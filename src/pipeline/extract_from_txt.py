@@ -35,7 +35,7 @@ Usage::
     # Full options
     python src/pipeline/extract_from_txt.py \\
         --input-dir  data/processed-text/ \\
-        --output-dir data/results/ \\
+        --output-dir results/ \\
         --llm-model  qwen3:30b \\
         --max-chars  10000 \\
         --num-ctx    8192
@@ -44,8 +44,8 @@ Output:
     - data/cleaned-text/text_cleaner/<stem>_<YYYYMMDD_HHMMSS>.txt  noise-stripped text
     - data/cleaned-text/section_filter/<stem>_<YYYYMMDD_HHMMSS>.txt  section-filtered text
     - data/cleaned-text/llm_text/<stem>_<YYYYMMDD_HHMMSS>.txt  trimmed text passed to the LLM
-    - data/results/metrics/<stem>_results.json  per file
-    - data/results/summaries/txt_pipeline_summary_<timestamp>.csv  overall
+    - results/metrics/<stem>_results.json  per file
+    - results/summaries/txt_pipeline_summary_<timestamp>.csv  overall
 """
 
 import argparse
@@ -315,7 +315,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  Default (data/processed-text/ → data/results/):
+  Default (data/processed-text/ → results/):
     python src/pipeline/extract_from_txt.py
 
   Custom directories:
@@ -340,8 +340,8 @@ Examples:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="data/results",
-        help="Root output directory for JSON results and CSV summary " "(default: data/results).",
+        default="results",
+        help="Root output directory for JSON results and CSV summary " "(default: results).",
     )
     parser.add_argument(
         "--llm-model",

@@ -338,7 +338,7 @@ def main():
     parser = argparse.ArgumentParser(description="Extract predator diet metrics from PDFs or text files using an LLM")
     parser.add_argument("input_file", type=str, help="Path to the input file (.pdf or .txt)")
     parser.add_argument("--model", type=str, default=DEFAULT_LLM_MODEL, help=f"LLM model to use (default: {DEFAULT_LLM_MODEL})")
-    parser.add_argument("--output-dir", type=str, default="data/results", help="Output directory for JSON results (default: data/results/metrics)")
+    parser.add_argument("--output-dir", type=str, default="results", help="Output directory for JSON results (default: results/metrics)")
     parser.add_argument("--max-chars", type=int, default=12000, help="Maximum characters of text to send to the model (default: 12000). Reduce if you hit CUDA/OOM errors.")
     parser.add_argument("--num-ctx", type=int, default=8192, help="Context window size for Ollama (default: 8192). Ignored for Anthropic models.")
 
