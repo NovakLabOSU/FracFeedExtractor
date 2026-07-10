@@ -28,7 +28,7 @@ from src.utils.logger import setup_logging
 
 log = logging.getLogger(__name__)
 
-_LLM_TIMEOUT = 120  # seconds
+_LLM_TIMEOUT = 600  # seconds — qwen3:30b on consumer hardware can take several minutes
 
 
 def _strip_patterns(schema):
@@ -91,7 +91,8 @@ def _call_ollama(model: str, messages: list, schema: dict, options: dict) -> str
             from ollama import chat
 
             start = time.monotonic()
-            with ThreadPoolExecutor(max_workers=1) as executor:
+            executor = ThreadPoolExecutor(max_workers=1)
+            try:
                 future = executor.submit(chat, messages=messages, model=model, format=schema, options=options)
                 while True:
                     try:
@@ -105,6 +106,9 @@ def _call_ollama(model: str, messages: list, schema: dict, options: dict) -> str
                             log.warning("LLM call timed out (attempt %d/%d)", attempt + 1, _MAX_RETRIES)
                             raise
                         print(f"\r    [LLM] thinking... ({elapsed:.0f}s)", end="", flush=True, file=sys.stderr)
+            finally:
+                # wait=False so a timed-out thread doesn't block the retry
+                executor.shutdown(wait=False)
         except FuturesTimeoutError:
             pass  # already logged above
         except transient_errors as e:
