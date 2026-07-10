@@ -261,7 +261,7 @@ Run `python scripts/full_pipeline.py --help` for additional flags (e.g. `--max-f
 
 ## Data Source
 
-We trained the classifier on the [FracFeed global database](https://github.com/marknovak/FracFeed_DB) — a hand-annotated collection of predator diet surveys from the primary ecological literature.
+We trained the classifier on the [FracFeed global database](https://github.com/marknovak/FracFeed_DB) — a hand-annotated collection of predator diet surveys from the primary ecological literature. The full training corpus consists of 667 labeled papers (619 useful, 48 not useful); their labels are recorded in `data/labels.json` and the trained model artifacts are committed to `src/classifier/models/`. The source PDFs and their extracted `.txt` files are not committed to this repository — to retrain, populate `data/useful/` and `data/not-useful/` with the full corpus from FracFeed_DB, run `python src/io/generate_labels.py` to regenerate `labels.json`, extract text with `python src/io/pdf_text_extraction.py`, then run `python src/classifier/train_model.py`.
 
 ---
 
@@ -325,7 +325,7 @@ Found a bug or have a question?
 
 | Directory | Purpose |
 | --- | --- |
-| `data/` | Runtime inputs for the pipeline — real PDFs (in `useful/` and `not-useful/`) used to train the classifier and run extractions, plus intermediate outputs in `processed-text/` and final results in `results/`. These are the actual papers the system processes. |
+| `data/` | Runtime working directory for the pipeline. `useful/` and `not-useful/` contain a committed sample of 20 labeled PDFs used as integration-test fixtures and usage examples — they are **not** the full training corpus (see [Data Source](#data-source)). `processed-text/` holds extracted plain-text intermediates; `results/` holds pipeline output. |
 | `tests/` | Automated `pytest` test suite that verifies code correctness. Each `test_*.py` file exercises a specific module in isolation. `tests/test.pdf` is a minimal synthetic fixture used by those tests so they run without a model, OCR stack, or the real papers in `data/`. |
 
 ---
