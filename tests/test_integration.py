@@ -40,10 +40,16 @@ def output_dir(tmp_path):
 @pytest.mark.skipif(not USEFUL_PDF.exists(), reason="data/useful/Fisher_2008.pdf not found")
 def test_integration_useful_pdf_runs_llm_and_writes_json(output_dir):
     """A useful PDF is classified, the LLM is called, and a result JSON is written."""
-    with patch(
-        "src.pipeline.classify_extract.extract_metrics_from_text",
-        return_value=[_MOCK_RECORD],
-    ) as mock_llm:
+    with (
+        patch(
+            "src.pipeline.classify_extract.classify_text",
+            return_value=("useful", 0.95, 0.95),
+        ),
+        patch(
+            "src.pipeline.classify_extract.extract_metrics_from_text",
+            return_value=[_MOCK_RECORD],
+        ) as mock_llm,
+    ):
         run_pipeline(
             input_path=USEFUL_PDF,
             model_dir=MODEL_DIR,
