@@ -135,7 +135,7 @@ def extract_tables_from_pdf(pdf_path: str) -> List[Dict]:
                             "table_id": f"Table_P{page_num}_T{table_idx}",
                             "page_number": page_num,
                             "table_index": table_idx,
-                            "bbox": {"x0": bbox.x0, "y0": bbox.y0, "x1": bbox.x1, "y1": bbox.y1},
+                            "bbox": {"x0": bbox[0], "y0": bbox[1], "x1": bbox[2], "y1": bbox[3]},
                             "num_rows": len(table_cells),
                             "num_cols": len(table_cells[0]) if table_cells else 0,
                             "cells": table_cells,

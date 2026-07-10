@@ -163,11 +163,14 @@ The `.env` file is gitignored and must never be committed.
 ### Quick Start
 
 ```bash
-# Classify and extract from a folder of PDFs (uses qwen3:30b by default)
-python src/pipeline/classify_extract.py path/to/pdfs/
+# Open a folder-picker dialog to select your PDFs
+python fracfeedextract
+
+# Or pass the folder path directly
+python fracfeedextract path/to/pdfs/
 
 # Use a different model or confidence threshold
-python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model qwen3:30b --confidence-threshold 0.70
+python fracfeedextract path/to/pdfs/ --llm-model qwen3:30b --confidence-threshold 0.70
 ```
 
 Results are written to `results/metrics/` (per-paper JSON) and `results/summaries/` (pipeline CSV).
@@ -180,13 +183,13 @@ The pipeline supports both locally-run and API-based models via the `--llm-model
 
 ```bash
 ollama pull qwen3:30b
-python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model qwen3:30b
+python fracfeedextract path/to/pdfs/ --llm-model qwen3:30b
 ```
 
 **Anthropic API** — requires `ANTHROPIC_API_KEY` in `.env`; calls are metered. No `ollama pull` needed.
 
 ```bash
-python src/pipeline/classify_extract.py path/to/pdfs/ --llm-model claude-haiku-4-5-20251001
+python fracfeedextract path/to/pdfs/ --llm-model claude-haiku-4-5-20251001
 ```
 
 The default model (`qwen3:30b`), the extraction prompt, and all extraction fields are configured in `src/config.py` — edit them there to change behavior without touching any other file.

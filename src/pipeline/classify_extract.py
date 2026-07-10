@@ -319,14 +319,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  Folder picker (no argument — opens a dialog):
+    python fracfeedextract
+
   Single PDF:
-    python src/pipeline/classify_extract.py paper.pdf
+    python fracfeedextract paper.pdf
 
   Folder of PDFs:
-    python src/pipeline/classify_extract.py data/pdfs/
+    python fracfeedextract data/pdfs/
 
   Custom options:
-    python src/pipeline/classify_extract.py data/pdfs/ \\
+    python fracfeedextract data/pdfs/ \\
         --model-dir src/classifier/models \\
         --output-dir results/ \\
         --llm-model qwen3:30b \\
@@ -335,8 +338,10 @@ Examples:
     )
     parser.add_argument(
         "input",
+        nargs="?",
+        default=None,
         type=str,
-        help="Path to a single PDF file or a directory containing PDF files.",
+        help="Path to a single PDF file or a directory containing PDF files. Omit to open a folder-picker dialog.",
     )
     parser.add_argument(
         "--model-dir",
@@ -394,6 +399,18 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    if args.input is None:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+        chosen = filedialog.askdirectory(title="Select PDF folder")
+        root.destroy()
+        if not chosen:
+            parser.error("No folder selected.")
+        args.input = chosen
 
     from dotenv import load_dotenv
 
