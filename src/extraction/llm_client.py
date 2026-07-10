@@ -80,8 +80,8 @@ def _detect_provider(model: str) -> str:
 
 
 def _call_ollama(model: str, messages: list, schema: dict, options: dict) -> str:
-    """Call Ollama with timeout and exponential backoff on transient failures."""
-    transient_errors = (ConnectionError, OSError, TimeoutError, FuturesTimeoutError)
+    """Call Ollama with spinner, timeout, and exponential backoff on transient failures."""
+    transient_errors = (ConnectionError, OSError, TimeoutError)
 
     if "qwen3" in model.lower():
         options = {**options, "think": False}
@@ -90,12 +90,23 @@ def _call_ollama(model: str, messages: list, schema: dict, options: dict) -> str
         try:
             from ollama import chat
 
+            start = time.monotonic()
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(chat, messages=messages, model=model, format=schema, options=options)
-                response = future.result(timeout=_LLM_TIMEOUT)
-                return response.message.content
+                while True:
+                    try:
+                        response = future.result(timeout=1.0)
+                        elapsed = time.monotonic() - start
+                        print(f"\r    [LLM] done ({elapsed:.0f}s){' ' * 20}", file=sys.stderr)
+                        return response.message.content
+                    except FuturesTimeoutError:
+                        elapsed = time.monotonic() - start
+                        if elapsed >= _LLM_TIMEOUT:
+                            log.warning("LLM call timed out (attempt %d/%d)", attempt + 1, _MAX_RETRIES)
+                            raise
+                        print(f"\r    [LLM] thinking... ({elapsed:.0f}s)", end="", flush=True, file=sys.stderr)
         except FuturesTimeoutError:
-            log.warning("LLM call timed out (attempt %d/%d)", attempt + 1, _MAX_RETRIES)
+            pass  # already logged above
         except transient_errors as e:
             log.warning("Transient LLM error (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES, e)
 

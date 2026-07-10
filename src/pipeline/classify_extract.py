@@ -29,6 +29,7 @@ Output:
 import argparse
 import logging
 import sys
+import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -43,6 +44,13 @@ from src.extraction.llm_client import extract_metrics_from_text, save_extraction
 from src.utils.logger import setup_logging
 
 log = logging.getLogger(__name__)
+
+
+def _fmt_seconds(secs: float) -> str:
+    if secs < 60:
+        return f"{secs:.0f}s"
+    m, s = divmod(int(secs), 60)
+    return f"{m}m {s:02d}s"
 
 
 # ---------------------------------------------------------------------------
@@ -261,8 +269,15 @@ def run_pipeline(
                     rows = [row]
                 per_pdf_rows.append(rows)
     else:
+        elapsed_times: list[float] = []
         for idx, pdf_path in enumerate(pdf_paths, start=1):
-            print(f"\n[{idx}/{len(pdf_paths)}] Processing: {pdf_path.name}", file=sys.stderr)
+            eta_str = ""
+            if elapsed_times:
+                avg = sum(elapsed_times) / len(elapsed_times)
+                remaining = len(pdf_paths) - (idx - 1)
+                eta_str = f"  (~{_fmt_seconds(avg * remaining)} remaining)"
+            print(f"\n[{idx}/{len(pdf_paths)}] Processing: {pdf_path.name}{eta_str}", file=sys.stderr)
+            t0 = time.monotonic()
             rows = _process_single_pdf(
                 pdf_path,
                 llm_model,
@@ -276,6 +291,8 @@ def run_pipeline(
                 skip_classifier,
                 explain,
             )
+            if rows[0].get("classification") == "useful":
+                elapsed_times.append(time.monotonic() - t0)
             per_pdf_rows.append(rows)
 
     # Flatten: one CSV row per (paper × record)
