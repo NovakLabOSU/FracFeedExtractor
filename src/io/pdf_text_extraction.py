@@ -13,6 +13,7 @@ import fitz
 import pytesseract
 from PIL import Image
 import io
+import re
 import argparse
 import logging
 from pathlib import Path
@@ -22,7 +23,6 @@ from typing import List, Dict
 import camelot
 import cv2
 import numpy as np
-from spellchecker import SpellChecker
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.utils.logger import setup_logging
@@ -32,24 +32,44 @@ log = logging.getLogger(__name__)
 Image.MAX_IMAGE_PIXELS = None
 fitz.TOOLS.mupdf_display_errors(False)
 
-# Maximum allowed ratio of misspelled words to total words in a pdf
-MAX_SPELLING_ERROR_RATE = 0.05
+_MIN_TEXT_LENGTH = 100
+_MIN_ASCII_RATIO = 0.85
+_MIN_FUNCTION_WORD_HITS = 3
+_FUNCTION_WORDS = frozenset(
+    [
+        "the",
+        "of",
+        "and",
+        "in",
+        "a",
+        "to",
+        "is",
+        "that",
+        "for",
+        "with",
+        "are",
+        "was",
+        "were",
+        "be",
+        "has",
+        "have",
+        "from",
+        "by",
+        "or",
+        "an",
+    ]
+)
 
-# Module-level singleton — avoids reloading the dictionary for every PDF
-_spell_checker = SpellChecker()
 
-
-def check_spelling(text: str) -> float:
-    """
-    Returns ratio of mispelled words to total words
-
-    Returns 1 if no words detected in input string
-    """
-    words = _spell_checker.split_words(text)
-    if len(words) == 0:
-        return 1
-    misspelled = _spell_checker.unknown(words)
-    return len(misspelled) / len(words)
+def _is_garbled(text: str) -> bool:
+    """Return True if extracted text appears garbled or empty and OCR should be tried."""
+    if len(text) < _MIN_TEXT_LENGTH:
+        return True
+    printable = sum(1 for c in text if c.isprintable() or c in "\n\r\t")
+    if printable / len(text) < _MIN_ASCII_RATIO:
+        return True
+    words = set(re.findall(r"\b[a-z]+\b", text.lower()))
+    return len(words & _FUNCTION_WORDS) < _MIN_FUNCTION_WORD_HITS
 
 
 def extract_tables_with_camelot(pdf_path: str) -> List[Dict]:
@@ -239,9 +259,9 @@ def extract_text_from_pdf(pdf_path: str, skip_ocr: bool = False) -> str:
         log.error("Failed to extract text from %s: %s", pdf_path, e)
         return ""
 
-    if not skip_ocr and check_spelling(text) > MAX_SPELLING_ERROR_RATE:
-        print(f"[INFO] High misspelling rate in {Path(pdf_path).name} — falling back to OCR", file=sys.stderr)
-        log.warning("High spelling error rate in %s — falling back to OCR extraction.", pdf_path)
+    if not skip_ocr and _is_garbled(text):
+        print(f"[INFO] Garbled or empty text in {Path(pdf_path).name} — falling back to OCR", file=sys.stderr)
+        log.warning("Garbled or empty text in %s — falling back to OCR extraction.", pdf_path)
         text = []
         try:
             with fitz.open(pdf_path) as doc:
@@ -268,9 +288,9 @@ def extract_text_from_pdf_bytes(data: bytes, skip_ocr: bool = False) -> str:
         log.error("Failed to extract text from PDF bytes: %s", e)
         return ""
 
-    if not skip_ocr and check_spelling(text) > MAX_SPELLING_ERROR_RATE:
-        print("[INFO] High misspelling rate — falling back to OCR", file=sys.stderr)
-        log.warning("High spelling error rate in in-memory PDF — falling back to OCR extraction.")
+    if not skip_ocr and _is_garbled(text):
+        print("[INFO] Garbled or empty text in in-memory PDF — falling back to OCR", file=sys.stderr)
+        log.warning("Garbled or empty text in in-memory PDF — falling back to OCR extraction.")
         text = []
         try:
             with fitz.open(stream=data, filetype="pdf") as doc:

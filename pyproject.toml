@@ -24,7 +24,6 @@ dependencies = [
     "opencv-python",
     "pymupdf_layout",
     "xgboost",
-    "pyspellchecker",
     "joblib",
     "requests",
     "diskcache",
