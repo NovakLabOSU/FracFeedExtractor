@@ -221,18 +221,22 @@ def extract_metrics_from_text(
 
         current_json = ExtractionResult(records=records).model_dump_json(indent=2)
         retry_prompt = (
-            "Some fields in the extraction below are null. Re-read the text carefully "
-            "— especially the Abstract, Methods, and Results sections — and return a "
-            "corrected JSON with the same records array and all missing fields filled in.\n\n"
+            "Some fields in the extraction below are null. Re-read the text from your "
+            "previous context — especially the Abstract, Methods, and Results sections "
+            "— and return a corrected JSON with the same records array and all missing "
+            "fields filled in.\n\n"
             f"Current extraction:\n{current_json}\n\n"
             f"Missing fields per record:\n  {missing_summary}\n\n"
             f"Hints:\n{hint_text}"
-            f"\nTEXT\n{text}"
         )
 
         retry_content = _call_llm_with_retry(
             model=model,
-            messages=[{"role": "user", "content": retry_prompt}],
+            messages=[
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": content},
+                {"role": "user", "content": retry_prompt},
+            ],
             options={"num_ctx": num_ctx},
         )
         if not retry_content:
