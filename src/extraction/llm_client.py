@@ -28,7 +28,7 @@ from src.utils.logger import setup_logging
 
 log = logging.getLogger(__name__)
 
-_LLM_TIMEOUT = 600  # seconds — qwen3:30b on consumer hardware can take several minutes
+_LLM_TIMEOUT = 300  # seconds — fail faster so the 3-attempt retry cycle doesn't stall for 30 min
 
 
 def _strip_patterns(schema):

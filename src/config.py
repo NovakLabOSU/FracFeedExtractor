@@ -264,11 +264,17 @@ FIELDS: list = [
             '  - Stomach pumping / gastric lavage: "yielded no food", "no contents obtained", "produced no material"\n'
             '  - Direct observation: "no prey items observed", "no food in stomachs", "not feeding", '
             '"not consuming prey", "not eating", "not foraging"\n'
-            "  If ALL predators were eating or had guts that contained food, set this to 0."
+            "  If ALL predators were eating or had guts that contained food, set this to 0.\n"
+            "  If this count is not explicitly stated in the text, return null — do not default to 0."
         ),
         csv_label="Empty Stomachs",
         retryable=True,
-        hint=("- num_empty: Look for 'empty', 'no food', 'no contents', 'negative for prey'. " "If ALL samples had food (e.g., stomach pumping " "where every sample produced material), return 0.\n"),
+        hint=(
+            "- num_empty: Look for 'empty', 'no food', 'no contents', 'negative for prey'. "
+            "If ALL samples had food (e.g., stomach pumping "
+            "where every sample produced material), return 0. "
+            "Return null if the empty count is not stated in the text.\n"
+        ),
         ge=0.0,
     ),
     FieldSpec(
@@ -281,11 +287,17 @@ FIELDS: list = [
             '  - Stomach / Gut dissection: "non-empty", "with food", "containing prey", "with contents", "feeding"\n'
             '  - Stomach pumping / gastric lavage: "food samples collected", "samples containing prey"\n'
             '  If study says "a total of N food samples was collected" and it implies that ALL samples '
-            "had food, set num_nonempty = num_sampled."
+            "had food, set num_nonempty = num_sampled.\n"
+            "  If this count is not explicitly stated in the text, return null — do not default to 0."
         ),
         csv_label="Non-empty Stomachs",
         retryable=True,
-        hint=("- num_nonempty: Look for 'contained food', 'with prey', " "'non-empty', 'food samples collected'. If ALL samples had food, " "this equals num_sampled.\n"),
+        hint=(
+            "- num_nonempty: Look for 'contained food', 'with prey', "
+            "'non-empty', 'food samples collected'. If ALL samples had food, "
+            "this equals num_sampled. "
+            "Return null if the nonempty count is not stated in the text.\n"
+        ),
         ge=0.0,
     ),
     FieldSpec(
@@ -371,6 +383,7 @@ _PROMPT_RULES = """\
 RULES
 - Do not invent data; use null only if truly ambiguous or missing.
 - If ALL samples had food, set num_empty = 0 and num_nonempty = num_sampled.
+- Return null (not 0) for num_empty and num_nonempty when those counts are not explicitly stated in the text, even if num_sampled is known.
 - Do not infer values on the basis of scat samples, fecal analysis, stable isotope analysis, molecular detection, pellet analysis, or immunoassays. Return null for all fields for these studies unless they also report on direct stomach/gut dissection, stomach pumping, or direct observation of feeding.
 - Restrict to diet studies of predators (e.g., carnivores, piscivores, insectivores, omnivores) that consume other animals. Do not extract from studies of animals that primarily consume plants or fruit (i.e., herbivores or frugivores). Return an empty records array if the study is not about a predator diet.
 - When num_empty or num_nonempty values are given as a percentage or proportion, convert to absolute numbers only when num_sampled is given.

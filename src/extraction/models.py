@@ -151,17 +151,28 @@ class _MetricsBase(BaseModel):
     @model_validator(mode="after")
     def _reconcile_num_sampled(self):
         """Fill num_sampled from components when absent; warn on mismatch but keep paper value."""
+        import logging as _logging
+
+        _log = _logging.getLogger(__name__)
+
         empty = getattr(self, "num_empty", None)
         nonempty = getattr(self, "num_nonempty", None)
+
+        # Both zero is logically impossible (no animal can be neither empty nor non-empty).
+        # It indicates a mis-classified paper or a failed extraction; reset to null.
+        if empty == 0 and nonempty == 0:
+            _log.warning("num_empty=0 and num_nonempty=0 simultaneously — invalid extraction result; " "resetting both to null (paper likely mis-classified or extraction failed)")
+            object.__setattr__(self, "num_empty", None)
+            object.__setattr__(self, "num_nonempty", None)
+            return self
+
         if empty is not None and nonempty is not None:
             calculated = empty + nonempty
             current = getattr(self, "num_sampled", None)
             if current is None and calculated > 0:
                 object.__setattr__(self, "num_sampled", calculated)
             elif current is not None and current != calculated:
-                import logging
-
-                logging.getLogger(__name__).warning(
+                _log.warning(
                     "num_sampled=%d != num_empty(%d) + num_nonempty(%d)=%d — keeping paper value",
                     current,
                     empty,

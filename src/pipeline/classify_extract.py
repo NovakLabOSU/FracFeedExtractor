@@ -143,6 +143,32 @@ def _process_single_pdf(
                 model=llm_model,
                 num_ctx=num_ctx,
             )
+        except RuntimeError as e:
+            if "LLM call failed after" not in str(e):
+                print(f"  [ERROR] LLM extraction failed ({pdf_path.name}): {e}", file=sys.stderr)
+                log.error("LLM extraction failed for %s: %s", pdf_path.name, e)
+                base_row["extraction_status"] = "extraction_failed"
+                return [base_row]
+            log.warning("Full-text LLM timed out for %s — retrying with chunked extraction", pdf_path.name)
+            print(f"  [WARN] {pdf_path.name}: full-text LLM timed out — falling back to chunked extraction", file=sys.stderr)
+            try:
+                from src.extraction.chunked_extraction import extract_with_chunking
+                from src.extraction.models import PredatorDietMetrics
+
+                record_dicts = extract_with_chunking(text_for_llm, llm_model=llm_model, num_ctx=num_ctx)
+                records = [PredatorDietMetrics.model_validate(d) for d in record_dicts]
+            except Exception as chunk_e:
+                print(f"  [ERROR] LLM extraction failed ({pdf_path.name}): {chunk_e}", file=sys.stderr)
+                log.error("LLM extraction failed for %s: %s", pdf_path.name, chunk_e)
+                base_row["extraction_status"] = "extraction_failed"
+                return [base_row]
+        except Exception as e:
+            print(f"  [ERROR] LLM extraction failed ({pdf_path.name}): {e}", file=sys.stderr)
+            log.error("LLM extraction failed for %s: %s", pdf_path.name, e)
+            base_row["extraction_status"] = "extraction_failed"
+            return [base_row]
+
+        try:
             result = save_extraction_result(
                 records=records,
                 source_file=pdf_path,

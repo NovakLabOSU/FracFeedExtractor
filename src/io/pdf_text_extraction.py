@@ -272,6 +272,8 @@ def extract_text_from_pdf(pdf_path: str, skip_ocr: bool = False) -> str:
             print(f"[ERROR] Failed to extract text from {pdf_path}: {e}", file=sys.stderr)
             log.error("OCR extraction also failed for %s: %s", pdf_path, e)
             return ""
+        if _is_garbled(text):
+            log.warning("OCR also yielded garbled text for %s — extraction may be unreliable.", pdf_path)
     return text
 
 
@@ -301,6 +303,8 @@ def extract_text_from_pdf_bytes(data: bytes, skip_ocr: bool = False) -> str:
             print(f"[ERROR] Failed to extract text from PDF bytes: {e}", file=sys.stderr)
             log.error("OCR extraction also failed for in-memory PDF: %s", e)
             return ""
+        if _is_garbled(text):
+            log.warning("OCR also yielded garbled text for in-memory PDF — extraction may be unreliable.")
     return text
 
 
