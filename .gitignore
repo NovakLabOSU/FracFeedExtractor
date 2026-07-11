@@ -215,3 +215,6 @@ results/
 data/pdfs2process/
 
 
+
+# Runtime caches
+.geocode_cache/
